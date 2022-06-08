@@ -23,7 +23,8 @@ struct KeaApp {
     _present_queue: vk::Queue,
     swapchain_loader: Swapchain,
     swapchain: vk::SwapchainKHR,
-    swapchain_images: Vec<vk::Image>,
+    _swapchain_images: Vec<vk::Image>,
+    swapchain_image_views: Vec<vk::ImageView>,
 }
 
 impl KeaApp {
@@ -41,9 +42,11 @@ impl KeaApp {
             Self::create_logical_device_with_queue(&instance, physical_device, queue_family_index);
 
         let swapchain_loader = Swapchain::new(&instance, &device);
-        let swapchain =
+        let (swapchain, format) =
             Self::create_swapchain(surface, physical_device, &swapchain_loader, &surface_loader);
         let swapchain_images = unsafe { swapchain_loader.get_swapchain_images(swapchain) }.unwrap();
+        let swapchain_image_views =
+            Self::create_swapchain_image_views(&swapchain_images, format, &device);
 
         KeaApp {
             _entry: entry,
@@ -55,7 +58,8 @@ impl KeaApp {
             _present_queue: present_queue,
             swapchain_loader,
             swapchain,
-            swapchain_images,
+            _swapchain_images: swapchain_images,
+            swapchain_image_views,
         }
     }
 
@@ -101,8 +105,8 @@ impl KeaApp {
         let (device, queue_family_index) = devices
             .into_iter()
             .find_map(|device| {
-                match Self::find_queue_family_idx(instance, device, surface, surface_loader) {
-                    Some(idx) => Some((device, idx)),
+                match Self::find_queue_family_index(instance, device, surface, surface_loader) {
+                    Some(index) => Some((device, index)),
                     None => None,
                 }
             })
@@ -116,7 +120,7 @@ impl KeaApp {
         (device, queue_family_index)
     }
 
-    fn find_queue_family_idx(
+    fn find_queue_family_index(
         instance: &Instance,
         physical_device: vk::PhysicalDevice,
         surface: vk::SurfaceKHR,
@@ -168,7 +172,7 @@ impl KeaApp {
         physical_device: vk::PhysicalDevice,
         swapchain_loader: &Swapchain,
         surface_loader: &Surface,
-    ) -> vk::SwapchainKHR {
+    ) -> (vk::SwapchainKHR, vk::Format) {
         let surface_capabilities = unsafe {
             surface_loader.get_physical_device_surface_capabilities(physical_device, surface)
         }
@@ -185,6 +189,15 @@ impl KeaApp {
             unsafe { surface_loader.get_physical_device_surface_formats(physical_device, surface) }
                 .unwrap()[0];
 
+        let present_mode = unsafe {
+            surface_loader.get_physical_device_surface_present_modes(physical_device, surface)
+        }
+        .unwrap()
+        .iter()
+        .cloned()
+        .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
+        .unwrap_or(vk::PresentModeKHR::FIFO);
+
         let swapchain_create_info = vk::SwapchainCreateInfoKHR::builder()
             .surface(surface)
             .min_image_count(image_count)
@@ -198,9 +211,41 @@ impl KeaApp {
             .pre_transform(surface_capabilities.current_transform)
             .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
             .image_array_layers(1)
-            .present_mode(vk::PresentModeKHR::MAILBOX);
+            .present_mode(present_mode);
 
-        unsafe { swapchain_loader.create_swapchain(&swapchain_create_info, None) }.unwrap()
+        let swapchain =
+            unsafe { swapchain_loader.create_swapchain(&swapchain_create_info, None) }.unwrap();
+        (swapchain, surface_format.format)
+    }
+
+    fn create_swapchain_image_views(
+        swapchain_images: &[vk::Image],
+        format: vk::Format,
+        device: &Device,
+    ) -> Vec<vk::ImageView> {
+        swapchain_images
+            .iter()
+            .map(|&image| {
+                let imageview_create_info = vk::ImageViewCreateInfo::builder()
+                    .image(image)
+                    .view_type(vk::ImageViewType::TYPE_2D)
+                    .format(format)
+                    .components(vk::ComponentMapping {
+                        r: vk::ComponentSwizzle::IDENTITY,
+                        g: vk::ComponentSwizzle::IDENTITY,
+                        b: vk::ComponentSwizzle::IDENTITY,
+                        a: vk::ComponentSwizzle::IDENTITY,
+                    })
+                    .subresource_range(vk::ImageSubresourceRange {
+                        aspect_mask: vk::ImageAspectFlags::COLOR,
+                        base_mip_level: 0,
+                        level_count: 1,
+                        base_array_layer: 0,
+                        layer_count: 1,
+                    });
+                unsafe { device.create_image_view(&imageview_create_info, None) }.unwrap()
+            })
+            .collect()
     }
 
     pub fn run(self, event_loop: EventLoop<()>, _window: Window) {
@@ -219,6 +264,10 @@ impl KeaApp {
 impl Drop for KeaApp {
     fn drop(&mut self) {
         unsafe {
+            for &image_view in self.swapchain_image_views.iter() {
+                self.device.destroy_image_view(image_view, None);
+            }
+
             self.swapchain_loader
                 .destroy_swapchain(self.swapchain, None);
             self.surface_loader.destroy_surface(self.surface, None);
