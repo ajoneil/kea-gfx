@@ -14,7 +14,7 @@ struct KeaApp {
     _entry: Entry,
     instance: Instance,
     _physical_device: vk::PhysicalDevice,
-    _device: Device,
+    device: Device,
     _gfx_queue: vk::Queue,
 }
 
@@ -33,7 +33,7 @@ impl KeaApp {
             _entry: entry,
             instance,
             _physical_device: physical_device,
-            _device: device,
+            device,
             _gfx_queue: gfx_queue,
         }
     }
@@ -136,6 +136,7 @@ impl KeaApp {
 impl Drop for KeaApp {
     fn drop(&mut self) {
         unsafe {
+            self.device.destroy_device(None);
             self.instance.destroy_instance(None);
         }
     }
