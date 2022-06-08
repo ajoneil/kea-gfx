@@ -1,6 +1,6 @@
 use std::{ffi::CStr, os::raw::c_char};
 
-use ash::{vk, Entry, Instance};
+use ash::{vk, Device, Entry, Instance};
 use env_logger::Env;
 use log::info;
 use winit::{
@@ -14,18 +14,27 @@ struct KeaApp {
     _entry: Entry,
     instance: Instance,
     _physical_device: vk::PhysicalDevice,
+    _device: Device,
+    _gfx_queue: vk::Queue,
 }
 
 impl KeaApp {
     pub fn new(window: &Window) -> KeaApp {
         let entry = Entry::linked();
         let instance = Self::create_instance(&entry, window);
-        let physical_device = Self::select_physical_device(&instance);
+        let (physical_device, gfx_queue_family_idx) = Self::select_physical_device(&instance);
+        let (device, gfx_queue) = Self::create_logical_device_with_queue(
+            &instance,
+            physical_device,
+            gfx_queue_family_idx,
+        );
 
         KeaApp {
             _entry: entry,
             instance,
             _physical_device: physical_device,
+            _device: device,
+            _gfx_queue: gfx_queue,
         }
     }
 
@@ -58,16 +67,57 @@ impl KeaApp {
             .to_vec()
     }
 
-    fn select_physical_device(instance: &Instance) -> vk::PhysicalDevice {
+    fn select_physical_device(instance: &Instance) -> (vk::PhysicalDevice, u32) {
         let devices = unsafe { instance.enumerate_physical_devices() }.unwrap();
-        let device = devices[0];
+        let (device, gfx_queue_family_idx) = devices
+            .into_iter()
+            .find_map(
+                |device| match Self::find_gfx_queue_family_idx(instance, device) {
+                    Some(idx) => Some((device, idx)),
+                    None => None,
+                },
+            )
+            .unwrap();
 
         let props = unsafe { instance.get_physical_device_properties(device) };
         info!("Selected physical device: {:?}", unsafe {
             CStr::from_ptr(props.device_name.as_ptr())
         });
 
-        device
+        (device, gfx_queue_family_idx)
+    }
+
+    fn find_gfx_queue_family_idx(
+        instance: &Instance,
+        physical_device: vk::PhysicalDevice,
+    ) -> Option<u32> {
+        let props =
+            unsafe { instance.get_physical_device_queue_family_properties(physical_device) };
+        props
+            .iter()
+            .enumerate()
+            .find(|(_, family)| {
+                family.queue_count > 0 && family.queue_flags.contains(vk::QueueFlags::GRAPHICS)
+            })
+            .map(|(index, _)| index as _)
+    }
+
+    fn create_logical_device_with_queue(
+        instance: &Instance,
+        physical_device: vk::PhysicalDevice,
+        gfx_queue_family_idx: u32,
+    ) -> (Device, vk::Queue) {
+        let queue_create_infos = [vk::DeviceQueueCreateInfo::builder()
+            .queue_family_index(gfx_queue_family_idx)
+            .queue_priorities(&[1.0])
+            .build()];
+
+        let create_info = vk::DeviceCreateInfo::builder().queue_create_infos(&queue_create_infos);
+        let device =
+            unsafe { instance.create_device(physical_device, &create_info, None) }.unwrap();
+        let graphics_queue = unsafe { device.get_device_queue(gfx_queue_family_idx, 0) };
+
+        (device, graphics_queue)
     }
 
     pub fn run(self, event_loop: EventLoop<()>, _window: Window) {
