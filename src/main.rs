@@ -1,133 +1,68 @@
-use std::sync::Arc;
+use std::ffi::CString;
 
-use vulkano::{
-    device::{
-        physical::{PhysicalDevice, PhysicalDeviceType, QueueFamily},
-        Device, DeviceCreateInfo, DeviceExtensions, Features, QueueCreateInfo,
-    },
-    image::ImageUsage,
-    instance::{Instance, InstanceCreateInfo},
-    swapchain::{Surface, Swapchain, SwapchainCreateInfo},
-};
-use vulkano_win::VkSurfaceBuild;
+use ash::{vk, Entry, Instance};
 use winit::{
+    dpi::LogicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
 
-fn main() {
-    let instance = Instance::new(InstanceCreateInfo {
-        enabled_extensions: vulkano_win::required_extensions(),
-        ..Default::default()
-    })
-    .unwrap();
-
-    let event_loop = EventLoop::new();
-    let surface = WindowBuilder::new()
-        .build_vk_surface(&event_loop, instance.clone())
-        .unwrap();
-
-    let device_extensions = DeviceExtensions {
-        khr_swapchain: true,
-        ..DeviceExtensions::none()
-    };
-    let (physical_device, queue_family) =
-        select_physical_device(&instance, surface.clone(), &device_extensions);
-
-    println!(
-        "Using device: {} (type: {:?})",
-        physical_device.properties().device_name,
-        physical_device.properties().device_type,
-    );
-
-    let (device, mut queues) = Device::new(
-        // Which physical device to connect to.
-        physical_device,
-        DeviceCreateInfo {
-            enabled_extensions: physical_device
-                .required_extensions()
-                .union(&device_extensions),
-            enabled_features: Features {
-                dynamic_rendering: true,
-                ..Features::none()
-            },
-            queue_create_infos: vec![QueueCreateInfo::family(queue_family)],
-            ..Default::default()
-        },
-    )
-    .unwrap();
-    let queue = queues.next().unwrap();
-
-    let (mut swapchain, images) = {
-        let surface_capabilities = physical_device
-            .surface_capabilities(&surface, Default::default())
-            .unwrap();
-
-        let image_format = Some(
-            physical_device
-                .surface_formats(&surface, Default::default())
-                .unwrap()[0]
-                .0,
-        );
-
-        Swapchain::new(
-            device.clone(),
-            surface.clone(),
-            SwapchainCreateInfo {
-                min_image_count: surface_capabilities.min_image_count,
-                image_format,
-                image_extent: surface.window().inner_size().into(),
-                image_usage: ImageUsage::color_attachment(),
-                composite_alpha: surface_capabilities
-                    .supported_composite_alpha
-                    .iter()
-                    .next()
-                    .unwrap(),
-                ..Default::default()
-            },
-        )
-        .unwrap()
-    };
-
-    event_loop.run(|event, _, control_flow| match event {
-        Event::WindowEvent {
-            event: WindowEvent::CloseRequested,
-            ..
-        } => {
-            *control_flow = ControlFlow::Exit;
-        }
-        _ => (),
-    });
-
-    // let physical = PhysicalDevice::enumerate(&instance).next().expect("no device available");
+struct KeaApp {
+    entry: Entry,
+    instance: Instance,
 }
 
-fn select_physical_device<'a>(
-    instance: &'a Arc<Instance>,
-    surface: Arc<Surface<Window>>,
-    device_extensions: &DeviceExtensions,
-) -> (PhysicalDevice<'a>, QueueFamily<'a>) {
-    PhysicalDevice::enumerate(&instance)
-        .filter(|&device| {
-            device
-                .supported_extensions()
-                .is_superset_of(&device_extensions)
-        })
-        .filter_map(|device| {
-            device
-                .queue_families()
-                .find(|&family| {
-                    family.supports_graphics() && family.supports_surface(&surface).unwrap_or(false)
-                })
-                .map(|family| (device, family))
-        })
-        .min_by_key(|(device, _)| match device.properties().device_type {
-            PhysicalDeviceType::DiscreteGpu => 0,
-            PhysicalDeviceType::IntegratedGpu => 1,
-            PhysicalDeviceType::VirtualGpu => 2,
-            PhysicalDeviceType::Cpu => 3,
-            PhysicalDeviceType::Other => 4,
-        })
-        .unwrap()
+impl KeaApp {
+    pub fn new() -> KeaApp {
+        let entry = Entry::linked();
+        let instance = Self::create_instance(&entry);
+
+        KeaApp { entry, instance }
+    }
+
+    fn create_instance(entry: &Entry) -> Instance {
+        let app_info = vk::ApplicationInfo {
+            api_version: vk::API_VERSION_1_3,
+            ..Default::default()
+        };
+        let create_info = vk::InstanceCreateInfo {
+            p_application_info: &app_info,
+            ..Default::default()
+        };
+
+        unsafe { entry.create_instance(&create_info, None).unwrap() }
+    }
+
+    pub fn run(mut self, event_loop: EventLoop<()>, window: Window) {
+        event_loop.run(|event, _, control_flow| match event {
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => {
+                *control_flow = ControlFlow::Exit;
+            }
+            _ => (),
+        });
+    }
+}
+
+impl Drop for KeaApp {
+    fn drop(&mut self) {
+        unsafe {
+            self.instance.destroy_instance(None);
+        }
+    }
+}
+
+fn main() {
+    let event_loop = EventLoop::new();
+    let window = WindowBuilder::new()
+        .with_title("kea")
+        .with_inner_size(LogicalSize::new(1920 as u32, 1080 as u32))
+        .build(&event_loop)
+        .expect("Failed to create window");
+
+    let app = KeaApp::new();
+    app.run(event_loop, window);
 }
