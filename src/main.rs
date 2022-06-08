@@ -23,6 +23,7 @@ struct KeaApp {
     _present_queue: vk::Queue,
     swapchain_loader: Swapchain,
     swapchain: vk::SwapchainKHR,
+    swapchain_images: Vec<vk::Image>,
 }
 
 impl KeaApp {
@@ -42,6 +43,7 @@ impl KeaApp {
         let swapchain_loader = Swapchain::new(&instance, &device);
         let swapchain =
             Self::create_swapchain(surface, physical_device, &swapchain_loader, &surface_loader);
+        let swapchain_images = unsafe { swapchain_loader.get_swapchain_images(swapchain) }.unwrap();
 
         KeaApp {
             _entry: entry,
@@ -53,6 +55,7 @@ impl KeaApp {
             _present_queue: present_queue,
             swapchain_loader,
             swapchain,
+            swapchain_images,
         }
     }
 
