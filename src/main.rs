@@ -1,6 +1,6 @@
 use std::{ffi::CStr, os::raw::c_char};
 
-use ash::{vk, Device, Entry, Instance};
+use ash::{extensions::khr::Surface, vk, Device, Entry, Instance};
 use env_logger::Env;
 use log::info;
 use winit::{
@@ -13,6 +13,8 @@ use winit::{
 struct KeaApp {
     _entry: Entry,
     instance: Instance,
+    surface_loader: Surface,
+    surface: vk::SurfaceKHR,
     _physical_device: vk::PhysicalDevice,
     device: Device,
     _gfx_queue: vk::Queue,
@@ -22,6 +24,11 @@ impl KeaApp {
     pub fn new(window: &Window) -> KeaApp {
         let entry = Entry::linked();
         let instance = Self::create_instance(&entry, window);
+
+        let surface_loader = Surface::new(&entry, &instance);
+        let surface =
+            unsafe { ash_window::create_surface(&entry, &instance, window, None) }.unwrap();
+
         let (physical_device, gfx_queue_family_idx) = Self::select_physical_device(&instance);
         let (device, gfx_queue) = Self::create_logical_device_with_queue(
             &instance,
@@ -32,6 +39,8 @@ impl KeaApp {
         KeaApp {
             _entry: entry,
             instance,
+            surface_loader,
+            surface,
             _physical_device: physical_device,
             device,
             _gfx_queue: gfx_queue,
@@ -136,6 +145,7 @@ impl KeaApp {
 impl Drop for KeaApp {
     fn drop(&mut self) {
         unsafe {
+            self.surface_loader.destroy_surface(self.surface, None);
             self.device.destroy_device(None);
             self.instance.destroy_instance(None);
         }
@@ -149,6 +159,7 @@ fn main() {
     let window = WindowBuilder::new()
         .with_title("kea")
         .with_inner_size(LogicalSize::new(1920 as u32, 1080 as u32))
+        .with_resizable(false)
         .build(&event_loop)
         .expect("Failed to create window");
 
