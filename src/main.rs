@@ -1,6 +1,8 @@
 use std::{ffi::CStr, os::raw::c_char};
 
 use ash::{vk, Entry, Instance};
+use env_logger::Env;
+use log::info;
 use winit::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
@@ -11,16 +13,19 @@ use winit::{
 struct KeaApp {
     _entry: Entry,
     instance: Instance,
+    _physical_device: vk::PhysicalDevice,
 }
 
 impl KeaApp {
     pub fn new(window: &Window) -> KeaApp {
         let entry = Entry::linked();
         let instance = Self::create_instance(&entry, window);
+        let physical_device = Self::select_physical_device(&instance);
 
         KeaApp {
             _entry: entry,
             instance,
+            _physical_device: physical_device,
         }
     }
 
@@ -53,6 +58,18 @@ impl KeaApp {
             .to_vec()
     }
 
+    fn select_physical_device(instance: &Instance) -> vk::PhysicalDevice {
+        let devices = unsafe { instance.enumerate_physical_devices() }.unwrap();
+        let device = devices[0];
+
+        let props = unsafe { instance.get_physical_device_properties(device) };
+        info!("Selected physical device: {:?}", unsafe {
+            CStr::from_ptr(props.device_name.as_ptr())
+        });
+
+        device
+    }
+
     pub fn run(self, event_loop: EventLoop<()>, _window: Window) {
         event_loop.run(|event, _, control_flow| match event {
             Event::WindowEvent {
@@ -75,6 +92,8 @@ impl Drop for KeaApp {
 }
 
 fn main() {
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_title("kea")
