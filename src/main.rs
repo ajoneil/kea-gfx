@@ -7,7 +7,7 @@ use ash::{
 use env_logger::Env;
 use log::info;
 use winit::{
-    dpi::LogicalSize,
+    dpi::PhysicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
@@ -283,7 +283,7 @@ fn main() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_title("kea")
-        .with_inner_size(LogicalSize::new(1920 as u32, 1080 as u32))
+        .with_inner_size(PhysicalSize::new(1920 as u32, 1080 as u32))
         .with_resizable(false)
         .build(&event_loop)
         .expect("Failed to create window");
