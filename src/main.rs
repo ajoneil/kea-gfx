@@ -4,11 +4,9 @@ use ash::{
     extensions::khr::Swapchain,
     util::read_spv,
     vk::{self, PipelineLayoutCreateInfo},
-    Device, Instance,
 };
 use env_logger::Env;
-use gpu::{Surface, Vulkan};
-use log::info;
+use gpu::{Device, Surface, Vulkan};
 use spirv_builder::{MetadataPrintout, SpirvBuilder};
 use window::Window;
 
@@ -16,12 +14,9 @@ mod gpu;
 mod window;
 
 struct KeaApp {
-    vulkan: Arc<Vulkan>,
-    surface: Surface,
-    _physical_device: vk::PhysicalDevice,
+    _vulkan: Arc<Vulkan>,
+    _surface: Surface,
     device: Device,
-    queue: vk::Queue,
-    swapchain_loader: Swapchain,
     swapchain: vk::SwapchainKHR,
     _swapchain_images: Vec<vk::Image>,
     swapchain_image_views: Vec<vk::ImageView>,
@@ -41,22 +36,16 @@ impl KeaApp {
         let vulkan = Arc::new(Vulkan::new(window.required_extensions()));
         let surface = Surface::from_window(&vulkan, &window);
 
-        let (physical_device, queue_family_index) =
-            Self::select_physical_device(&vulkan.instance, surface.surface, &vulkan.ext.surface);
-        let (device, queue) = Self::create_logical_device_with_queue(
-            &vulkan.instance,
-            physical_device,
-            queue_family_index,
-        );
+        let device = Device::new(&vulkan, &surface);
 
-        let swapchain_loader = Swapchain::new(&vulkan.instance, &device);
         let (swapchain, format) = Self::create_swapchain(
             surface.surface,
-            physical_device,
-            &swapchain_loader,
+            device.physical_device,
+            &device.ext.swapchain,
             &vulkan.ext.surface,
         );
-        let swapchain_images = unsafe { swapchain_loader.get_swapchain_images(swapchain) }.unwrap();
+        let swapchain_images =
+            unsafe { device.ext.swapchain.get_swapchain_images(swapchain) }.unwrap();
         let swapchain_image_views =
             Self::create_swapchain_image_views(&swapchain_images, format, &device);
 
@@ -65,19 +54,16 @@ impl KeaApp {
 
         let framebuffers = Self::create_framebuffers(&device, render_pass, &swapchain_image_views);
 
-        let command_pool = Self::create_command_pool(&device, queue_family_index);
+        let command_pool = Self::create_command_pool(&device, device.queue_family_index);
         let command_buffer = Self::create_command_buffer(&device, command_pool);
 
         let (image_available_semaphore, render_finished_semaphore, in_flight_fence) =
             Self::create_sync_objects(&device);
 
         KeaApp {
-            vulkan,
-            surface,
-            _physical_device: physical_device,
+            _vulkan: vulkan,
+            _surface: surface,
             device,
-            queue,
-            swapchain_loader,
             swapchain,
             _swapchain_images: swapchain_images,
             swapchain_image_views,
@@ -91,87 +77,6 @@ impl KeaApp {
             render_finished_semaphore,
             in_flight_fence,
         }
-    }
-
-    fn device_extension_names() -> Vec<*const i8> {
-        vec![Swapchain::name().as_ptr()]
-    }
-
-    fn select_physical_device(
-        instance: &Instance,
-        surface: vk::SurfaceKHR,
-        surface_loader: &ash::extensions::khr::Surface,
-    ) -> (vk::PhysicalDevice, u32) {
-        let devices = unsafe { instance.enumerate_physical_devices() }.unwrap();
-        let (device, queue_family_index) = devices
-            .into_iter()
-            .find_map(|device| {
-                match Self::find_queue_family_index(instance, device, surface, surface_loader) {
-                    Some(index) => Some((device, index)),
-                    None => None,
-                }
-            })
-            .unwrap();
-
-        let props = unsafe { instance.get_physical_device_properties(device) };
-        info!("Selected physical device: {:?}", unsafe {
-            CStr::from_ptr(props.device_name.as_ptr())
-        });
-
-        (device, queue_family_index)
-    }
-
-    fn find_queue_family_index(
-        instance: &Instance,
-        physical_device: vk::PhysicalDevice,
-        surface: vk::SurfaceKHR,
-        surface_loader: &ash::extensions::khr::Surface,
-    ) -> Option<u32> {
-        let props =
-            unsafe { instance.get_physical_device_queue_family_properties(physical_device) };
-        props
-            .iter()
-            .enumerate()
-            .find(|(index, family)| {
-                family.queue_count > 0
-                    && family.queue_flags.contains(vk::QueueFlags::GRAPHICS)
-                    && unsafe {
-                        surface_loader.get_physical_device_surface_support(
-                            physical_device,
-                            *index as u32,
-                            surface,
-                        )
-                    }
-                    .unwrap()
-            })
-            .map(|(index, _)| index as _)
-    }
-
-    fn create_logical_device_with_queue(
-        instance: &Instance,
-        physical_device: vk::PhysicalDevice,
-        queue_family_index: u32,
-    ) -> (Device, vk::Queue) {
-        let queue_create_infos = [vk::DeviceQueueCreateInfo::builder()
-            .queue_family_index(queue_family_index)
-            .queue_priorities(&[1.0])
-            .build()];
-        let extension_names = Self::device_extension_names();
-        let mut vulkan_memory_model_features =
-            vk::PhysicalDeviceVulkanMemoryModelFeatures::builder()
-                .vulkan_memory_model(true)
-                .build();
-
-        let create_info = vk::DeviceCreateInfo::builder()
-            .queue_create_infos(&queue_create_infos)
-            .enabled_extension_names(&extension_names)
-            .push_next(&mut vulkan_memory_model_features);
-
-        let device =
-            unsafe { instance.create_device(physical_device, &create_info, None) }.unwrap();
-        let present_queue = unsafe { device.get_device_queue(queue_family_index, 0) };
-
-        (device, present_queue)
     }
 
     fn create_swapchain(
@@ -250,7 +155,12 @@ impl KeaApp {
                         base_array_layer: 0,
                         layer_count: 1,
                     });
-                unsafe { device.create_image_view(&imageview_create_info, None) }.unwrap()
+                unsafe {
+                    device
+                        .device
+                        .create_image_view(&imageview_create_info, None)
+                }
+                .unwrap()
             })
             .collect()
     }
@@ -291,7 +201,7 @@ impl KeaApp {
             .subpasses(&subpasses)
             .dependencies(&dependencies);
 
-        unsafe { device.create_render_pass(&create_info, None) }.unwrap()
+        unsafe { device.device.create_render_pass(&create_info, None) }.unwrap()
     }
 
     fn compile_shaders() -> Vec<u32> {
@@ -310,7 +220,12 @@ impl KeaApp {
         let compiled_shaders = Self::compile_shaders();
         let shader_create_info = vk::ShaderModuleCreateInfo::builder().code(&compiled_shaders);
 
-        unsafe { device.create_shader_module(&shader_create_info, None) }.unwrap()
+        unsafe {
+            device
+                .device
+                .create_shader_module(&shader_create_info, None)
+        }
+        .unwrap()
     }
 
     fn create_pipeline(
@@ -389,9 +304,12 @@ impl KeaApp {
             .blend_constants([0.0, 0.0, 0.0, 0.0])
             .build();
 
-        let pipeline_layout =
-            unsafe { device.create_pipeline_layout(&PipelineLayoutCreateInfo::builder(), None) }
-                .unwrap();
+        let pipeline_layout = unsafe {
+            device
+                .device
+                .create_pipeline_layout(&PipelineLayoutCreateInfo::builder(), None)
+        }
+        .unwrap();
 
         let pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
             .stages(&shader_stages)
@@ -405,7 +323,7 @@ impl KeaApp {
             .layout(pipeline_layout);
 
         let pipelines = unsafe {
-            device.create_graphics_pipelines(
+            device.device.create_graphics_pipelines(
                 vk::PipelineCache::null(),
                 &[pipeline_info.build()],
                 None,
@@ -414,7 +332,7 @@ impl KeaApp {
         .unwrap();
 
         unsafe {
-            device.destroy_shader_module(shader_module, None);
+            device.device.destroy_shader_module(shader_module, None);
         }
 
         (pipelines[0], pipeline_layout)
@@ -436,7 +354,7 @@ impl KeaApp {
                     .height(1080)
                     .layers(1);
 
-                unsafe { device.create_framebuffer(&framebuffer, None) }.unwrap()
+                unsafe { device.device.create_framebuffer(&framebuffer, None) }.unwrap()
             })
             .collect()
     }
@@ -445,7 +363,7 @@ impl KeaApp {
         let command_pool = vk::CommandPoolCreateInfo::builder()
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
             .queue_family_index(queue_family_index);
-        unsafe { device.create_command_pool(&command_pool, None) }.unwrap()
+        unsafe { device.device.create_command_pool(&command_pool, None) }.unwrap()
     }
 
     fn create_command_buffer(device: &Device, command_pool: vk::CommandPool) -> vk::CommandBuffer {
@@ -454,13 +372,14 @@ impl KeaApp {
             .level(vk::CommandBufferLevel::PRIMARY)
             .command_buffer_count(1);
 
-        unsafe { device.allocate_command_buffers(&command_buffer) }.unwrap()[0]
+        unsafe { device.device.allocate_command_buffers(&command_buffer) }.unwrap()[0]
     }
 
     fn record_command_buffer(&self, image_index: u32) {
         let begin_command_buffer = vk::CommandBufferBeginInfo::builder();
         unsafe {
             self.device
+                .device
                 .begin_command_buffer(self.command_buffer, &begin_command_buffer)
         }
         .unwrap();
@@ -482,31 +401,39 @@ impl KeaApp {
             }]);
 
         unsafe {
-            self.device.cmd_begin_render_pass(
+            self.device.device.cmd_begin_render_pass(
                 self.command_buffer,
                 &begin_render_pass,
                 vk::SubpassContents::INLINE,
             );
 
-            self.device.cmd_bind_pipeline(
+            self.device.device.cmd_bind_pipeline(
                 self.command_buffer,
                 vk::PipelineBindPoint::GRAPHICS,
                 self.pipeline,
             );
-            self.device.cmd_draw(self.command_buffer, 3, 1, 0, 0);
-            self.device.cmd_end_render_pass(self.command_buffer);
-            self.device.end_command_buffer(self.command_buffer)
+            self.device.device.cmd_draw(self.command_buffer, 3, 1, 0, 0);
+            self.device.device.cmd_end_render_pass(self.command_buffer);
+            self.device.device.end_command_buffer(self.command_buffer)
         }
         .unwrap();
     }
 
     fn create_sync_objects(device: &Device) -> (vk::Semaphore, vk::Semaphore, vk::Fence) {
-        let image_available_semaphore =
-            unsafe { device.create_semaphore(&vk::SemaphoreCreateInfo::default(), None) }.unwrap();
-        let render_finished_semaphore =
-            unsafe { device.create_semaphore(&vk::SemaphoreCreateInfo::default(), None) }.unwrap();
+        let image_available_semaphore = unsafe {
+            device
+                .device
+                .create_semaphore(&vk::SemaphoreCreateInfo::default(), None)
+        }
+        .unwrap();
+        let render_finished_semaphore = unsafe {
+            device
+                .device
+                .create_semaphore(&vk::SemaphoreCreateInfo::default(), None)
+        }
+        .unwrap();
         let in_flight_fence = unsafe {
-            device.create_fence(
+            device.device.create_fence(
                 &vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED),
                 None,
             )
@@ -523,12 +450,18 @@ impl KeaApp {
     pub fn draw(&self) {
         unsafe {
             self.device
+                .device
                 .wait_for_fences(&[self.in_flight_fence], true, u64::MAX)
                 .unwrap();
-            self.device.reset_fences(&[self.in_flight_fence]).unwrap();
+            self.device
+                .device
+                .reset_fences(&[self.in_flight_fence])
+                .unwrap();
 
             let (image_index, _) = self
-                .swapchain_loader
+                .device
+                .ext
+                .swapchain
                 .acquire_next_image(
                     self.swapchain,
                     u64::MAX,
@@ -538,6 +471,7 @@ impl KeaApp {
                 .unwrap();
 
             self.device
+                .device
                 .reset_command_buffer(self.command_buffer, vk::CommandBufferResetFlags::empty())
                 .unwrap();
 
@@ -551,7 +485,8 @@ impl KeaApp {
                 .build()];
 
             self.device
-                .queue_submit(self.queue, &submits, self.in_flight_fence)
+                .device
+                .queue_submit(self.device.queue, &submits, self.in_flight_fence)
                 .unwrap();
 
             let present = vk::PresentInfoKHR::builder()
@@ -560,8 +495,10 @@ impl KeaApp {
                 .image_indices(&[image_index])
                 .build();
 
-            self.swapchain_loader
-                .queue_present(self.queue, &present)
+            self.device
+                .ext
+                .swapchain
+                .queue_present(self.device.queue, &present)
                 .unwrap();
         }
     }
@@ -570,33 +507,40 @@ impl KeaApp {
 impl Drop for KeaApp {
     fn drop(&mut self) {
         unsafe {
-            self.device.device_wait_idle().unwrap();
+            self.device.device.device_wait_idle().unwrap();
 
             self.device
+                .device
                 .destroy_semaphore(self.image_available_semaphore, None);
             self.device
+                .device
                 .destroy_semaphore(self.render_finished_semaphore, None);
-            self.device.destroy_fence(self.in_flight_fence, None);
+            self.device.device.destroy_fence(self.in_flight_fence, None);
 
-            self.device.destroy_command_pool(self.command_pool, None);
+            self.device
+                .device
+                .destroy_command_pool(self.command_pool, None);
 
             for &framebuffer in self.framebuffers.iter() {
-                self.device.destroy_framebuffer(framebuffer, None);
+                self.device.device.destroy_framebuffer(framebuffer, None);
             }
 
-            self.device.destroy_pipeline(self.pipeline, None);
-            self.device.destroy_render_pass(self.render_pass, None);
+            self.device.device.destroy_pipeline(self.pipeline, None);
             self.device
+                .device
+                .destroy_render_pass(self.render_pass, None);
+            self.device
+                .device
                 .destroy_pipeline_layout(self.pipeline_layout, None);
 
             for &image_view in self.swapchain_image_views.iter() {
-                self.device.destroy_image_view(image_view, None);
+                self.device.device.destroy_image_view(image_view, None);
             }
 
-            self.swapchain_loader
+            self.device
+                .ext
+                .swapchain
                 .destroy_swapchain(self.swapchain, None);
-
-            self.device.destroy_device(None);
         }
     }
 }
