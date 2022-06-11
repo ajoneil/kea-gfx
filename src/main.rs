@@ -31,6 +31,7 @@ struct KeaApp {
     render_pass: vk::RenderPass,
     pipeline_layout: vk::PipelineLayout,
     pipeline: vk::Pipeline,
+    framebuffers: Vec<vk::Framebuffer>,
 }
 
 impl KeaApp {
@@ -57,6 +58,8 @@ impl KeaApp {
         let render_pass = Self::create_renderpass(&device, format);
         let (pipeline, pipeline_layout) = Self::create_pipeline(&device, render_pass);
 
+        let framebuffers = Self::create_framebuffers(&device, render_pass, &swapchain_image_views);
+
         KeaApp {
             _entry: entry,
             instance,
@@ -72,6 +75,7 @@ impl KeaApp {
             render_pass,
             pipeline_layout,
             pipeline,
+            framebuffers,
         }
     }
 
@@ -421,6 +425,27 @@ impl KeaApp {
         (pipelines[0], pipeline_layout)
     }
 
+    fn create_framebuffers(
+        device: &Device,
+        render_pass: vk::RenderPass,
+        image_views: &[vk::ImageView],
+    ) -> Vec<vk::Framebuffer> {
+        image_views
+            .iter()
+            .map(|image_view| {
+                let attachments = [*image_view];
+                let framebuffer = vk::FramebufferCreateInfo::builder()
+                    .render_pass(render_pass)
+                    .attachments(&attachments)
+                    .width(1920)
+                    .height(1080)
+                    .layers(1);
+
+                unsafe { device.create_framebuffer(&framebuffer, None) }.unwrap()
+            })
+            .collect()
+    }
+
     pub fn run(self, event_loop: EventLoop<()>, _window: Window) {
         event_loop.run(|event, _, control_flow| match event {
             Event::WindowEvent {
@@ -437,6 +462,10 @@ impl KeaApp {
 impl Drop for KeaApp {
     fn drop(&mut self) {
         unsafe {
+            for &framebuffer in self.framebuffers.iter() {
+                self.device.destroy_framebuffer(framebuffer, None);
+            }
+
             self.device.destroy_pipeline(self.pipeline, None);
             self.device.destroy_render_pass(self.render_pass, None);
             self.device
