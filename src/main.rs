@@ -3,7 +3,8 @@ use std::{ffi::CStr, fs::File, os::raw::c_char};
 use ash::{
     extensions::khr::{Surface, Swapchain},
     util::read_spv,
-    vk, Device, Entry, Instance,
+    vk::{self, PipelineLayoutCreateInfo},
+    Device, Entry, Instance,
 };
 use env_logger::Env;
 use log::info;
@@ -27,7 +28,9 @@ struct KeaApp {
     swapchain: vk::SwapchainKHR,
     _swapchain_images: Vec<vk::Image>,
     swapchain_image_views: Vec<vk::ImageView>,
-    shader_module: vk::ShaderModule,
+    render_pass: vk::RenderPass,
+    pipeline_layout: vk::PipelineLayout,
+    pipeline: vk::Pipeline,
 }
 
 impl KeaApp {
@@ -51,7 +54,8 @@ impl KeaApp {
         let swapchain_image_views =
             Self::create_swapchain_image_views(&swapchain_images, format, &device);
 
-        let shader_module = Self::create_shader_module(&device);
+        let render_pass = Self::create_renderpass(&device, format);
+        let (pipeline, pipeline_layout) = Self::create_pipeline(&device, render_pass);
 
         KeaApp {
             _entry: entry,
@@ -65,7 +69,9 @@ impl KeaApp {
             swapchain,
             _swapchain_images: swapchain_images,
             swapchain_image_views,
-            shader_module,
+            render_pass,
+            pipeline_layout,
+            pipeline,
         }
     }
 
@@ -162,9 +168,15 @@ impl KeaApp {
             .queue_priorities(&[1.0])
             .build()];
         let extension_names = Self::device_extension_names();
+        let mut vulkan_memory_model_features =
+            vk::PhysicalDeviceVulkanMemoryModelFeatures::builder()
+                .vulkan_memory_model(true)
+                .build();
+
         let create_info = vk::DeviceCreateInfo::builder()
             .queue_create_infos(&queue_create_infos)
-            .enabled_extension_names(&extension_names);
+            .enabled_extension_names(&extension_names)
+            .push_next(&mut vulkan_memory_model_features);
 
         let device =
             unsafe { instance.create_device(physical_device, &create_info, None) }.unwrap();
@@ -254,6 +266,35 @@ impl KeaApp {
             .collect()
     }
 
+    fn create_renderpass(device: &Device, format: vk::Format) -> vk::RenderPass {
+        let attachments = [vk::AttachmentDescription::builder()
+            .format(format)
+            .samples(vk::SampleCountFlags::TYPE_1)
+            .load_op(vk::AttachmentLoadOp::CLEAR)
+            .store_op(vk::AttachmentStoreOp::STORE)
+            .stencil_load_op(vk::AttachmentLoadOp::DONT_CARE)
+            .stencil_store_op(vk::AttachmentStoreOp::DONT_CARE)
+            .initial_layout(vk::ImageLayout::UNDEFINED)
+            .final_layout(vk::ImageLayout::PRESENT_SRC_KHR)
+            .build()];
+
+        let color_attachments = [vk::AttachmentReference {
+            attachment: 0,
+            layout: vk::ImageLayout::ATTACHMENT_OPTIMAL,
+        }];
+
+        let subpasses = [vk::SubpassDescription::builder()
+            .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
+            .color_attachments(&color_attachments)
+            .build()];
+
+        let create_info = vk::RenderPassCreateInfo::builder()
+            .attachments(&attachments)
+            .subpasses(&subpasses);
+
+        unsafe { device.create_render_pass(&create_info, None) }.unwrap()
+    }
+
     fn compile_shaders() -> Vec<u32> {
         let compiled_shader_path = SpirvBuilder::new("src/shaders", "spirv-unknown-vulkan1.2")
             .print_metadata(MetadataPrintout::None)
@@ -273,6 +314,113 @@ impl KeaApp {
         unsafe { device.create_shader_module(&shader_create_info, None) }.unwrap()
     }
 
+    fn create_pipeline(
+        device: &Device,
+        render_pass: vk::RenderPass,
+    ) -> (vk::Pipeline, vk::PipelineLayout) {
+        let shader_module = Self::create_shader_module(device);
+        let shader_stages = [
+            vk::PipelineShaderStageCreateInfo::builder()
+                .stage(vk::ShaderStageFlags::VERTEX)
+                .module(shader_module)
+                .name(unsafe { CStr::from_bytes_with_nul_unchecked(b"main_vertex\0") })
+                .build(),
+            vk::PipelineShaderStageCreateInfo::builder()
+                .stage(vk::ShaderStageFlags::FRAGMENT)
+                .module(shader_module)
+                .name(unsafe { CStr::from_bytes_with_nul_unchecked(b"main_fragment\0") })
+                .build(),
+        ];
+
+        let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder();
+        let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::builder()
+            .topology(vk::PrimitiveTopology::TRIANGLE_LIST);
+
+        let viewports = [vk::Viewport {
+            x: 0.0,
+            y: 0.0,
+            width: 1920.0,
+            height: 1080.0,
+            min_depth: 0.0,
+            max_depth: 1.0,
+        }];
+        let scissors = [vk::Rect2D {
+            offset: vk::Offset2D { x: 0, y: 0 },
+            extent: vk::Extent2D {
+                width: 1920,
+                height: 1080,
+            },
+        }];
+
+        let viewport_state = vk::PipelineViewportStateCreateInfo::builder()
+            .viewports(&viewports)
+            .scissors(&scissors);
+
+        let rasterization_state = vk::PipelineRasterizationStateCreateInfo::builder()
+            .depth_clamp_enable(false)
+            .rasterizer_discard_enable(false)
+            .polygon_mode(vk::PolygonMode::FILL)
+            .line_width(1.0)
+            .cull_mode(vk::CullModeFlags::BACK)
+            .front_face(vk::FrontFace::CLOCKWISE)
+            .depth_bias_enable(false);
+
+        let multisample_state = vk::PipelineMultisampleStateCreateInfo::builder()
+            .sample_shading_enable(false)
+            .rasterization_samples(vk::SampleCountFlags::TYPE_1)
+            .min_sample_shading(1.0)
+            .alpha_to_coverage_enable(false)
+            .alpha_to_one_enable(false);
+
+        let color_blend_attachments = [vk::PipelineColorBlendAttachmentState::builder()
+            .color_write_mask(vk::ColorComponentFlags::RGBA)
+            .blend_enable(false)
+            .src_color_blend_factor(vk::BlendFactor::ONE)
+            .dst_color_blend_factor(vk::BlendFactor::ZERO)
+            .color_blend_op(vk::BlendOp::ADD)
+            .src_alpha_blend_factor(vk::BlendFactor::ONE)
+            .dst_alpha_blend_factor(vk::BlendFactor::ZERO)
+            .alpha_blend_op(vk::BlendOp::ADD)
+            .build()];
+
+        let color_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
+            .logic_op_enable(false)
+            .logic_op(vk::LogicOp::COPY)
+            .attachments(&color_blend_attachments)
+            .blend_constants([0.0, 0.0, 0.0, 0.0])
+            .build();
+
+        let pipeline_layout =
+            unsafe { device.create_pipeline_layout(&PipelineLayoutCreateInfo::builder(), None) }
+                .unwrap();
+
+        let pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
+            .stages(&shader_stages)
+            .vertex_input_state(&vertex_input_state)
+            .input_assembly_state(&input_assembly_state)
+            .viewport_state(&viewport_state)
+            .rasterization_state(&rasterization_state)
+            .multisample_state(&multisample_state)
+            .color_blend_state(&color_blend_state)
+            .render_pass(render_pass)
+            .layout(pipeline_layout);
+
+        let pipelines = unsafe {
+            device.create_graphics_pipelines(
+                vk::PipelineCache::null(),
+                &[pipeline_info.build()],
+                None,
+            )
+        }
+        .unwrap();
+
+        unsafe {
+            device.destroy_shader_module(shader_module, None);
+        }
+
+        (pipelines[0], pipeline_layout)
+    }
+
     pub fn run(self, event_loop: EventLoop<()>, _window: Window) {
         event_loop.run(|event, _, control_flow| match event {
             Event::WindowEvent {
@@ -289,7 +437,11 @@ impl KeaApp {
 impl Drop for KeaApp {
     fn drop(&mut self) {
         unsafe {
-            self.device.destroy_shader_module(self.shader_module, None);
+            self.device.destroy_pipeline(self.pipeline, None);
+            self.device.destroy_render_pass(self.render_pass, None);
+            self.device
+                .destroy_pipeline_layout(self.pipeline_layout, None);
+
             for &image_view in self.swapchain_image_views.iter() {
                 self.device.destroy_image_view(image_view, None);
             }

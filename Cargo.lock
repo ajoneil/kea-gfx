@@ -356,6 +356,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "glam"
+version = "0.20.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f43e957e744be03f5801a55472f593d43fabdebf25a4585db250f04d86b1675f"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -445,6 +454,7 @@ dependencies = [
  "ash-window",
  "env_logger",
  "log",
+ "shaders",
  "spirv-builder",
  "winit",
 ]
@@ -905,6 +915,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "shaders"
+version = "0.1.0"
+dependencies = [
+ "spirv-std",
+]
+
+[[package]]
 name = "smallvec"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -953,6 +970,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "spirv-std"
+version = "0.4.0-alpha.12"
+source = "git+https://github.com/EmbarkStudios/rust-gpu#0866cf591a7fdbbd15bdb3468e192bb9b6189fd0"
+dependencies = [
+ "bitflags",
+ "glam",
+ "num-traits",
+ "spirv-std-macros",
+ "spirv-types",
+]
+
+[[package]]
+name = "spirv-std-macros"
+version = "0.4.0-alpha.12"
+source = "git+https://github.com/EmbarkStudios/rust-gpu#0866cf591a7fdbbd15bdb3468e192bb9b6189fd0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "spirv-types",
+ "syn",
+]
+
+[[package]]
 name = "spirv-tools"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -969,6 +1009,11 @@ checksum = "2980b0b4b2a9b5edfeb1dc8a35e84aac07b9c6dcd2339cce004d9355fb62a59d"
 dependencies = [
  "cc",
 ]
+
+[[package]]
+name = "spirv-types"
+version = "0.4.0-alpha.12"
+source = "git+https://github.com/EmbarkStudios/rust-gpu#0866cf591a7fdbbd15bdb3468e192bb9b6189fd0"
 
 [[package]]
 name = "strsim"
