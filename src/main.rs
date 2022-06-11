@@ -32,6 +32,8 @@ struct KeaApp {
     pipeline_layout: vk::PipelineLayout,
     pipeline: vk::Pipeline,
     framebuffers: Vec<vk::Framebuffer>,
+    command_pool: vk::CommandPool,
+    command_buffer: vk::CommandBuffer,
 }
 
 impl KeaApp {
@@ -60,6 +62,9 @@ impl KeaApp {
 
         let framebuffers = Self::create_framebuffers(&device, render_pass, &swapchain_image_views);
 
+        let command_pool = Self::create_command_pool(&device, queue_family_index);
+        let command_buffer = Self::create_command_buffer(&device, command_pool);
+
         KeaApp {
             _entry: entry,
             instance,
@@ -76,6 +81,8 @@ impl KeaApp {
             pipeline_layout,
             pipeline,
             framebuffers,
+            command_pool,
+            command_buffer,
         }
     }
 
@@ -446,6 +453,22 @@ impl KeaApp {
             .collect()
     }
 
+    fn create_command_pool(device: &Device, queue_family_index: u32) -> vk::CommandPool {
+        let command_pool = vk::CommandPoolCreateInfo::builder()
+            .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
+            .queue_family_index(queue_family_index);
+        unsafe { device.create_command_pool(&command_pool, None) }.unwrap()
+    }
+
+    fn create_command_buffer(device: &Device, command_pool: vk::CommandPool) -> vk::CommandBuffer {
+        let command_buffer = vk::CommandBufferAllocateInfo::builder()
+            .command_pool(command_pool)
+            .level(vk::CommandBufferLevel::PRIMARY)
+            .command_buffer_count(1);
+
+        unsafe { device.allocate_command_buffers(&command_buffer) }.unwrap()[0]
+    }
+
     pub fn run(self, event_loop: EventLoop<()>, _window: Window) {
         event_loop.run(|event, _, control_flow| match event {
             Event::WindowEvent {
@@ -462,6 +485,8 @@ impl KeaApp {
 impl Drop for KeaApp {
     fn drop(&mut self) {
         unsafe {
+            self.device.destroy_command_pool(self.command_pool, None);
+
             for &framebuffer in self.framebuffers.iter() {
                 self.device.destroy_framebuffer(framebuffer, None);
             }
