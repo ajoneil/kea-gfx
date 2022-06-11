@@ -1,13 +1,13 @@
-use std::{ffi::CStr, fs::File};
+use std::{ffi::CStr, fs::File, sync::Arc};
 
 use ash::{
-    extensions::khr::{Surface, Swapchain},
+    extensions::khr::Swapchain,
     util::read_spv,
     vk::{self, PipelineLayoutCreateInfo},
     Device, Instance,
 };
 use env_logger::Env;
-use gpu::Vulkan;
+use gpu::{Surface, Vulkan};
 use log::info;
 use spirv_builder::{MetadataPrintout, SpirvBuilder};
 use window::Window;
@@ -16,8 +16,8 @@ mod gpu;
 mod window;
 
 struct KeaApp {
-    vulkan: Vulkan,
-    surface: vk::SurfaceKHR,
+    vulkan: Arc<Vulkan>,
+    surface: Surface,
     _physical_device: vk::PhysicalDevice,
     device: Device,
     queue: vk::Queue,
@@ -38,15 +38,11 @@ struct KeaApp {
 
 impl KeaApp {
     pub fn new(window: &Window) -> KeaApp {
-        let vulkan = Vulkan::new(window.required_extensions());
-
-        let surface = unsafe {
-            ash_window::create_surface(&vulkan.entry, &vulkan.instance, window.window(), None)
-        }
-        .unwrap();
+        let vulkan = Arc::new(Vulkan::new(window.required_extensions()));
+        let surface = Surface::from_window(&vulkan, &window);
 
         let (physical_device, queue_family_index) =
-            Self::select_physical_device(&vulkan.instance, surface, &vulkan.ext.surface);
+            Self::select_physical_device(&vulkan.instance, surface.surface, &vulkan.ext.surface);
         let (device, queue) = Self::create_logical_device_with_queue(
             &vulkan.instance,
             physical_device,
@@ -55,7 +51,7 @@ impl KeaApp {
 
         let swapchain_loader = Swapchain::new(&vulkan.instance, &device);
         let (swapchain, format) = Self::create_swapchain(
-            surface,
+            surface.surface,
             physical_device,
             &swapchain_loader,
             &vulkan.ext.surface,
@@ -104,7 +100,7 @@ impl KeaApp {
     fn select_physical_device(
         instance: &Instance,
         surface: vk::SurfaceKHR,
-        surface_loader: &Surface,
+        surface_loader: &ash::extensions::khr::Surface,
     ) -> (vk::PhysicalDevice, u32) {
         let devices = unsafe { instance.enumerate_physical_devices() }.unwrap();
         let (device, queue_family_index) = devices
@@ -129,7 +125,7 @@ impl KeaApp {
         instance: &Instance,
         physical_device: vk::PhysicalDevice,
         surface: vk::SurfaceKHR,
-        surface_loader: &Surface,
+        surface_loader: &ash::extensions::khr::Surface,
     ) -> Option<u32> {
         let props =
             unsafe { instance.get_physical_device_queue_family_properties(physical_device) };
@@ -182,7 +178,7 @@ impl KeaApp {
         surface: vk::SurfaceKHR,
         physical_device: vk::PhysicalDevice,
         swapchain_loader: &Swapchain,
-        surface_loader: &Surface,
+        surface_loader: &ash::extensions::khr::Surface,
     ) -> (vk::SwapchainKHR, vk::Format) {
         let surface_capabilities = unsafe {
             surface_loader.get_physical_device_surface_capabilities(physical_device, surface)
@@ -599,7 +595,7 @@ impl Drop for KeaApp {
 
             self.swapchain_loader
                 .destroy_swapchain(self.swapchain, None);
-            self.vulkan.ext.surface.destroy_surface(self.surface, None);
+
             self.device.destroy_device(None);
         }
     }

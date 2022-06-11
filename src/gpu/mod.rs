@@ -1,3 +1,5 @@
-pub mod vulkan;
+mod surface;
+mod vulkan;
 
+pub use surface::Surface;
 pub use vulkan::Vulkan;
