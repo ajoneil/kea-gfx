@@ -1,11 +1,13 @@
-use std::{ffi::CStr, os::raw::c_char};
+use std::{ffi::CStr, fs::File, os::raw::c_char};
 
 use ash::{
     extensions::khr::{Surface, Swapchain},
+    util::read_spv,
     vk, Device, Entry, Instance,
 };
 use env_logger::Env;
 use log::info;
+use spirv_builder::{MetadataPrintout, SpirvBuilder};
 use winit::{
     dpi::PhysicalSize,
     event::{Event, WindowEvent},
@@ -25,6 +27,7 @@ struct KeaApp {
     swapchain: vk::SwapchainKHR,
     _swapchain_images: Vec<vk::Image>,
     swapchain_image_views: Vec<vk::ImageView>,
+    shader_module: vk::ShaderModule,
 }
 
 impl KeaApp {
@@ -48,6 +51,8 @@ impl KeaApp {
         let swapchain_image_views =
             Self::create_swapchain_image_views(&swapchain_images, format, &device);
 
+        let shader_module = Self::create_shader_module(&device);
+
         KeaApp {
             _entry: entry,
             instance,
@@ -60,6 +65,7 @@ impl KeaApp {
             swapchain,
             _swapchain_images: swapchain_images,
             swapchain_image_views,
+            shader_module,
         }
     }
 
@@ -248,6 +254,25 @@ impl KeaApp {
             .collect()
     }
 
+    fn compile_shaders() -> Vec<u32> {
+        let compiled_shader_path = SpirvBuilder::new("src/shaders", "spirv-unknown-vulkan1.2")
+            .print_metadata(MetadataPrintout::None)
+            .build()
+            .unwrap()
+            .module
+            .unwrap_single()
+            .to_path_buf();
+
+        read_spv(&mut File::open(compiled_shader_path).unwrap()).unwrap()
+    }
+
+    fn create_shader_module(device: &Device) -> vk::ShaderModule {
+        let compiled_shaders = Self::compile_shaders();
+        let shader_create_info = vk::ShaderModuleCreateInfo::builder().code(&compiled_shaders);
+
+        unsafe { device.create_shader_module(&shader_create_info, None) }.unwrap()
+    }
+
     pub fn run(self, event_loop: EventLoop<()>, _window: Window) {
         event_loop.run(|event, _, control_flow| match event {
             Event::WindowEvent {
@@ -264,6 +289,7 @@ impl KeaApp {
 impl Drop for KeaApp {
     fn drop(&mut self) {
         unsafe {
+            self.device.destroy_shader_module(self.shader_module, None);
             for &image_view in self.swapchain_image_views.iter() {
                 self.device.destroy_image_view(image_view, None);
             }
