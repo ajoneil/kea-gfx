@@ -10,14 +10,10 @@ use env_logger::Env;
 use gpu::Vulkan;
 use log::info;
 use spirv_builder::{MetadataPrintout, SpirvBuilder};
-use winit::{
-    dpi::PhysicalSize,
-    event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder},
-};
+use window::Window;
 
 mod gpu;
+mod window;
 
 struct KeaApp {
     vulkan: Vulkan,
@@ -42,11 +38,12 @@ struct KeaApp {
 
 impl KeaApp {
     pub fn new(window: &Window) -> KeaApp {
-        let vulkan = Vulkan::new(ash_window::enumerate_required_extensions(window).unwrap());
+        let vulkan = Vulkan::new(window.required_extensions());
 
-        let surface =
-            unsafe { ash_window::create_surface(&vulkan.entry, &vulkan.instance, window, None) }
-                .unwrap();
+        let surface = unsafe {
+            ash_window::create_surface(&vulkan.entry, &vulkan.instance, window.window(), None)
+        }
+        .unwrap();
 
         let (physical_device, queue_family_index) =
             Self::select_physical_device(&vulkan.instance, surface, &vulkan.ext.surface);
@@ -527,7 +524,7 @@ impl KeaApp {
         )
     }
 
-    fn draw(&self) {
+    pub fn draw(&self) {
         unsafe {
             self.device
                 .wait_for_fences(&[self.in_flight_fence], true, u64::MAX)
@@ -572,19 +569,6 @@ impl KeaApp {
                 .unwrap();
         }
     }
-
-    pub fn run(self, event_loop: EventLoop<()>, _window: Window) {
-        event_loop.run(move |event, _, control_flow| match event {
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                ..
-            } => {
-                *control_flow = ControlFlow::Exit;
-            }
-            Event::MainEventsCleared => self.draw(),
-            _ => (),
-        });
-    }
 }
 
 impl Drop for KeaApp {
@@ -624,14 +608,8 @@ impl Drop for KeaApp {
 fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    let event_loop = EventLoop::new();
-    let window = WindowBuilder::new()
-        .with_title("kea")
-        .with_inner_size(PhysicalSize::new(1920 as u32, 1080 as u32))
-        .with_resizable(false)
-        .build(&event_loop)
-        .expect("Failed to create window");
-
+    let window = Window::new(1920, 1080);
     let app = KeaApp::new(&window);
-    app.run(event_loop, window);
+
+    window.event_loop(move || app.draw())
 }
