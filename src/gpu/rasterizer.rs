@@ -71,57 +71,16 @@ impl Rasterizer {
     }
 
     fn record_command_buffer(&self, image_index: u32) {
-        let begin_command_buffer = vk::CommandBufferBeginInfo::builder();
-        unsafe {
-            self.swapchain
-                .device
-                .vk()
-                .begin_command_buffer(self.command_buffer.buffer, &begin_command_buffer)
-        }
-        .unwrap();
-
-        let begin_render_pass = vk::RenderPassBeginInfo::builder()
-            .render_pass(self.pipeline.render_pass)
-            .framebuffer(self.framebuffers[image_index as usize])
-            .render_area(vk::Rect2D {
-                offset: vk::Offset2D { x: 0, y: 0 },
-                extent: vk::Extent2D {
-                    width: 1920,
-                    height: 1080,
+        self.command_buffer.record(true, |cmd| {
+            cmd.render_pass(
+                self.pipeline.render_pass,
+                self.framebuffers[image_index as usize],
+                || {
+                    cmd.bind_pipeline(vk::PipelineBindPoint::GRAPHICS, self.pipeline.pipeline);
+                    cmd.draw(3, 1, 0, 0);
                 },
-            })
-            .clear_values(&[vk::ClearValue {
-                color: vk::ClearColorValue {
-                    float32: [0.0, 0.0, 0.0, 1.0],
-                },
-            }]);
-
-        unsafe {
-            self.swapchain.device.vk().cmd_begin_render_pass(
-                self.command_buffer.buffer,
-                &begin_render_pass,
-                vk::SubpassContents::INLINE,
-            );
-
-            self.swapchain.device.vk().cmd_bind_pipeline(
-                self.command_buffer.buffer,
-                vk::PipelineBindPoint::GRAPHICS,
-                self.pipeline.pipeline,
-            );
-            self.swapchain
-                .device
-                .vk()
-                .cmd_draw(self.command_buffer.buffer, 3, 1, 0, 0);
-            self.swapchain
-                .device
-                .vk()
-                .cmd_end_render_pass(self.command_buffer.buffer);
-            self.swapchain
-                .device
-                .vk()
-                .end_command_buffer(self.command_buffer.buffer)
-        }
-        .unwrap();
+            )
+        });
     }
 
     pub fn draw(&self) {
@@ -132,18 +91,9 @@ impl Rasterizer {
             .swapchain
             .acquire_next_image(&self.semaphores.image_available);
 
+        self.record_command_buffer(image_index);
+
         unsafe {
-            self.swapchain
-                .device
-                .vk()
-                .reset_command_buffer(
-                    self.command_buffer.buffer,
-                    vk::CommandBufferResetFlags::empty(),
-                )
-                .unwrap();
-
-            self.record_command_buffer(image_index);
-
             let submits = [vk::SubmitInfo::builder()
                 .wait_semaphores(&[self.semaphores.image_available.vk()])
                 .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
