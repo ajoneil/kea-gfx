@@ -17,6 +17,7 @@ impl Surface {
             ash_window::create_surface(&vulkan.entry, &vulkan.instance, window.window(), None)
         }
         .unwrap();
+
         Surface {
             surface,
             vulkan: vulkan.clone(),

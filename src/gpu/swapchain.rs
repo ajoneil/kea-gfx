@@ -7,12 +7,15 @@ use super::{Device, Surface};
 pub struct Swapchain {
     pub swapchain: vk::SwapchainKHR,
     pub format: vk::Format,
+    pub images: Vec<vk::Image>,
+    pub image_views: Vec<vk::ImageView>,
 
     device: Arc<Device>,
+    _surface: Arc<Surface>,
 }
 
 impl Swapchain {
-    pub fn new(device: &Arc<Device>, surface: &Surface) -> Swapchain {
+    pub fn new(device: &Arc<Device>, surface: &Arc<Surface>) -> Swapchain {
         let surface_capabilities = unsafe {
             device
                 .vulkan
@@ -29,27 +32,14 @@ impl Swapchain {
             image_count
         };
 
-        let surface_format = unsafe {
-            device
-                .vulkan
-                .ext
-                .surface
-                .get_physical_device_surface_formats(device.physical_device, surface.surface)
-        }
-        .unwrap()[0];
+        let surface_format = device.surface_formats(surface)[0];
 
-        let present_mode = unsafe {
-            device
-                .vulkan
-                .ext
-                .surface
-                .get_physical_device_surface_present_modes(device.physical_device, surface.surface)
-        }
-        .unwrap()
-        .iter()
-        .cloned()
-        .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
-        .unwrap_or(vk::PresentModeKHR::FIFO);
+        let present_mode = device
+            .surface_present_modes(surface)
+            .iter()
+            .cloned()
+            .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
+            .unwrap_or(vk::PresentModeKHR::FIFO);
 
         let swapchain_create_info = vk::SwapchainCreateInfoKHR::builder()
             .surface(surface.surface)
@@ -74,18 +64,64 @@ impl Swapchain {
         }
         .unwrap();
 
+        let images = unsafe { device.ext.swapchain.get_swapchain_images(swapchain) }.unwrap();
+        let image_views =
+            Self::create_swapchain_image_views(&images, surface_format.format, &device);
+
         Swapchain {
             swapchain,
             format: surface_format.format,
+            images,
+            image_views,
 
             device: device.clone(),
+            _surface: surface.clone(),
         }
+    }
+
+    fn create_swapchain_image_views(
+        swapchain_images: &[vk::Image],
+        format: vk::Format,
+        device: &Device,
+    ) -> Vec<vk::ImageView> {
+        swapchain_images
+            .iter()
+            .map(|&image| {
+                let imageview_create_info = vk::ImageViewCreateInfo::builder()
+                    .image(image)
+                    .view_type(vk::ImageViewType::TYPE_2D)
+                    .format(format)
+                    .components(vk::ComponentMapping {
+                        r: vk::ComponentSwizzle::IDENTITY,
+                        g: vk::ComponentSwizzle::IDENTITY,
+                        b: vk::ComponentSwizzle::IDENTITY,
+                        a: vk::ComponentSwizzle::IDENTITY,
+                    })
+                    .subresource_range(vk::ImageSubresourceRange {
+                        aspect_mask: vk::ImageAspectFlags::COLOR,
+                        base_mip_level: 0,
+                        level_count: 1,
+                        base_array_layer: 0,
+                        layer_count: 1,
+                    });
+                unsafe {
+                    device
+                        .device
+                        .create_image_view(&imageview_create_info, None)
+                }
+                .unwrap()
+            })
+            .collect()
     }
 }
 
 impl Drop for Swapchain {
     fn drop(&mut self) {
         unsafe {
+            for &image_view in self.image_views.iter() {
+                self.device.device.destroy_image_view(image_view, None);
+            }
+
             self.device
                 .ext
                 .swapchain

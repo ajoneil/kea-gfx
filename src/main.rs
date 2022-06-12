@@ -15,10 +15,8 @@ mod window;
 struct KeaApp {
     _vulkan: Arc<Vulkan>,
     device: Arc<Device>,
-    _surface: Surface,
+    _surface: Arc<Surface>,
     swapchain: Swapchain,
-    _swapchain_images: Vec<vk::Image>,
-    swapchain_image_views: Vec<vk::ImageView>,
     render_pass: vk::RenderPass,
     pipeline_layout: vk::PipelineLayout,
     pipeline: vk::Pipeline,
@@ -33,24 +31,15 @@ struct KeaApp {
 impl KeaApp {
     pub fn new(window: &Window) -> KeaApp {
         let vulkan = Arc::new(Vulkan::new(window.required_extensions()));
-        let surface = Surface::from_window(&vulkan, &window);
+        let surface = Arc::new(Surface::from_window(&vulkan, &window));
         let device = Arc::new(Device::new(&vulkan, &surface));
 
         let swapchain = Swapchain::new(&device, &surface);
-        let swapchain_images = unsafe {
-            device
-                .ext
-                .swapchain
-                .get_swapchain_images(swapchain.swapchain)
-        }
-        .unwrap();
-        let swapchain_image_views =
-            Self::create_swapchain_image_views(&swapchain_images, swapchain.format, &device);
 
         let render_pass = Self::create_renderpass(&device, swapchain.format);
         let (pipeline, pipeline_layout) = Self::create_pipeline(&device, render_pass);
 
-        let framebuffers = Self::create_framebuffers(&device, render_pass, &swapchain_image_views);
+        let framebuffers = Self::create_framebuffers(&device, render_pass, &swapchain.image_views);
 
         let command_pool = Self::create_command_pool(&device, device.queue_family_index);
         let command_buffer = Self::create_command_buffer(&device, command_pool);
@@ -63,8 +52,6 @@ impl KeaApp {
             _surface: surface,
             device,
             swapchain,
-            _swapchain_images: swapchain_images,
-            swapchain_image_views,
             render_pass,
             pipeline_layout,
             pipeline,
@@ -75,41 +62,6 @@ impl KeaApp {
             render_finished_semaphore,
             in_flight_fence,
         }
-    }
-
-    fn create_swapchain_image_views(
-        swapchain_images: &[vk::Image],
-        format: vk::Format,
-        device: &Device,
-    ) -> Vec<vk::ImageView> {
-        swapchain_images
-            .iter()
-            .map(|&image| {
-                let imageview_create_info = vk::ImageViewCreateInfo::builder()
-                    .image(image)
-                    .view_type(vk::ImageViewType::TYPE_2D)
-                    .format(format)
-                    .components(vk::ComponentMapping {
-                        r: vk::ComponentSwizzle::IDENTITY,
-                        g: vk::ComponentSwizzle::IDENTITY,
-                        b: vk::ComponentSwizzle::IDENTITY,
-                        a: vk::ComponentSwizzle::IDENTITY,
-                    })
-                    .subresource_range(vk::ImageSubresourceRange {
-                        aspect_mask: vk::ImageAspectFlags::COLOR,
-                        base_mip_level: 0,
-                        level_count: 1,
-                        base_array_layer: 0,
-                        layer_count: 1,
-                    });
-                unsafe {
-                    device
-                        .device
-                        .create_image_view(&imageview_create_info, None)
-                }
-                .unwrap()
-            })
-            .collect()
     }
 
     fn create_renderpass(device: &Device, format: vk::Format) -> vk::RenderPass {
@@ -479,10 +431,6 @@ impl Drop for KeaApp {
             self.device
                 .device
                 .destroy_pipeline_layout(self.pipeline_layout, None);
-
-            for &image_view in self.swapchain_image_views.iter() {
-                self.device.device.destroy_image_view(image_view, None);
-            }
         }
     }
 }

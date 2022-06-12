@@ -123,6 +123,26 @@ impl Device {
     fn device_extension_names() -> Vec<*const i8> {
         vec![ash::extensions::khr::Swapchain::name().as_ptr()]
     }
+
+    pub fn surface_formats(&self, surface: &Surface) -> Vec<vk::SurfaceFormatKHR> {
+        unsafe {
+            self.vulkan
+                .ext
+                .surface
+                .get_physical_device_surface_formats(self.physical_device, surface.surface)
+        }
+        .unwrap()
+    }
+
+    pub fn surface_present_modes(&self, surface: &Surface) -> Vec<vk::PresentModeKHR> {
+        unsafe {
+            self.vulkan
+                .ext
+                .surface
+                .get_physical_device_surface_present_modes(self.physical_device, surface.surface)
+        }
+        .unwrap()
+    }
 }
 
 impl Drop for Device {
