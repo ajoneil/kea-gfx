@@ -125,18 +125,10 @@ impl Rasterizer {
     }
 
     pub fn draw(&self) {
-        unsafe {
-            self.swapchain
-                .device
-                .vk()
-                .wait_for_fences(&[self.in_flight_fence.vk()], true, u64::MAX)
-                .unwrap();
-            self.swapchain
-                .device
-                .vk()
-                .reset_fences(&[self.in_flight_fence.vk()])
-                .unwrap();
+        self.in_flight_fence.wait();
+        self.in_flight_fence.reset();
 
+        unsafe {
             let (image_index, _) = self
                 .swapchain
                 .device

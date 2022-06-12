@@ -62,6 +62,21 @@ impl Fence {
     pub unsafe fn vk(&self) -> vk::Fence {
         self.vk
     }
+
+    pub fn wait(&self) {
+        unsafe {
+            self.device
+                .vk()
+                .wait_for_fences(&[self.vk], true, u64::MAX)
+                .unwrap();
+        }
+    }
+
+    pub fn reset(&self) {
+        unsafe {
+            self.device.vk().reset_fences(&[self.vk]).unwrap();
+        }
+    }
 }
 
 impl Drop for Fence {
