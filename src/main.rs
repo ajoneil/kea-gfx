@@ -1,12 +1,9 @@
-use std::{ffi::CStr, fs::File, sync::Arc};
+use std::{ffi::CStr, sync::Arc};
 
-use ash::{
-    util::read_spv,
-    vk::{self, PipelineLayoutCreateInfo},
-};
+use ash::vk::{self, PipelineLayoutCreateInfo};
 use env_logger::Env;
-use gpu::{Device, Surface, Swapchain, Vulkan};
-use spirv_builder::{MetadataPrintout, SpirvBuilder};
+use gpu::{Device, ShaderModule, Surface, Swapchain, Vulkan};
+
 use window::Window;
 
 mod gpu;
@@ -103,44 +100,20 @@ impl KeaApp {
         unsafe { device.device.create_render_pass(&create_info, None) }.unwrap()
     }
 
-    fn compile_shaders() -> Vec<u32> {
-        let compiled_shader_path = SpirvBuilder::new("src/shaders", "spirv-unknown-vulkan1.2")
-            .print_metadata(MetadataPrintout::None)
-            .build()
-            .unwrap()
-            .module
-            .unwrap_single()
-            .to_path_buf();
-
-        read_spv(&mut File::open(compiled_shader_path).unwrap()).unwrap()
-    }
-
-    fn create_shader_module(device: &Device) -> vk::ShaderModule {
-        let compiled_shaders = Self::compile_shaders();
-        let shader_create_info = vk::ShaderModuleCreateInfo::builder().code(&compiled_shaders);
-
-        unsafe {
-            device
-                .device
-                .create_shader_module(&shader_create_info, None)
-        }
-        .unwrap()
-    }
-
     fn create_pipeline(
-        device: &Device,
+        device: &Arc<Device>,
         render_pass: vk::RenderPass,
     ) -> (vk::Pipeline, vk::PipelineLayout) {
-        let shader_module = Self::create_shader_module(device);
+        let shader_module = ShaderModule::new(device);
         let shader_stages = [
             vk::PipelineShaderStageCreateInfo::builder()
                 .stage(vk::ShaderStageFlags::VERTEX)
-                .module(shader_module)
+                .module(shader_module.module)
                 .name(unsafe { CStr::from_bytes_with_nul_unchecked(b"main_vertex\0") })
                 .build(),
             vk::PipelineShaderStageCreateInfo::builder()
                 .stage(vk::ShaderStageFlags::FRAGMENT)
-                .module(shader_module)
+                .module(shader_module.module)
                 .name(unsafe { CStr::from_bytes_with_nul_unchecked(b"main_fragment\0") })
                 .build(),
         ];
@@ -229,10 +202,6 @@ impl KeaApp {
             )
         }
         .unwrap();
-
-        unsafe {
-            device.device.destroy_shader_module(shader_module, None);
-        }
 
         (pipelines[0], pipeline_layout)
     }
