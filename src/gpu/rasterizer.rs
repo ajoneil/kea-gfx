@@ -26,8 +26,7 @@ impl Rasterizer {
             &swapchain.image_views,
         );
 
-        let command_pool = CommandPool::new(swapchain.device.clone());
-        let command_buffer = CommandBuffer::new(Arc::new(command_pool));
+        let command_buffer = Arc::new(CommandPool::new(swapchain.device.clone())).allocate_buffer();
 
         let (image_available_semaphore, render_finished_semaphore, in_flight_fence) =
             Self::create_sync_objects(&swapchain.device);

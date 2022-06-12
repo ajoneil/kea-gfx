@@ -18,6 +18,21 @@ impl CommandPool {
 
         CommandPool { pool, device }
     }
+
+    pub fn allocate_buffer(self: Arc<Self>) -> CommandBuffer {
+        let create_info = vk::CommandBufferAllocateInfo::builder()
+            .command_pool(self.pool)
+            .level(vk::CommandBufferLevel::PRIMARY)
+            .command_buffer_count(1);
+
+        let buffer =
+            unsafe { self.device.device.allocate_command_buffers(&create_info) }.unwrap()[0];
+
+        CommandBuffer {
+            buffer,
+            _pool: self,
+        }
+    }
 }
 
 impl Drop for CommandPool {
@@ -31,21 +46,4 @@ impl Drop for CommandPool {
 pub struct CommandBuffer {
     pub buffer: vk::CommandBuffer,
     _pool: Arc<CommandPool>,
-}
-
-impl CommandBuffer {
-    pub fn new(pool: Arc<CommandPool>) -> CommandBuffer {
-        let create_info = vk::CommandBufferAllocateInfo::builder()
-            .command_pool(pool.pool)
-            .level(vk::CommandBufferLevel::PRIMARY)
-            .command_buffer_count(1);
-
-        let buffer =
-            unsafe { pool.device.device.allocate_command_buffers(&create_info) }.unwrap()[0];
-
-        CommandBuffer {
-            buffer,
-            _pool: pool,
-        }
-    }
 }
