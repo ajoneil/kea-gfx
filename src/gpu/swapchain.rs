@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use ash::vk;
 
-use super::Device;
+use super::{sync::Semaphore, Device};
 
 pub struct Swapchain {
     pub swapchain: vk::SwapchainKHR,
@@ -98,6 +98,20 @@ impl Swapchain {
                 unsafe { device.vk().create_image_view(&imageview_create_info, None) }.unwrap()
             })
             .collect()
+    }
+
+    pub fn acquire_next_image(&self, semaphore: &Semaphore) -> u32 {
+        let (image_index, _) = unsafe {
+            self.device.ext.swapchain.acquire_next_image(
+                self.swapchain,
+                u64::MAX,
+                semaphore.vk(),
+                vk::Fence::null(),
+            )
+        }
+        .unwrap();
+
+        image_index
     }
 }
 

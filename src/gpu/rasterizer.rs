@@ -128,20 +128,11 @@ impl Rasterizer {
         self.in_flight_fence.wait();
         self.in_flight_fence.reset();
 
-        unsafe {
-            let (image_index, _) = self
-                .swapchain
-                .device
-                .ext
-                .swapchain
-                .acquire_next_image(
-                    self.swapchain.swapchain,
-                    u64::MAX,
-                    self.semaphores.image_available.vk(),
-                    vk::Fence::null(),
-                )
-                .unwrap();
+        let image_index = self
+            .swapchain
+            .acquire_next_image(&self.semaphores.image_available);
 
+        unsafe {
             self.swapchain
                 .device
                 .vk()
