@@ -88,7 +88,7 @@ impl RasterizationPipeline {
 
         let layout = unsafe {
             device
-                .device
+                .vk()
                 .create_pipeline_layout(&vk::PipelineLayoutCreateInfo::builder(), None)
         }
         .unwrap();
@@ -107,7 +107,7 @@ impl RasterizationPipeline {
             .layout(layout);
 
         let pipelines = unsafe {
-            device.device.create_graphics_pipelines(
+            device.vk().create_graphics_pipelines(
                 vk::PipelineCache::null(),
                 &[pipeline_info.build()],
                 None,
@@ -159,20 +159,16 @@ impl RasterizationPipeline {
             .subpasses(&subpasses)
             .dependencies(&dependencies);
 
-        unsafe { device.device.create_render_pass(&create_info, None) }.unwrap()
+        unsafe { device.vk().create_render_pass(&create_info, None) }.unwrap()
     }
 }
 
 impl Drop for RasterizationPipeline {
     fn drop(&mut self) {
         unsafe {
-            self.device.device.destroy_pipeline(self.pipeline, None);
-            self.device
-                .device
-                .destroy_render_pass(self.render_pass, None);
-            self.device
-                .device
-                .destroy_pipeline_layout(self.layout, None);
+            self.device.vk().destroy_pipeline(self.pipeline, None);
+            self.device.vk().destroy_render_pass(self.render_pass, None);
+            self.device.vk().destroy_pipeline_layout(self.layout, None);
         }
     }
 }

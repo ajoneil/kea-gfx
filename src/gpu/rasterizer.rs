@@ -61,14 +61,14 @@ impl Rasterizer {
                     .height(1080)
                     .layers(1);
 
-                unsafe { device.device.create_framebuffer(&framebuffer, None) }.unwrap()
+                unsafe { device.vk().create_framebuffer(&framebuffer, None) }.unwrap()
             })
             .collect()
     }
 
     fn create_sync_objects(device: &Arc<Device>) -> (Semaphores, vk::Fence) {
         let in_flight_fence = unsafe {
-            device.device.create_fence(
+            device.vk().create_fence(
                 &vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED),
                 None,
             )
@@ -89,7 +89,7 @@ impl Rasterizer {
         unsafe {
             self.swapchain
                 .device
-                .device
+                .vk()
                 .begin_command_buffer(self.command_buffer.buffer, &begin_command_buffer)
         }
         .unwrap();
@@ -111,28 +111,28 @@ impl Rasterizer {
             }]);
 
         unsafe {
-            self.swapchain.device.device.cmd_begin_render_pass(
+            self.swapchain.device.vk().cmd_begin_render_pass(
                 self.command_buffer.buffer,
                 &begin_render_pass,
                 vk::SubpassContents::INLINE,
             );
 
-            self.swapchain.device.device.cmd_bind_pipeline(
+            self.swapchain.device.vk().cmd_bind_pipeline(
                 self.command_buffer.buffer,
                 vk::PipelineBindPoint::GRAPHICS,
                 self.pipeline.pipeline,
             );
             self.swapchain
                 .device
-                .device
+                .vk()
                 .cmd_draw(self.command_buffer.buffer, 3, 1, 0, 0);
             self.swapchain
                 .device
-                .device
+                .vk()
                 .cmd_end_render_pass(self.command_buffer.buffer);
             self.swapchain
                 .device
-                .device
+                .vk()
                 .end_command_buffer(self.command_buffer.buffer)
         }
         .unwrap();
@@ -142,12 +142,12 @@ impl Rasterizer {
         unsafe {
             self.swapchain
                 .device
-                .device
+                .vk()
                 .wait_for_fences(&[self.in_flight_fence], true, u64::MAX)
                 .unwrap();
             self.swapchain
                 .device
-                .device
+                .vk()
                 .reset_fences(&[self.in_flight_fence])
                 .unwrap();
 
@@ -166,7 +166,7 @@ impl Rasterizer {
 
             self.swapchain
                 .device
-                .device
+                .vk()
                 .reset_command_buffer(
                     self.command_buffer.buffer,
                     vk::CommandBufferResetFlags::empty(),
@@ -184,7 +184,7 @@ impl Rasterizer {
 
             self.swapchain
                 .device
-                .device
+                .vk()
                 .queue_submit(self.swapchain.device.queue, &submits, self.in_flight_fence)
                 .unwrap();
 
@@ -207,17 +207,17 @@ impl Rasterizer {
 impl Drop for Rasterizer {
     fn drop(&mut self) {
         unsafe {
-            self.swapchain.device.device.device_wait_idle().unwrap();
+            self.swapchain.device.vk().device_wait_idle().unwrap();
 
             self.swapchain
                 .device
-                .device
+                .vk()
                 .destroy_fence(self.in_flight_fence, None);
 
             for &framebuffer in self.framebuffers.iter() {
                 self.swapchain
                     .device
-                    .device
+                    .vk()
                     .destroy_framebuffer(framebuffer, None);
             }
         }

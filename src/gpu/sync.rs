@@ -13,7 +13,7 @@ impl Semaphore {
     pub fn new(device: Arc<Device>) -> Semaphore {
         let semaphore = unsafe {
             device
-                .device
+                .vk()
                 .create_semaphore(&vk::SemaphoreCreateInfo::default(), None)
         }
         .unwrap();
@@ -32,7 +32,7 @@ impl Semaphore {
 impl Drop for Semaphore {
     fn drop(&mut self) {
         unsafe {
-            self.device.device.destroy_semaphore(self.vk, None);
+            self.device.vk().destroy_semaphore(self.vk, None);
         }
     }
 }

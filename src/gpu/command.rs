@@ -14,7 +14,7 @@ impl CommandPool {
         let create_info = vk::CommandPoolCreateInfo::builder()
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
             .queue_family_index(device.queue_family_index);
-        let pool = unsafe { device.device.create_command_pool(&create_info, None) }.unwrap();
+        let pool = unsafe { device.vk().create_command_pool(&create_info, None) }.unwrap();
 
         CommandPool { pool, device }
     }
@@ -25,8 +25,7 @@ impl CommandPool {
             .level(vk::CommandBufferLevel::PRIMARY)
             .command_buffer_count(1);
 
-        let buffer =
-            unsafe { self.device.device.allocate_command_buffers(&create_info) }.unwrap()[0];
+        let buffer = unsafe { self.device.vk().allocate_command_buffers(&create_info) }.unwrap()[0];
 
         CommandBuffer {
             buffer,
@@ -38,7 +37,7 @@ impl CommandPool {
 impl Drop for CommandPool {
     fn drop(&mut self) {
         unsafe {
-            self.device.device.destroy_command_pool(self.pool, None);
+            self.device.vk().destroy_command_pool(self.pool, None);
         }
     }
 }

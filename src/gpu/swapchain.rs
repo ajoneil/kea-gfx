@@ -15,17 +15,7 @@ pub struct Swapchain {
 
 impl Swapchain {
     pub fn new(device: &Arc<Device>) -> Swapchain {
-        let surface_capabilities = unsafe {
-            device
-                .vulkan
-                .ext
-                .surface
-                .get_physical_device_surface_capabilities(
-                    device.physical_device,
-                    device.surface.surface,
-                )
-        }
-        .unwrap();
+        let surface_capabilities = device.surface_capabilities();
 
         let image_count = surface_capabilities.min_image_count + 1;
         let image_count = if surface_capabilities.max_image_count > 0 {
@@ -105,12 +95,7 @@ impl Swapchain {
                         base_array_layer: 0,
                         layer_count: 1,
                     });
-                unsafe {
-                    device
-                        .device
-                        .create_image_view(&imageview_create_info, None)
-                }
-                .unwrap()
+                unsafe { device.vk().create_image_view(&imageview_create_info, None) }.unwrap()
             })
             .collect()
     }
@@ -120,7 +105,7 @@ impl Drop for Swapchain {
     fn drop(&mut self) {
         unsafe {
             for &image_view in self.image_views.iter() {
-                self.device.device.destroy_image_view(image_view, None);
+                self.device.vk().destroy_image_view(image_view, None);
             }
 
             self.device

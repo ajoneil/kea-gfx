@@ -6,8 +6,8 @@ use log::info;
 use super::{Surface, Vulkan};
 
 pub struct Device {
-    pub physical_device: vk::PhysicalDevice,
-    pub device: ash::Device,
+    physical_device: vk::PhysicalDevice,
+    device: ash::Device,
     pub queue: vk::Queue,
     pub queue_family_index: u32,
     pub ext: Extensions,
@@ -126,6 +126,19 @@ impl Device {
         vec![ash::extensions::khr::Swapchain::name().as_ptr()]
     }
 
+    pub fn surface_capabilities(&self) -> vk::SurfaceCapabilitiesKHR {
+        unsafe {
+            self.vulkan
+                .ext
+                .surface
+                .get_physical_device_surface_capabilities(
+                    self.physical_device,
+                    self.surface.surface,
+                )
+        }
+        .unwrap()
+    }
+
     pub fn surface_formats(&self) -> Vec<vk::SurfaceFormatKHR> {
         unsafe {
             self.vulkan
@@ -147,6 +160,10 @@ impl Device {
                 )
         }
         .unwrap()
+    }
+
+    pub unsafe fn vk(&self) -> &ash::Device {
+        &self.device
     }
 }
 
