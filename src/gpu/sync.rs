@@ -36,3 +36,38 @@ impl Drop for Semaphore {
         }
     }
 }
+
+pub struct Fence {
+    vk: vk::Fence,
+    device: Arc<Device>,
+}
+
+impl Fence {
+    pub fn new(device: Arc<Device>, signaled: bool) -> Fence {
+        let fence = unsafe {
+            device.vk().create_fence(
+                &vk::FenceCreateInfo::builder().flags(if signaled {
+                    vk::FenceCreateFlags::SIGNALED
+                } else {
+                    vk::FenceCreateFlags::empty()
+                }),
+                None,
+            )
+        }
+        .unwrap();
+
+        Fence { vk: fence, device }
+    }
+
+    pub unsafe fn vk(&self) -> vk::Fence {
+        self.vk
+    }
+}
+
+impl Drop for Fence {
+    fn drop(&mut self) {
+        unsafe {
+            self.device.vk().destroy_fence(self.vk, None);
+        }
+    }
+}

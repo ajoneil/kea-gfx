@@ -4,7 +4,7 @@ use ash::vk;
 
 use super::{
     command::{CommandBuffer, CommandPool},
-    sync::Semaphore,
+    sync::{Fence, Semaphore},
     Device, RasterizationPipeline, Swapchain,
 };
 
@@ -19,7 +19,7 @@ pub struct Rasterizer {
     framebuffers: Vec<vk::Framebuffer>,
     command_buffer: CommandBuffer,
     semaphores: Semaphores,
-    in_flight_fence: vk::Fence,
+    in_flight_fence: Fence,
 }
 
 impl Rasterizer {
@@ -31,9 +31,13 @@ impl Rasterizer {
             &swapchain.image_views,
         );
 
-        let command_buffer = Arc::new(CommandPool::new(swapchain.device.clone())).allocate_buffer();
+        let semaphores = Semaphores {
+            image_available: Semaphore::new(swapchain.device.clone()),
+            render_finished: Semaphore::new(swapchain.device.clone()),
+        };
+        let in_flight_fence = Fence::new(swapchain.device.clone(), true);
 
-        let (semaphores, in_flight_fence) = Self::create_sync_objects(&swapchain.device);
+        let command_buffer = Arc::new(CommandPool::new(swapchain.device.clone())).allocate_buffer();
 
         Rasterizer {
             swapchain,
@@ -64,24 +68,6 @@ impl Rasterizer {
                 unsafe { device.vk().create_framebuffer(&framebuffer, None) }.unwrap()
             })
             .collect()
-    }
-
-    fn create_sync_objects(device: &Arc<Device>) -> (Semaphores, vk::Fence) {
-        let in_flight_fence = unsafe {
-            device.vk().create_fence(
-                &vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED),
-                None,
-            )
-        }
-        .unwrap();
-
-        (
-            Semaphores {
-                image_available: Semaphore::new(device.clone()),
-                render_finished: Semaphore::new(device.clone()),
-            },
-            in_flight_fence,
-        )
     }
 
     fn record_command_buffer(&self, image_index: u32) {
@@ -143,12 +129,12 @@ impl Rasterizer {
             self.swapchain
                 .device
                 .vk()
-                .wait_for_fences(&[self.in_flight_fence], true, u64::MAX)
+                .wait_for_fences(&[self.in_flight_fence.vk()], true, u64::MAX)
                 .unwrap();
             self.swapchain
                 .device
                 .vk()
-                .reset_fences(&[self.in_flight_fence])
+                .reset_fences(&[self.in_flight_fence.vk()])
                 .unwrap();
 
             let (image_index, _) = self
@@ -185,7 +171,11 @@ impl Rasterizer {
             self.swapchain
                 .device
                 .vk()
-                .queue_submit(self.swapchain.device.queue, &submits, self.in_flight_fence)
+                .queue_submit(
+                    self.swapchain.device.queue,
+                    &submits,
+                    self.in_flight_fence.vk(),
+                )
                 .unwrap();
 
             let present = vk::PresentInfoKHR::builder()
@@ -208,11 +198,6 @@ impl Drop for Rasterizer {
     fn drop(&mut self) {
         unsafe {
             self.swapchain.device.vk().device_wait_idle().unwrap();
-
-            self.swapchain
-                .device
-                .vk()
-                .destroy_fence(self.in_flight_fence, None);
 
             for &framebuffer in self.framebuffers.iter() {
                 self.swapchain
