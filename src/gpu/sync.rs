@@ -77,6 +77,11 @@ impl Fence {
             self.device.vk().reset_fences(&[self.vk]).unwrap();
         }
     }
+
+    pub fn wait_and_reset(&self) {
+        self.wait();
+        self.reset();
+    }
 }
 
 impl Drop for Fence {

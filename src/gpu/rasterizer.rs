@@ -84,8 +84,7 @@ impl Rasterizer {
     }
 
     pub fn draw(&self) {
-        self.in_flight_fence.wait();
-        self.in_flight_fence.reset();
+        self.in_flight_fence.wait_and_reset();
 
         let image_index = self
             .swapchain
