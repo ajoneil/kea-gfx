@@ -4,16 +4,21 @@ use ash::vk;
 
 use super::{
     command::{CommandBuffer, CommandPool},
+    sync::Semaphore,
     Device, RasterizationPipeline, Swapchain,
 };
+
+struct Semaphores {
+    image_available: Semaphore,
+    render_finished: Semaphore,
+}
 
 pub struct Rasterizer {
     swapchain: Swapchain,
     pipeline: RasterizationPipeline,
     framebuffers: Vec<vk::Framebuffer>,
     command_buffer: CommandBuffer,
-    image_available_semaphore: vk::Semaphore,
-    render_finished_semaphore: vk::Semaphore,
+    semaphores: Semaphores,
     in_flight_fence: vk::Fence,
 }
 
@@ -28,16 +33,14 @@ impl Rasterizer {
 
         let command_buffer = Arc::new(CommandPool::new(swapchain.device.clone())).allocate_buffer();
 
-        let (image_available_semaphore, render_finished_semaphore, in_flight_fence) =
-            Self::create_sync_objects(&swapchain.device);
+        let (semaphores, in_flight_fence) = Self::create_sync_objects(&swapchain.device);
 
         Rasterizer {
             swapchain,
             pipeline,
             framebuffers,
             command_buffer,
-            image_available_semaphore,
-            render_finished_semaphore,
+            semaphores,
             in_flight_fence,
         }
     }
@@ -63,19 +66,7 @@ impl Rasterizer {
             .collect()
     }
 
-    fn create_sync_objects(device: &Device) -> (vk::Semaphore, vk::Semaphore, vk::Fence) {
-        let image_available_semaphore = unsafe {
-            device
-                .device
-                .create_semaphore(&vk::SemaphoreCreateInfo::default(), None)
-        }
-        .unwrap();
-        let render_finished_semaphore = unsafe {
-            device
-                .device
-                .create_semaphore(&vk::SemaphoreCreateInfo::default(), None)
-        }
-        .unwrap();
+    fn create_sync_objects(device: &Arc<Device>) -> (Semaphores, vk::Fence) {
         let in_flight_fence = unsafe {
             device.device.create_fence(
                 &vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED),
@@ -85,8 +76,10 @@ impl Rasterizer {
         .unwrap();
 
         (
-            image_available_semaphore,
-            render_finished_semaphore,
+            Semaphores {
+                image_available: Semaphore::new(device.clone()),
+                render_finished: Semaphore::new(device.clone()),
+            },
             in_flight_fence,
         )
     }
@@ -166,7 +159,7 @@ impl Rasterizer {
                 .acquire_next_image(
                     self.swapchain.swapchain,
                     u64::MAX,
-                    self.image_available_semaphore,
+                    self.semaphores.image_available.vk(),
                     vk::Fence::null(),
                 )
                 .unwrap();
@@ -183,10 +176,10 @@ impl Rasterizer {
             self.record_command_buffer(image_index);
 
             let submits = [vk::SubmitInfo::builder()
-                .wait_semaphores(&[self.image_available_semaphore])
+                .wait_semaphores(&[self.semaphores.image_available.vk()])
                 .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
                 .command_buffers(&[self.command_buffer.buffer])
-                .signal_semaphores(&[self.render_finished_semaphore])
+                .signal_semaphores(&[self.semaphores.render_finished.vk()])
                 .build()];
 
             self.swapchain
@@ -196,7 +189,7 @@ impl Rasterizer {
                 .unwrap();
 
             let present = vk::PresentInfoKHR::builder()
-                .wait_semaphores(&[self.render_finished_semaphore])
+                .wait_semaphores(&[self.semaphores.render_finished.vk()])
                 .swapchains(&[self.swapchain.swapchain])
                 .image_indices(&[image_index])
                 .build();
@@ -216,14 +209,6 @@ impl Drop for Rasterizer {
         unsafe {
             self.swapchain.device.device.device_wait_idle().unwrap();
 
-            self.swapchain
-                .device
-                .device
-                .destroy_semaphore(self.image_available_semaphore, None);
-            self.swapchain
-                .device
-                .device
-                .destroy_semaphore(self.render_finished_semaphore, None);
             self.swapchain
                 .device
                 .device

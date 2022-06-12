@@ -5,6 +5,7 @@ mod rasterizer;
 mod shader_module;
 mod surface;
 mod swapchain;
+mod sync;
 mod vulkan;
 
 pub use device::Device;
