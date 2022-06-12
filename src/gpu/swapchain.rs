@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use ash::vk;
 
-use super::{Device, Surface};
+use super::Device;
 
 pub struct Swapchain {
     pub swapchain: vk::SwapchainKHR,
@@ -11,17 +11,19 @@ pub struct Swapchain {
     pub image_views: Vec<vk::ImageView>,
 
     device: Arc<Device>,
-    _surface: Arc<Surface>,
 }
 
 impl Swapchain {
-    pub fn new(device: &Arc<Device>, surface: &Arc<Surface>) -> Swapchain {
+    pub fn new(device: &Arc<Device>) -> Swapchain {
         let surface_capabilities = unsafe {
             device
                 .vulkan
                 .ext
                 .surface
-                .get_physical_device_surface_capabilities(device.physical_device, surface.surface)
+                .get_physical_device_surface_capabilities(
+                    device.physical_device,
+                    device.surface.surface,
+                )
         }
         .unwrap();
 
@@ -32,17 +34,17 @@ impl Swapchain {
             image_count
         };
 
-        let surface_format = device.surface_formats(surface)[0];
+        let surface_format = device.surface_formats()[0];
 
         let present_mode = device
-            .surface_present_modes(surface)
+            .surface_present_modes()
             .iter()
             .cloned()
             .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
             .unwrap_or(vk::PresentModeKHR::FIFO);
 
         let swapchain_create_info = vk::SwapchainCreateInfoKHR::builder()
-            .surface(surface.surface)
+            .surface(device.surface.surface)
             .min_image_count(image_count)
             .image_color_space(surface_format.color_space)
             .image_format(surface_format.format)
@@ -75,7 +77,6 @@ impl Swapchain {
             image_views,
 
             device: device.clone(),
-            _surface: surface.clone(),
         }
     }
 

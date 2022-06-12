@@ -12,6 +12,7 @@ pub struct Device {
     pub queue_family_index: u32,
     pub ext: Extensions,
     pub vulkan: Arc<Vulkan>,
+    pub surface: Surface,
 }
 
 pub struct Extensions {
@@ -19,8 +20,8 @@ pub struct Extensions {
 }
 
 impl Device {
-    pub fn new(vulkan: &Arc<Vulkan>, surface: &Surface) -> Device {
-        let (physical_device, queue_family_index) = Self::select_physical_device(vulkan, surface);
+    pub fn new(vulkan: &Arc<Vulkan>, surface: Surface) -> Device {
+        let (physical_device, queue_family_index) = Self::select_physical_device(vulkan, &surface);
 
         let (device, queue) =
             Self::create_logical_device_with_queue(vulkan, physical_device, queue_family_index);
@@ -32,6 +33,7 @@ impl Device {
         Device {
             physical_device,
             device,
+            surface,
             queue,
             queue_family_index,
             ext,
@@ -124,22 +126,25 @@ impl Device {
         vec![ash::extensions::khr::Swapchain::name().as_ptr()]
     }
 
-    pub fn surface_formats(&self, surface: &Surface) -> Vec<vk::SurfaceFormatKHR> {
+    pub fn surface_formats(&self) -> Vec<vk::SurfaceFormatKHR> {
         unsafe {
             self.vulkan
                 .ext
                 .surface
-                .get_physical_device_surface_formats(self.physical_device, surface.surface)
+                .get_physical_device_surface_formats(self.physical_device, self.surface.surface)
         }
         .unwrap()
     }
 
-    pub fn surface_present_modes(&self, surface: &Surface) -> Vec<vk::PresentModeKHR> {
+    pub fn surface_present_modes(&self) -> Vec<vk::PresentModeKHR> {
         unsafe {
             self.vulkan
                 .ext
                 .surface
-                .get_physical_device_surface_present_modes(self.physical_device, surface.surface)
+                .get_physical_device_surface_present_modes(
+                    self.physical_device,
+                    self.surface.surface,
+                )
         }
         .unwrap()
     }

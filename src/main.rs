@@ -12,7 +12,6 @@ mod window;
 struct KeaApp {
     _vulkan: Arc<Vulkan>,
     device: Arc<Device>,
-    _surface: Arc<Surface>,
     swapchain: Swapchain,
     pipeline: RasterizationPipeline,
     framebuffers: Vec<vk::Framebuffer>,
@@ -26,11 +25,8 @@ struct KeaApp {
 impl KeaApp {
     pub fn new(window: &Window) -> KeaApp {
         let vulkan = Arc::new(Vulkan::new(window.required_extensions()));
-        let surface = Arc::new(Surface::from_window(&vulkan, &window));
-        let device = Arc::new(Device::new(&vulkan, &surface));
-
-        let swapchain = Swapchain::new(&device, &surface);
-
+        let device = Arc::new(Device::new(&vulkan, Surface::from_window(&vulkan, &window)));
+        let swapchain = Swapchain::new(&device);
         let pipeline = RasterizationPipeline::new(&device, swapchain.format);
 
         let framebuffers =
@@ -44,7 +40,6 @@ impl KeaApp {
 
         KeaApp {
             _vulkan: vulkan,
-            _surface: surface,
             device,
             swapchain,
             pipeline,
