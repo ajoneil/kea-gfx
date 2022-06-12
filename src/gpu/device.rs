@@ -11,10 +11,7 @@ pub struct Device {
     pub queue: vk::Queue,
     pub queue_family_index: u32,
     pub ext: Extensions,
-
-    // Keeping this reference ensures the instance isn't destroyed
-    // before the device is
-    _vulkan: Arc<Vulkan>,
+    pub vulkan: Arc<Vulkan>,
 }
 
 pub struct Extensions {
@@ -39,7 +36,7 @@ impl Device {
             queue_family_index,
             ext,
 
-            _vulkan: vulkan.clone(),
+            vulkan: vulkan.clone(),
         }
     }
 

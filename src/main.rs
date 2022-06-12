@@ -1,12 +1,11 @@
 use std::{ffi::CStr, fs::File, sync::Arc};
 
 use ash::{
-    extensions::khr::Swapchain,
     util::read_spv,
     vk::{self, PipelineLayoutCreateInfo},
 };
 use env_logger::Env;
-use gpu::{Device, Surface, Vulkan};
+use gpu::{Device, Surface, Swapchain, Vulkan};
 use spirv_builder::{MetadataPrintout, SpirvBuilder};
 use window::Window;
 
@@ -15,9 +14,9 @@ mod window;
 
 struct KeaApp {
     _vulkan: Arc<Vulkan>,
+    device: Arc<Device>,
     _surface: Surface,
-    device: Device,
-    swapchain: vk::SwapchainKHR,
+    swapchain: Swapchain,
     _swapchain_images: Vec<vk::Image>,
     swapchain_image_views: Vec<vk::ImageView>,
     render_pass: vk::RenderPass,
@@ -35,21 +34,20 @@ impl KeaApp {
     pub fn new(window: &Window) -> KeaApp {
         let vulkan = Arc::new(Vulkan::new(window.required_extensions()));
         let surface = Surface::from_window(&vulkan, &window);
+        let device = Arc::new(Device::new(&vulkan, &surface));
 
-        let device = Device::new(&vulkan, &surface);
-
-        let (swapchain, format) = Self::create_swapchain(
-            surface.surface,
-            device.physical_device,
-            &device.ext.swapchain,
-            &vulkan.ext.surface,
-        );
-        let swapchain_images =
-            unsafe { device.ext.swapchain.get_swapchain_images(swapchain) }.unwrap();
+        let swapchain = Swapchain::new(&device, &surface);
+        let swapchain_images = unsafe {
+            device
+                .ext
+                .swapchain
+                .get_swapchain_images(swapchain.swapchain)
+        }
+        .unwrap();
         let swapchain_image_views =
-            Self::create_swapchain_image_views(&swapchain_images, format, &device);
+            Self::create_swapchain_image_views(&swapchain_images, swapchain.format, &device);
 
-        let render_pass = Self::create_renderpass(&device, format);
+        let render_pass = Self::create_renderpass(&device, swapchain.format);
         let (pipeline, pipeline_layout) = Self::create_pipeline(&device, render_pass);
 
         let framebuffers = Self::create_framebuffers(&device, render_pass, &swapchain_image_views);
@@ -77,57 +75,6 @@ impl KeaApp {
             render_finished_semaphore,
             in_flight_fence,
         }
-    }
-
-    fn create_swapchain(
-        surface: vk::SurfaceKHR,
-        physical_device: vk::PhysicalDevice,
-        swapchain_loader: &Swapchain,
-        surface_loader: &ash::extensions::khr::Surface,
-    ) -> (vk::SwapchainKHR, vk::Format) {
-        let surface_capabilities = unsafe {
-            surface_loader.get_physical_device_surface_capabilities(physical_device, surface)
-        }
-        .unwrap();
-
-        let image_count = surface_capabilities.min_image_count + 1;
-        let image_count = if surface_capabilities.max_image_count > 0 {
-            image_count.min(surface_capabilities.max_image_count)
-        } else {
-            image_count
-        };
-
-        let surface_format =
-            unsafe { surface_loader.get_physical_device_surface_formats(physical_device, surface) }
-                .unwrap()[0];
-
-        let present_mode = unsafe {
-            surface_loader.get_physical_device_surface_present_modes(physical_device, surface)
-        }
-        .unwrap()
-        .iter()
-        .cloned()
-        .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
-        .unwrap_or(vk::PresentModeKHR::FIFO);
-
-        let swapchain_create_info = vk::SwapchainCreateInfoKHR::builder()
-            .surface(surface)
-            .min_image_count(image_count)
-            .image_color_space(surface_format.color_space)
-            .image_format(surface_format.format)
-            .image_extent(vk::Extent2D {
-                width: 1920,
-                height: 1080,
-            })
-            .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
-            .pre_transform(surface_capabilities.current_transform)
-            .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
-            .image_array_layers(1)
-            .present_mode(present_mode);
-
-        let swapchain =
-            unsafe { swapchain_loader.create_swapchain(&swapchain_create_info, None) }.unwrap();
-        (swapchain, surface_format.format)
     }
 
     fn create_swapchain_image_views(
@@ -463,7 +410,7 @@ impl KeaApp {
                 .ext
                 .swapchain
                 .acquire_next_image(
-                    self.swapchain,
+                    self.swapchain.swapchain,
                     u64::MAX,
                     self.image_available_semaphore,
                     vk::Fence::null(),
@@ -491,7 +438,7 @@ impl KeaApp {
 
             let present = vk::PresentInfoKHR::builder()
                 .wait_semaphores(&[self.render_finished_semaphore])
-                .swapchains(&[self.swapchain])
+                .swapchains(&[self.swapchain.swapchain])
                 .image_indices(&[image_index])
                 .build();
 
@@ -536,11 +483,6 @@ impl Drop for KeaApp {
             for &image_view in self.swapchain_image_views.iter() {
                 self.device.device.destroy_image_view(image_view, None);
             }
-
-            self.device
-                .ext
-                .swapchain
-                .destroy_swapchain(self.swapchain, None);
         }
     }
 }
