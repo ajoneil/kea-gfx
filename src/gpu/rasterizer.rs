@@ -1,13 +1,17 @@
+use std::sync::Arc;
+
 use ash::vk;
 
-use super::{Device, RasterizationPipeline, Swapchain};
+use super::{
+    command::{CommandBuffer, CommandPool},
+    Device, RasterizationPipeline, Swapchain,
+};
 
 pub struct Rasterizer {
     swapchain: Swapchain,
     pipeline: RasterizationPipeline,
     framebuffers: Vec<vk::Framebuffer>,
-    command_pool: vk::CommandPool,
-    command_buffer: vk::CommandBuffer,
+    command_buffer: CommandBuffer,
     image_available_semaphore: vk::Semaphore,
     render_finished_semaphore: vk::Semaphore,
     in_flight_fence: vk::Fence,
@@ -22,9 +26,8 @@ impl Rasterizer {
             &swapchain.image_views,
         );
 
-        let command_pool =
-            Self::create_command_pool(&swapchain.device, swapchain.device.queue_family_index);
-        let command_buffer = Self::create_command_buffer(&swapchain.device, command_pool);
+        let command_pool = CommandPool::new(swapchain.device.clone());
+        let command_buffer = CommandBuffer::new(Arc::new(command_pool));
 
         let (image_available_semaphore, render_finished_semaphore, in_flight_fence) =
             Self::create_sync_objects(&swapchain.device);
@@ -33,7 +36,6 @@ impl Rasterizer {
             swapchain,
             pipeline,
             framebuffers,
-            command_pool,
             command_buffer,
             image_available_semaphore,
             render_finished_semaphore,
@@ -60,22 +62,6 @@ impl Rasterizer {
                 unsafe { device.device.create_framebuffer(&framebuffer, None) }.unwrap()
             })
             .collect()
-    }
-
-    fn create_command_pool(device: &Device, queue_family_index: u32) -> vk::CommandPool {
-        let command_pool = vk::CommandPoolCreateInfo::builder()
-            .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
-            .queue_family_index(queue_family_index);
-        unsafe { device.device.create_command_pool(&command_pool, None) }.unwrap()
-    }
-
-    fn create_command_buffer(device: &Device, command_pool: vk::CommandPool) -> vk::CommandBuffer {
-        let command_buffer = vk::CommandBufferAllocateInfo::builder()
-            .command_pool(command_pool)
-            .level(vk::CommandBufferLevel::PRIMARY)
-            .command_buffer_count(1);
-
-        unsafe { device.device.allocate_command_buffers(&command_buffer) }.unwrap()[0]
     }
 
     fn create_sync_objects(device: &Device) -> (vk::Semaphore, vk::Semaphore, vk::Fence) {
@@ -112,7 +98,7 @@ impl Rasterizer {
             self.swapchain
                 .device
                 .device
-                .begin_command_buffer(self.command_buffer, &begin_command_buffer)
+                .begin_command_buffer(self.command_buffer.buffer, &begin_command_buffer)
         }
         .unwrap();
 
@@ -134,28 +120,28 @@ impl Rasterizer {
 
         unsafe {
             self.swapchain.device.device.cmd_begin_render_pass(
-                self.command_buffer,
+                self.command_buffer.buffer,
                 &begin_render_pass,
                 vk::SubpassContents::INLINE,
             );
 
             self.swapchain.device.device.cmd_bind_pipeline(
-                self.command_buffer,
+                self.command_buffer.buffer,
                 vk::PipelineBindPoint::GRAPHICS,
                 self.pipeline.pipeline,
             );
             self.swapchain
                 .device
                 .device
-                .cmd_draw(self.command_buffer, 3, 1, 0, 0);
+                .cmd_draw(self.command_buffer.buffer, 3, 1, 0, 0);
             self.swapchain
                 .device
                 .device
-                .cmd_end_render_pass(self.command_buffer);
+                .cmd_end_render_pass(self.command_buffer.buffer);
             self.swapchain
                 .device
                 .device
-                .end_command_buffer(self.command_buffer)
+                .end_command_buffer(self.command_buffer.buffer)
         }
         .unwrap();
     }
@@ -189,7 +175,10 @@ impl Rasterizer {
             self.swapchain
                 .device
                 .device
-                .reset_command_buffer(self.command_buffer, vk::CommandBufferResetFlags::empty())
+                .reset_command_buffer(
+                    self.command_buffer.buffer,
+                    vk::CommandBufferResetFlags::empty(),
+                )
                 .unwrap();
 
             self.record_command_buffer(image_index);
@@ -197,7 +186,7 @@ impl Rasterizer {
             let submits = [vk::SubmitInfo::builder()
                 .wait_semaphores(&[self.image_available_semaphore])
                 .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
-                .command_buffers(&[self.command_buffer])
+                .command_buffers(&[self.command_buffer.buffer])
                 .signal_semaphores(&[self.render_finished_semaphore])
                 .build()];
 
@@ -240,11 +229,6 @@ impl Drop for Rasterizer {
                 .device
                 .device
                 .destroy_fence(self.in_flight_fence, None);
-
-            self.swapchain
-                .device
-                .device
-                .destroy_command_pool(self.command_pool, None);
 
             for &framebuffer in self.framebuffers.iter() {
                 self.swapchain
