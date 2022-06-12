@@ -1,8 +1,8 @@
-use std::{ffi::CStr, sync::Arc};
+use std::sync::Arc;
 
-use ash::vk::{self, PipelineLayoutCreateInfo};
+use ash::vk;
 use env_logger::Env;
-use gpu::{Device, ShaderModule, Surface, Swapchain, Vulkan};
+use gpu::{Device, RasterizationPipeline, Surface, Swapchain, Vulkan};
 
 use window::Window;
 
@@ -14,9 +14,7 @@ struct KeaApp {
     device: Arc<Device>,
     _surface: Arc<Surface>,
     swapchain: Swapchain,
-    render_pass: vk::RenderPass,
-    pipeline_layout: vk::PipelineLayout,
-    pipeline: vk::Pipeline,
+    pipeline: RasterizationPipeline,
     framebuffers: Vec<vk::Framebuffer>,
     command_pool: vk::CommandPool,
     command_buffer: vk::CommandBuffer,
@@ -33,10 +31,10 @@ impl KeaApp {
 
         let swapchain = Swapchain::new(&device, &surface);
 
-        let render_pass = Self::create_renderpass(&device, swapchain.format);
-        let (pipeline, pipeline_layout) = Self::create_pipeline(&device, render_pass);
+        let pipeline = RasterizationPipeline::new(&device, swapchain.format);
 
-        let framebuffers = Self::create_framebuffers(&device, render_pass, &swapchain.image_views);
+        let framebuffers =
+            Self::create_framebuffers(&device, pipeline.render_pass, &swapchain.image_views);
 
         let command_pool = Self::create_command_pool(&device, device.queue_family_index);
         let command_buffer = Self::create_command_buffer(&device, command_pool);
@@ -49,8 +47,6 @@ impl KeaApp {
             _surface: surface,
             device,
             swapchain,
-            render_pass,
-            pipeline_layout,
             pipeline,
             framebuffers,
             command_pool,
@@ -59,151 +55,6 @@ impl KeaApp {
             render_finished_semaphore,
             in_flight_fence,
         }
-    }
-
-    fn create_renderpass(device: &Device, format: vk::Format) -> vk::RenderPass {
-        let attachments = [vk::AttachmentDescription::builder()
-            .format(format)
-            .samples(vk::SampleCountFlags::TYPE_1)
-            .load_op(vk::AttachmentLoadOp::CLEAR)
-            .store_op(vk::AttachmentStoreOp::STORE)
-            .stencil_load_op(vk::AttachmentLoadOp::DONT_CARE)
-            .stencil_store_op(vk::AttachmentStoreOp::DONT_CARE)
-            .initial_layout(vk::ImageLayout::UNDEFINED)
-            .final_layout(vk::ImageLayout::PRESENT_SRC_KHR)
-            .build()];
-
-        let color_attachments = [vk::AttachmentReference {
-            attachment: 0,
-            layout: vk::ImageLayout::ATTACHMENT_OPTIMAL,
-        }];
-
-        let subpasses = [vk::SubpassDescription::builder()
-            .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
-            .color_attachments(&color_attachments)
-            .build()];
-
-        let dependencies = [vk::SubpassDependency::builder()
-            .src_subpass(vk::SUBPASS_EXTERNAL)
-            .dst_subpass(0)
-            .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-            .src_access_mask(vk::AccessFlags::empty())
-            .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-            .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
-            .build()];
-
-        let create_info = vk::RenderPassCreateInfo::builder()
-            .attachments(&attachments)
-            .subpasses(&subpasses)
-            .dependencies(&dependencies);
-
-        unsafe { device.device.create_render_pass(&create_info, None) }.unwrap()
-    }
-
-    fn create_pipeline(
-        device: &Arc<Device>,
-        render_pass: vk::RenderPass,
-    ) -> (vk::Pipeline, vk::PipelineLayout) {
-        let shader_module = ShaderModule::new(device);
-        let shader_stages = [
-            vk::PipelineShaderStageCreateInfo::builder()
-                .stage(vk::ShaderStageFlags::VERTEX)
-                .module(shader_module.module)
-                .name(unsafe { CStr::from_bytes_with_nul_unchecked(b"main_vertex\0") })
-                .build(),
-            vk::PipelineShaderStageCreateInfo::builder()
-                .stage(vk::ShaderStageFlags::FRAGMENT)
-                .module(shader_module.module)
-                .name(unsafe { CStr::from_bytes_with_nul_unchecked(b"main_fragment\0") })
-                .build(),
-        ];
-
-        let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder();
-        let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::builder()
-            .topology(vk::PrimitiveTopology::TRIANGLE_LIST);
-
-        let viewports = [vk::Viewport {
-            x: 0.0,
-            y: 0.0,
-            width: 1920.0,
-            height: 1080.0,
-            min_depth: 0.0,
-            max_depth: 1.0,
-        }];
-        let scissors = [vk::Rect2D {
-            offset: vk::Offset2D { x: 0, y: 0 },
-            extent: vk::Extent2D {
-                width: 1920,
-                height: 1080,
-            },
-        }];
-
-        let viewport_state = vk::PipelineViewportStateCreateInfo::builder()
-            .viewports(&viewports)
-            .scissors(&scissors);
-
-        let rasterization_state = vk::PipelineRasterizationStateCreateInfo::builder()
-            .depth_clamp_enable(false)
-            .rasterizer_discard_enable(false)
-            .polygon_mode(vk::PolygonMode::FILL)
-            .line_width(1.0)
-            .cull_mode(vk::CullModeFlags::BACK)
-            .front_face(vk::FrontFace::CLOCKWISE)
-            .depth_bias_enable(false);
-
-        let multisample_state = vk::PipelineMultisampleStateCreateInfo::builder()
-            .sample_shading_enable(false)
-            .rasterization_samples(vk::SampleCountFlags::TYPE_1)
-            .min_sample_shading(1.0)
-            .alpha_to_coverage_enable(false)
-            .alpha_to_one_enable(false);
-
-        let color_blend_attachments = [vk::PipelineColorBlendAttachmentState::builder()
-            .color_write_mask(vk::ColorComponentFlags::RGBA)
-            .blend_enable(false)
-            .src_color_blend_factor(vk::BlendFactor::ONE)
-            .dst_color_blend_factor(vk::BlendFactor::ZERO)
-            .color_blend_op(vk::BlendOp::ADD)
-            .src_alpha_blend_factor(vk::BlendFactor::ONE)
-            .dst_alpha_blend_factor(vk::BlendFactor::ZERO)
-            .alpha_blend_op(vk::BlendOp::ADD)
-            .build()];
-
-        let color_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
-            .logic_op_enable(false)
-            .logic_op(vk::LogicOp::COPY)
-            .attachments(&color_blend_attachments)
-            .blend_constants([0.0, 0.0, 0.0, 0.0])
-            .build();
-
-        let pipeline_layout = unsafe {
-            device
-                .device
-                .create_pipeline_layout(&PipelineLayoutCreateInfo::builder(), None)
-        }
-        .unwrap();
-
-        let pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
-            .stages(&shader_stages)
-            .vertex_input_state(&vertex_input_state)
-            .input_assembly_state(&input_assembly_state)
-            .viewport_state(&viewport_state)
-            .rasterization_state(&rasterization_state)
-            .multisample_state(&multisample_state)
-            .color_blend_state(&color_blend_state)
-            .render_pass(render_pass)
-            .layout(pipeline_layout);
-
-        let pipelines = unsafe {
-            device.device.create_graphics_pipelines(
-                vk::PipelineCache::null(),
-                &[pipeline_info.build()],
-                None,
-            )
-        }
-        .unwrap();
-
-        (pipelines[0], pipeline_layout)
     }
 
     fn create_framebuffers(
@@ -253,7 +104,7 @@ impl KeaApp {
         .unwrap();
 
         let begin_render_pass = vk::RenderPassBeginInfo::builder()
-            .render_pass(self.render_pass)
+            .render_pass(self.pipeline.render_pass)
             .framebuffer(self.framebuffers[image_index as usize])
             .render_area(vk::Rect2D {
                 offset: vk::Offset2D { x: 0, y: 0 },
@@ -278,7 +129,7 @@ impl KeaApp {
             self.device.device.cmd_bind_pipeline(
                 self.command_buffer,
                 vk::PipelineBindPoint::GRAPHICS,
-                self.pipeline,
+                self.pipeline.pipeline,
             );
             self.device.device.cmd_draw(self.command_buffer, 3, 1, 0, 0);
             self.device.device.cmd_end_render_pass(self.command_buffer);
@@ -392,14 +243,6 @@ impl Drop for KeaApp {
             for &framebuffer in self.framebuffers.iter() {
                 self.device.device.destroy_framebuffer(framebuffer, None);
             }
-
-            self.device.device.destroy_pipeline(self.pipeline, None);
-            self.device
-                .device
-                .destroy_render_pass(self.render_pass, None);
-            self.device
-                .device
-                .destroy_pipeline_layout(self.pipeline_layout, None);
         }
     }
 }
