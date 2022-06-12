@@ -10,7 +10,7 @@ pub struct Swapchain {
     pub images: Vec<vk::Image>,
     pub image_views: Vec<vk::ImageView>,
 
-    device: Arc<Device>,
+    pub device: Arc<Device>,
 }
 
 impl Swapchain {
