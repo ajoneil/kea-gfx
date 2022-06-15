@@ -1,6 +1,10 @@
-use std::{ffi::CStr, sync::Arc};
+use std::{
+    ffi::CStr,
+    sync::{Arc, Mutex},
+};
 
 use ash::vk;
+use gpu_allocator::vulkan::{Allocator, AllocatorCreateDesc};
 use log::info;
 
 use super::{Surface, Vulkan};
@@ -13,10 +17,12 @@ pub struct Device {
     pub ext: Extensions,
     pub vulkan: Arc<Vulkan>,
     pub surface: Surface,
+    pub allocator: Mutex<Allocator>,
 }
 
 pub struct Extensions {
     pub swapchain: ash::extensions::khr::Swapchain,
+    pub acceleration_structure: ash::extensions::khr::AccelerationStructure,
 }
 
 impl Device {
@@ -28,7 +34,20 @@ impl Device {
 
         let ext = Extensions {
             swapchain: ash::extensions::khr::Swapchain::new(&vulkan.instance, &device),
+            acceleration_structure: ash::extensions::khr::AccelerationStructure::new(
+                &vulkan.instance,
+                &device,
+            ),
         };
+
+        let allocator = Allocator::new(&AllocatorCreateDesc {
+            instance: vulkan.instance.clone(),
+            device: device.clone(),
+            physical_device: physical_device,
+            debug_settings: Default::default(),
+            buffer_device_address: true,
+        })
+        .unwrap();
 
         Device {
             physical_device,
@@ -39,6 +58,7 @@ impl Device {
             ext,
 
             vulkan: vulkan.clone(),
+            allocator: Mutex::new(allocator),
         }
     }
 
@@ -123,7 +143,10 @@ impl Device {
     }
 
     fn device_extension_names() -> Vec<*const i8> {
-        vec![ash::extensions::khr::Swapchain::name().as_ptr()]
+        vec![
+            ash::extensions::khr::Swapchain::name().as_ptr(),
+            ash::extensions::khr::AccelerationStructure::name().as_ptr(),
+        ]
     }
 
     pub fn surface_capabilities(&self) -> vk::SurfaceCapabilitiesKHR {

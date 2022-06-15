@@ -9,6 +9,7 @@ ash-window = "0.10.0"
 winit = "0.26.1"
 log = "0.4.17"
 env_logger = "0.9.0"
+gpu-allocator = "0.18.0"
 spirv-builder = { git = "https://github.com/EmbarkStudios/rust-gpu" }
 
 # This compiles the shaders for the CPU, not actually needed but
