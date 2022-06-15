@@ -4,8 +4,9 @@ use ash::vk;
 
 use super::{
     command::{CommandBuffer, CommandPool},
+    rasterization_pipeline::RasterizationPipeline,
     sync::{Fence, Semaphore},
-    Device, RasterizationPipeline, Swapchain,
+    Device, Swapchain,
 };
 
 struct Semaphores {

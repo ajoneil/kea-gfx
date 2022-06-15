@@ -2,7 +2,7 @@ use std::{ffi::CStr, sync::Arc};
 
 use ash::vk;
 
-use super::{Device, ShaderModule};
+use super::{shaders::ShaderModule, Device};
 
 pub struct RasterizationPipeline {
     pub pipeline: vk::Pipeline,
