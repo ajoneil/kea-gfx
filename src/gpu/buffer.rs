@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use ash::vk;
-use gpu_allocator::{vulkan::AllocationCreateDesc, MemoryLocation};
+use gpu_allocator::{
+    vulkan::{Allocation, AllocationCreateDesc},
+    MemoryLocation,
+};
 
 use super::Device;
 
@@ -12,6 +15,7 @@ pub struct Buffer {
 
 pub struct AllocatedBuffer {
     buffer: Buffer,
+    allocation: Allocation,
 }
 
 impl Buffer {
@@ -51,7 +55,10 @@ impl Buffer {
                 .unwrap()
         }
 
-        AllocatedBuffer { buffer: self }
+        AllocatedBuffer {
+            buffer: self,
+            allocation,
+        }
     }
 }
 
@@ -59,6 +66,29 @@ impl Drop for Buffer {
     fn drop(&mut self) {
         unsafe {
             self.device.vk().destroy_buffer(self.vk, None);
+        }
+    }
+}
+
+impl AllocatedBuffer {
+    pub fn device_address(&self) -> vk::DeviceAddress {
+        unsafe {
+            self.buffer.device.vk().get_buffer_device_address(
+                &vk::BufferDeviceAddressInfo::builder().buffer(self.buffer.vk),
+            )
+        }
+    }
+
+    pub fn size(&self) -> usize {
+        self.allocation.size() as usize
+    }
+
+    pub fn upload_data(&self, data: &[u8]) {
+        assert!(data.len() <= self.size());
+
+        unsafe {
+            let pointer = self.allocation.mapped_ptr().unwrap().as_ptr() as *mut u8;
+            pointer.copy_from_nonoverlapping(data.as_ptr(), data.len());
         }
     }
 }
