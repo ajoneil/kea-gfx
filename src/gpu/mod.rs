@@ -1,3 +1,4 @@
+mod buffer;
 mod command;
 mod device;
 mod rasterization_pipeline;
