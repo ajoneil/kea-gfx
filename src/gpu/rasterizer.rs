@@ -1,8 +1,11 @@
-use std::sync::Arc;
+use std::{mem, sync::Arc};
 
 use ash::vk;
+use glam::{vec2, vec3};
+use gpu_allocator::MemoryLocation;
 
 use super::{
+    buffer::{AllocatedBuffer, Buffer},
     command::{CommandBuffer, CommandPool},
     rasterization_pipeline::RasterizationPipeline,
     sync::{Fence, Semaphore},
@@ -21,6 +24,9 @@ pub struct Rasterizer {
     command_buffer: CommandBuffer,
     semaphores: Semaphores,
     in_flight_fence: Fence,
+    vertex_buffer: AllocatedBuffer,
+
+    vertices: Vec<shaders::Vertex>,
 }
 
 impl Rasterizer {
@@ -39,6 +45,21 @@ impl Rasterizer {
         let in_flight_fence = Fence::new(swapchain.device.clone(), true);
 
         let command_buffer = Arc::new(CommandPool::new(swapchain.device.clone())).allocate_buffer();
+        let vertices = vec![
+            shaders::Vertex {
+                position: vec2(0.0, -0.5),
+                color: vec3(1.0, 0.0, 0.0),
+            },
+            shaders::Vertex {
+                position: vec2(0.5, 0.5),
+                color: vec3(0.0, 1.0, 0.0),
+            },
+            shaders::Vertex {
+                position: vec2(-0.5, 0.5),
+                color: vec3(0.0, 0.0, 1.0),
+            },
+        ];
+        let vertex_buffer = Self::create_vertex_buffer(&swapchain.device, &vertices);
 
         Rasterizer {
             swapchain,
@@ -47,6 +68,9 @@ impl Rasterizer {
             command_buffer,
             semaphores,
             in_flight_fence,
+
+            vertices,
+            vertex_buffer,
         }
     }
 
@@ -78,7 +102,8 @@ impl Rasterizer {
                 self.framebuffers[image_index as usize],
                 || {
                     cmd.bind_pipeline(vk::PipelineBindPoint::GRAPHICS, self.pipeline.pipeline);
-                    cmd.draw(3, 1, 0, 0);
+                    cmd.bind_vertex_buffers(&[&self.vertex_buffer], 0);
+                    cmd.draw(self.vertices.len() as u32, 1, 0, 0);
                 },
             )
         });
@@ -124,6 +149,19 @@ impl Rasterizer {
                 .queue_present(self.swapchain.device.queue, &present)
                 .unwrap();
         }
+    }
+
+    fn create_vertex_buffer(device: &Arc<Device>, vertices: &[shaders::Vertex]) -> AllocatedBuffer {
+        let buffer = Buffer::new(
+            device,
+            (mem::size_of::<shaders::Vertex>() * vertices.len()) as u64,
+            vk::BufferUsageFlags::VERTEX_BUFFER,
+        );
+
+        let buffer = buffer.allocate("vertices", MemoryLocation::CpuToGpu, true);
+        buffer.fill(vertices);
+
+        buffer
     }
 }
 

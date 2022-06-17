@@ -1,5 +1,6 @@
 use std::{
     ffi::CStr,
+    mem::ManuallyDrop,
     sync::{Arc, Mutex},
 };
 
@@ -17,7 +18,7 @@ pub struct Device {
     pub ext: Extensions,
     pub vulkan: Arc<Vulkan>,
     pub surface: Surface,
-    pub allocator: Mutex<Allocator>,
+    pub allocator: ManuallyDrop<Mutex<Allocator>>,
 }
 
 pub struct Extensions {
@@ -58,7 +59,7 @@ impl Device {
             ext,
 
             vulkan: vulkan.clone(),
-            allocator: Mutex::new(allocator),
+            allocator: ManuallyDrop::new(Mutex::new(allocator)),
         }
     }
 
@@ -121,15 +122,16 @@ impl Device {
             .queue_priorities(&[1.0])
             .build()];
         let extension_names = Self::device_extension_names();
-        let mut vulkan_memory_model_features =
-            vk::PhysicalDeviceVulkanMemoryModelFeatures::builder()
-                .vulkan_memory_model(true)
-                .build();
+
+        let mut features_12 = vk::PhysicalDeviceVulkan12Features::builder()
+            .buffer_device_address(true)
+            .vulkan_memory_model(true)
+            .build();
 
         let create_info = vk::DeviceCreateInfo::builder()
             .queue_create_infos(&queue_create_infos)
             .enabled_extension_names(&extension_names)
-            .push_next(&mut vulkan_memory_model_features);
+            .push_next(&mut features_12);
 
         let device = unsafe {
             vulkan
@@ -193,6 +195,9 @@ impl Device {
 impl Drop for Device {
     fn drop(&mut self) {
         unsafe {
+            // We need to use manually drop here to ensure the allocator
+            // cleans up any remaining memory before the device is destroyed
+            ManuallyDrop::drop(&mut self.allocator);
             self.device.destroy_device(None);
         }
     }

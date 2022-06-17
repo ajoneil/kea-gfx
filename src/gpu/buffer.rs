@@ -1,4 +1,8 @@
-use std::sync::Arc;
+use std::{
+    mem::{self, ManuallyDrop},
+    slice,
+    sync::Arc,
+};
 
 use ash::vk;
 use gpu_allocator::{
@@ -15,7 +19,7 @@ pub struct Buffer {
 
 pub struct AllocatedBuffer {
     buffer: Buffer,
-    allocation: Allocation,
+    allocation: ManuallyDrop<Allocation>,
 }
 
 impl Buffer {
@@ -57,8 +61,12 @@ impl Buffer {
 
         AllocatedBuffer {
             buffer: self,
-            allocation,
+            allocation: ManuallyDrop::new(allocation),
         }
+    }
+
+    pub unsafe fn vk(&self) -> vk::Buffer {
+        self.vk
     }
 }
 
@@ -83,7 +91,10 @@ impl AllocatedBuffer {
         self.allocation.size() as usize
     }
 
-    pub fn upload_data(&self, data: &[u8]) {
+    pub fn fill<T>(&self, data: &[T]) {
+        let data = unsafe {
+            slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * mem::size_of::<T>())
+        };
         assert!(data.len() <= self.size());
 
         unsafe {
@@ -91,12 +102,22 @@ impl AllocatedBuffer {
             pointer.copy_from_nonoverlapping(data.as_ptr(), data.len());
         }
     }
+
+    pub fn buffer(&self) -> &Buffer {
+        &self.buffer
+    }
 }
 
 impl Drop for AllocatedBuffer {
     fn drop(&mut self) {
         unsafe {
-            self.buffer.device.vk().destroy_buffer(self.buffer.vk, None);
+            self.buffer
+                .device
+                .allocator
+                .lock()
+                .unwrap()
+                .free(ManuallyDrop::take(&mut self.allocation))
+                .unwrap();
         }
     }
 }

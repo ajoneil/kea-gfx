@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use ash::vk;
 
-use super::Device;
+use super::{buffer::AllocatedBuffer, Device};
 
 pub struct CommandPool {
     pool: vk::CommandPool,
@@ -142,6 +142,19 @@ impl CommandBufferRecorder<'_> {
                 .device
                 .vk()
                 .cmd_bind_pipeline(self.buffer.buffer, bind_point, pipeline)
+        }
+    }
+
+    pub fn bind_vertex_buffers(&self, buffers: &[&AllocatedBuffer], first_binding: u32) {
+        let buffers: Vec<vk::Buffer> = buffers.iter().map(|b| unsafe { b.buffer().vk() }).collect();
+        let offsets: Vec<vk::DeviceSize> = buffers.iter().map(|_| 0).collect();
+        unsafe {
+            self.buffer.pool.device.vk().cmd_bind_vertex_buffers(
+                self.buffer.buffer,
+                first_binding,
+                &buffers,
+                &offsets,
+            );
         }
     }
 

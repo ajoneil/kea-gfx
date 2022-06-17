@@ -1,6 +1,7 @@
-use std::{ffi::CStr, sync::Arc};
+use std::{ffi::CStr, mem, sync::Arc};
 
 use ash::vk;
+use memoffset::offset_of;
 
 use super::{shaders::ShaderModule, Device};
 
@@ -28,7 +29,31 @@ impl RasterizationPipeline {
                 .build(),
         ];
 
-        let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder();
+        let bindings = [vk::VertexInputBindingDescription::builder()
+            .binding(0)
+            .stride(mem::size_of::<shaders::Vertex>() as u32)
+            .input_rate(vk::VertexInputRate::VERTEX)
+            .build()];
+
+        let attributes = [
+            vk::VertexInputAttributeDescription::builder()
+                .binding(0)
+                .location(0)
+                .format(vk::Format::R32G32_SFLOAT)
+                .offset(offset_of!(shaders::Vertex, position) as u32)
+                .build(),
+            vk::VertexInputAttributeDescription::builder()
+                .binding(0)
+                .location(1)
+                .format(vk::Format::R32G32B32_SFLOAT)
+                .offset(offset_of!(shaders::Vertex, color) as u32)
+                .build(),
+        ];
+
+        let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
+            .vertex_binding_descriptions(&bindings)
+            .vertex_attribute_descriptions(&attributes)
+            .build();
         let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::builder()
             .topology(vk::PrimitiveTopology::TRIANGLE_LIST);
 
