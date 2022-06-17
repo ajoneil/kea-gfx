@@ -128,10 +128,13 @@ impl Device {
             .vulkan_memory_model(true)
             .build();
 
+        let mut features_13 = vk::PhysicalDeviceVulkan13Features::builder().dynamic_rendering(true);
+
         let create_info = vk::DeviceCreateInfo::builder()
             .queue_create_infos(&queue_create_infos)
             .enabled_extension_names(&extension_names)
-            .push_next(&mut features_12);
+            .push_next(&mut features_12)
+            .push_next(&mut features_13);
 
         let device = unsafe {
             vulkan
@@ -148,6 +151,7 @@ impl Device {
         vec![
             ash::extensions::khr::Swapchain::name().as_ptr(),
             ash::extensions::khr::AccelerationStructure::name().as_ptr(),
+            ash::extensions::khr::DeferredHostOperations::name().as_ptr(),
         ]
     }
 

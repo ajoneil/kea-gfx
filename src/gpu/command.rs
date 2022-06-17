@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use ash::vk;
 
-use super::{buffer::AllocatedBuffer, Device};
+use super::{buffer::AllocatedBuffer, swapchain::ImageView, Device};
 
 pub struct CommandPool {
     pool: vk::CommandPool,
@@ -88,21 +88,30 @@ pub struct CommandBufferRecorder<'a> {
 }
 
 impl CommandBufferRecorder<'_> {
-    pub fn render_pass<F>(&self, render_pass: vk::RenderPass, framebuffer: vk::Framebuffer, func: F)
+    pub fn render<F>(&self, image_view: &ImageView, func: F)
     where
         F: FnOnce(),
     {
-        self.begin_render_pass(render_pass, framebuffer);
+        self.begin_rendering(image_view);
 
         func();
 
-        self.end_render_pass();
+        self.end_rendering();
     }
 
-    fn begin_render_pass(&self, render_pass: vk::RenderPass, framebuffer: vk::Framebuffer) {
-        let begin_render_pass = vk::RenderPassBeginInfo::builder()
-            .render_pass(render_pass)
-            .framebuffer(framebuffer)
+    fn begin_rendering(&self, image_view: &ImageView) {
+        let color_attachments = [vk::RenderingAttachmentInfo::builder()
+            .image_view(unsafe { image_view.vk() })
+            .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+            .load_op(vk::AttachmentLoadOp::CLEAR)
+            .clear_value(vk::ClearValue {
+                color: vk::ClearColorValue {
+                    float32: [0.0, 0.0, 0.0, 1.0],
+                },
+            })
+            .store_op(vk::AttachmentStoreOp::STORE)
+            .build()];
+        let rendering_info = vk::RenderingInfo::builder()
             .render_area(vk::Rect2D {
                 offset: vk::Offset2D { x: 0, y: 0 },
                 extent: vk::Extent2D {
@@ -110,28 +119,25 @@ impl CommandBufferRecorder<'_> {
                     height: 1080,
                 },
             })
-            .clear_values(&[vk::ClearValue {
-                color: vk::ClearColorValue {
-                    float32: [0.0, 0.0, 0.0, 1.0],
-                },
-            }]);
+            .layer_count(1)
+            .color_attachments(&color_attachments);
 
-        unsafe {
-            self.buffer.pool.device.vk().cmd_begin_render_pass(
-                self.buffer.buffer,
-                &begin_render_pass,
-                vk::SubpassContents::INLINE,
-            )
-        }
-    }
-
-    fn end_render_pass(&self) {
         unsafe {
             self.buffer
                 .pool
                 .device
                 .vk()
-                .cmd_end_render_pass(self.buffer.buffer)
+                .cmd_begin_rendering(self.buffer.buffer, &rendering_info);
+        }
+    }
+
+    fn end_rendering(&self) {
+        unsafe {
+            self.buffer
+                .pool
+                .device
+                .vk()
+                .cmd_end_rendering(self.buffer.buffer)
         }
     }
 
@@ -172,6 +178,28 @@ impl CommandBufferRecorder<'_> {
                 instance_count,
                 first_vertex,
                 first_instance,
+            );
+        }
+    }
+
+    pub fn pipeline_barrier(
+        &self,
+        src_stage_mask: vk::PipelineStageFlags,
+        dst_stage_mask: vk::PipelineStageFlags,
+        dependency_flags: vk::DependencyFlags,
+        memory_barriers: &[vk::MemoryBarrier],
+        buffer_memory_barriers: &[vk::BufferMemoryBarrier],
+        image_memory_barriers: &[vk::ImageMemoryBarrier],
+    ) {
+        unsafe {
+            self.buffer.pool.device.vk().cmd_pipeline_barrier(
+                self.buffer.buffer,
+                src_stage_mask,
+                dst_stage_mask,
+                dependency_flags,
+                memory_barriers,
+                buffer_memory_barriers,
+                image_memory_barriers,
             );
         }
     }

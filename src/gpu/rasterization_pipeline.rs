@@ -8,7 +8,6 @@ use super::{shaders::ShaderModule, Device};
 pub struct RasterizationPipeline {
     pub pipeline: vk::Pipeline,
     layout: vk::PipelineLayout,
-    pub render_pass: vk::RenderPass,
 
     device: Arc<Device>,
 }
@@ -118,7 +117,9 @@ impl RasterizationPipeline {
         }
         .unwrap();
 
-        let render_pass = Self::create_render_pass(device, format);
+        let formats = [format];
+        let mut rendering_info =
+            vk::PipelineRenderingCreateInfo::builder().color_attachment_formats(&formats);
 
         let pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
             .stages(&shader_stages)
@@ -128,7 +129,7 @@ impl RasterizationPipeline {
             .rasterization_state(&rasterization_state)
             .multisample_state(&multisample_state)
             .color_blend_state(&color_blend_state)
-            .render_pass(render_pass)
+            .push_next(&mut rendering_info)
             .layout(layout);
 
         let pipelines = unsafe {
@@ -143,48 +144,8 @@ impl RasterizationPipeline {
         RasterizationPipeline {
             pipeline: pipelines[0],
             layout,
-            render_pass,
             device: device.clone(),
         }
-    }
-
-    fn create_render_pass(device: &Device, format: vk::Format) -> vk::RenderPass {
-        let attachments = [vk::AttachmentDescription::builder()
-            .format(format)
-            .samples(vk::SampleCountFlags::TYPE_1)
-            .load_op(vk::AttachmentLoadOp::CLEAR)
-            .store_op(vk::AttachmentStoreOp::STORE)
-            .stencil_load_op(vk::AttachmentLoadOp::DONT_CARE)
-            .stencil_store_op(vk::AttachmentStoreOp::DONT_CARE)
-            .initial_layout(vk::ImageLayout::UNDEFINED)
-            .final_layout(vk::ImageLayout::PRESENT_SRC_KHR)
-            .build()];
-
-        let color_attachments = [vk::AttachmentReference {
-            attachment: 0,
-            layout: vk::ImageLayout::ATTACHMENT_OPTIMAL,
-        }];
-
-        let subpasses = [vk::SubpassDescription::builder()
-            .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
-            .color_attachments(&color_attachments)
-            .build()];
-
-        let dependencies = [vk::SubpassDependency::builder()
-            .src_subpass(vk::SUBPASS_EXTERNAL)
-            .dst_subpass(0)
-            .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-            .src_access_mask(vk::AccessFlags::empty())
-            .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-            .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
-            .build()];
-
-        let create_info = vk::RenderPassCreateInfo::builder()
-            .attachments(&attachments)
-            .subpasses(&subpasses)
-            .dependencies(&dependencies);
-
-        unsafe { device.vk().create_render_pass(&create_info, None) }.unwrap()
     }
 }
 
@@ -192,7 +153,6 @@ impl Drop for RasterizationPipeline {
     fn drop(&mut self) {
         unsafe {
             self.device.vk().destroy_pipeline(self.pipeline, None);
-            self.device.vk().destroy_render_pass(self.render_pass, None);
             self.device.vk().destroy_pipeline_layout(self.layout, None);
         }
     }

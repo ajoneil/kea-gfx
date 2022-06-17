@@ -6,8 +6,9 @@ use gpu_allocator::MemoryLocation;
 
 use super::{
     buffer::{AllocatedBuffer, Buffer},
-    command::{CommandBuffer, CommandPool},
+    command::{CommandBuffer, CommandBufferRecorder, CommandPool},
     rasterization_pipeline::RasterizationPipeline,
+    swapchain::SwapchainImageView,
     sync::{Fence, Semaphore},
     Device, Swapchain,
 };
@@ -20,7 +21,6 @@ struct Semaphores {
 pub struct Rasterizer {
     swapchain: Swapchain,
     pipeline: RasterizationPipeline,
-    framebuffers: Vec<vk::Framebuffer>,
     command_buffer: CommandBuffer,
     semaphores: Semaphores,
     in_flight_fence: Fence,
@@ -32,12 +32,6 @@ pub struct Rasterizer {
 impl Rasterizer {
     pub fn new(swapchain: Swapchain) -> Rasterizer {
         let pipeline = RasterizationPipeline::new(&swapchain.device, swapchain.format);
-        let framebuffers = Self::create_framebuffers(
-            &swapchain.device,
-            pipeline.render_pass,
-            &swapchain.image_views,
-        );
-
         let semaphores = Semaphores {
             image_available: Semaphore::new(swapchain.device.clone()),
             render_finished: Semaphore::new(swapchain.device.clone()),
@@ -64,7 +58,6 @@ impl Rasterizer {
         Rasterizer {
             swapchain,
             pipeline,
-            framebuffers,
             command_buffer,
             semaphores,
             in_flight_fence,
@@ -74,49 +67,26 @@ impl Rasterizer {
         }
     }
 
-    fn create_framebuffers(
-        device: &Device,
-        render_pass: vk::RenderPass,
-        image_views: &[vk::ImageView],
-    ) -> Vec<vk::Framebuffer> {
-        image_views
-            .iter()
-            .map(|image_view| {
-                let attachments = [*image_view];
-                let framebuffer = vk::FramebufferCreateInfo::builder()
-                    .render_pass(render_pass)
-                    .attachments(&attachments)
-                    .width(1920)
-                    .height(1080)
-                    .layers(1);
-
-                unsafe { device.vk().create_framebuffer(&framebuffer, None) }.unwrap()
-            })
-            .collect()
-    }
-
-    fn record_command_buffer(&self, image_index: u32) {
+    fn record_command_buffer(&self, image_view: &SwapchainImageView) {
         self.command_buffer.record(true, |cmd| {
-            cmd.render_pass(
-                self.pipeline.render_pass,
-                self.framebuffers[image_index as usize],
-                || {
+            self.with_render_image_barrier(cmd, image_view.image, || {
+                cmd.render(&image_view.view, || {
                     cmd.bind_pipeline(vk::PipelineBindPoint::GRAPHICS, self.pipeline.pipeline);
                     cmd.bind_vertex_buffers(&[&self.vertex_buffer], 0);
                     cmd.draw(self.vertices.len() as u32, 1, 0, 0);
-                },
-            )
+                });
+            });
         });
     }
 
     pub fn draw(&self) {
         self.in_flight_fence.wait_and_reset();
 
-        let image_index = self
+        let (image_index, image_view) = self
             .swapchain
             .acquire_next_image(&self.semaphores.image_available);
 
-        self.record_command_buffer(image_index);
+        self.record_command_buffer(&image_view);
 
         unsafe {
             let submits = [vk::SubmitInfo::builder()
@@ -151,6 +121,59 @@ impl Rasterizer {
         }
     }
 
+    fn with_render_image_barrier<F>(&self, cmd: &CommandBufferRecorder, image: vk::Image, func: F)
+    where
+        F: FnOnce(),
+    {
+        let barrier = vk::ImageMemoryBarrier::builder()
+            .src_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
+            .old_layout(vk::ImageLayout::UNDEFINED)
+            .new_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+            .image(image)
+            .subresource_range(
+                vk::ImageSubresourceRange::builder()
+                    .aspect_mask(vk::ImageAspectFlags::COLOR)
+                    .level_count(1)
+                    .layer_count(1)
+                    .build(),
+            )
+            .build();
+
+        cmd.pipeline_barrier(
+            vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+            vk::PipelineStageFlags::BOTTOM_OF_PIPE,
+            vk::DependencyFlags::empty(),
+            &[],
+            &[],
+            &[barrier],
+        );
+
+        func();
+
+        let barrier = vk::ImageMemoryBarrier::builder()
+            .src_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
+            .old_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+            .new_layout(vk::ImageLayout::PRESENT_SRC_KHR)
+            .image(image)
+            .subresource_range(
+                vk::ImageSubresourceRange::builder()
+                    .aspect_mask(vk::ImageAspectFlags::COLOR)
+                    .level_count(1)
+                    .layer_count(1)
+                    .build(),
+            )
+            .build();
+
+        cmd.pipeline_barrier(
+            vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+            vk::PipelineStageFlags::BOTTOM_OF_PIPE,
+            vk::DependencyFlags::empty(),
+            &[],
+            &[],
+            &[barrier],
+        );
+    }
+
     fn create_vertex_buffer(device: &Arc<Device>, vertices: &[shaders::Vertex]) -> AllocatedBuffer {
         let buffer = Buffer::new(
             device,
@@ -169,13 +192,6 @@ impl Drop for Rasterizer {
     fn drop(&mut self) {
         unsafe {
             self.swapchain.device.vk().device_wait_idle().unwrap();
-
-            for &framebuffer in self.framebuffers.iter() {
-                self.swapchain
-                    .device
-                    .vk()
-                    .destroy_framebuffer(framebuffer, None);
-            }
         }
     }
 }

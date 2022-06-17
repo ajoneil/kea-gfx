@@ -4,12 +4,15 @@ use ash::vk;
 
 use super::{sync::Semaphore, Device};
 
+pub struct SwapchainImageView {
+    pub image: vk::Image,
+    pub view: ImageView,
+}
+
 pub struct Swapchain {
     pub swapchain: vk::SwapchainKHR,
     pub format: vk::Format,
-    pub images: Vec<vk::Image>,
-    pub image_views: Vec<vk::ImageView>,
-
+    pub image_views: Vec<SwapchainImageView>,
     pub device: Arc<Device>,
 }
 
@@ -63,7 +66,6 @@ impl Swapchain {
         Swapchain {
             swapchain,
             format: surface_format.format,
-            images,
             image_views,
 
             device: device.clone(),
@@ -73,34 +75,18 @@ impl Swapchain {
     fn create_swapchain_image_views(
         swapchain_images: &[vk::Image],
         format: vk::Format,
-        device: &Device,
-    ) -> Vec<vk::ImageView> {
+        device: &Arc<Device>,
+    ) -> Vec<SwapchainImageView> {
         swapchain_images
             .iter()
-            .map(|&image| {
-                let imageview_create_info = vk::ImageViewCreateInfo::builder()
-                    .image(image)
-                    .view_type(vk::ImageViewType::TYPE_2D)
-                    .format(format)
-                    .components(vk::ComponentMapping {
-                        r: vk::ComponentSwizzle::IDENTITY,
-                        g: vk::ComponentSwizzle::IDENTITY,
-                        b: vk::ComponentSwizzle::IDENTITY,
-                        a: vk::ComponentSwizzle::IDENTITY,
-                    })
-                    .subresource_range(vk::ImageSubresourceRange {
-                        aspect_mask: vk::ImageAspectFlags::COLOR,
-                        base_mip_level: 0,
-                        level_count: 1,
-                        base_array_layer: 0,
-                        layer_count: 1,
-                    });
-                unsafe { device.vk().create_image_view(&imageview_create_info, None) }.unwrap()
+            .map(|&image| SwapchainImageView {
+                image: image,
+                view: ImageView::new(image, format, device),
             })
             .collect()
     }
 
-    pub fn acquire_next_image(&self, semaphore: &Semaphore) -> u32 {
+    pub fn acquire_next_image(&self, semaphore: &Semaphore) -> (u32, &SwapchainImageView) {
         let (image_index, _) = unsafe {
             self.device.ext.swapchain.acquire_next_image(
                 self.swapchain,
@@ -111,21 +97,64 @@ impl Swapchain {
         }
         .unwrap();
 
-        image_index
+        (image_index, &self.image_views[image_index as usize])
     }
 }
 
 impl Drop for Swapchain {
     fn drop(&mut self) {
         unsafe {
-            for &image_view in self.image_views.iter() {
-                self.device.vk().destroy_image_view(image_view, None);
-            }
-
             self.device
                 .ext
                 .swapchain
                 .destroy_swapchain(self.swapchain, None);
+        }
+    }
+}
+
+pub struct ImageView {
+    vk: vk::ImageView,
+    device: Arc<Device>,
+}
+
+impl ImageView {
+    fn new(image: vk::Image, format: vk::Format, device: &Arc<Device>) -> ImageView {
+        let imageview_create_info = vk::ImageViewCreateInfo::builder()
+            .image(image)
+            .view_type(vk::ImageViewType::TYPE_2D)
+            .format(format)
+            .components(vk::ComponentMapping {
+                r: vk::ComponentSwizzle::IDENTITY,
+                g: vk::ComponentSwizzle::IDENTITY,
+                b: vk::ComponentSwizzle::IDENTITY,
+                a: vk::ComponentSwizzle::IDENTITY,
+            })
+            .subresource_range(vk::ImageSubresourceRange {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            });
+
+        let image_view =
+            unsafe { device.vk().create_image_view(&imageview_create_info, None) }.unwrap();
+
+        ImageView {
+            vk: image_view,
+            device: device.clone(),
+        }
+    }
+
+    pub unsafe fn vk(&self) -> vk::ImageView {
+        self.vk
+    }
+}
+
+impl Drop for ImageView {
+    fn drop(&mut self) {
+        unsafe {
+            self.device.vk().destroy_image_view(self.vk(), None);
         }
     }
 }
