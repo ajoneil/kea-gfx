@@ -10,9 +10,9 @@ use crate::gpu::{
 
 pub struct Presenter {
     swapchain: Swapchain,
+    command_buffer: CommandBuffer,
     semaphores: Semaphores,
     in_flight_fence: Fence,
-    command_buffer: CommandBuffer,
 }
 
 struct Semaphores {
