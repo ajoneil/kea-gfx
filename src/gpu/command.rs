@@ -34,6 +34,7 @@ impl CommandPool {
 impl Drop for CommandPool {
     fn drop(&mut self) {
         unsafe {
+            self.device.vk().queue_wait_idle(self.device.queue).unwrap();
             self.device.vk().destroy_command_pool(self.pool, None);
         }
     }

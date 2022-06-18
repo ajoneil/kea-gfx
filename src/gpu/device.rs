@@ -197,6 +197,8 @@ impl Device {
 impl Drop for Device {
     fn drop(&mut self) {
         unsafe {
+            self.device.device_wait_idle().unwrap();
+
             // We need to use manually drop here to ensure the allocator
             // cleans up any remaining memory before the device is destroyed
             ManuallyDrop::drop(&mut self.allocator);

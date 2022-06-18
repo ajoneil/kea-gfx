@@ -186,11 +186,3 @@ impl Rasterizer {
         buffer
     }
 }
-
-impl Drop for Rasterizer {
-    fn drop(&mut self) {
-        unsafe {
-            self.swapchain.device.vk().device_wait_idle().unwrap();
-        }
-    }
-}
