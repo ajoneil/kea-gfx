@@ -2,7 +2,6 @@ pub mod buffer;
 pub mod command;
 pub mod device;
 pub mod rasterization_pipeline;
-pub mod rasterizer;
 pub mod rt;
 pub mod shaders;
 pub mod surface;
