@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use ash::vk;
 
-use super::{buffer::AllocatedBuffer, swapchain::ImageView, Device};
+use super::{buffer::AllocatedBuffer, rt::Blas, swapchain::ImageView, Device};
 
 pub struct CommandPool {
     pool: vk::CommandPool,
@@ -201,6 +201,28 @@ impl CommandBufferRecorder<'_> {
                 buffer_memory_barriers,
                 image_memory_barriers,
             );
+        }
+    }
+
+    pub fn build_blas(
+        &self,
+        blas: &Blas,
+        src: vk::AccelerationStructureKHR,
+        dst: vk::AccelerationStructureKHR,
+        scratch: &AllocatedBuffer,
+    ) {
+        let blas = blas.bind_for_build(src, dst, scratch);
+        unsafe {
+            self.buffer
+                .pool
+                .device
+                .ext
+                .acceleration_structure
+                .cmd_build_acceleration_structures(
+                    self.buffer.buffer,
+                    &[blas.geometry_info()],
+                    &[blas.ranges()],
+                );
         }
     }
 }

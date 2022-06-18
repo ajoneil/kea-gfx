@@ -3,6 +3,7 @@ mod command;
 mod device;
 mod rasterization_pipeline;
 mod rasterizer;
+mod rt;
 mod shaders;
 mod surface;
 mod swapchain;
