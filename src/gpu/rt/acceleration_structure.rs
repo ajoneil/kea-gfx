@@ -1,9 +1,7 @@
-use std::{marker::PhantomData, mem};
-
-use ash::vk::{self};
-
 use crate::gpu::buffer::AllocatedBuffer;
+use ash::vk::{self};
 use glam::Vec3;
+use std::{marker::PhantomData, mem};
 
 #[repr(C)]
 pub struct Aabb {

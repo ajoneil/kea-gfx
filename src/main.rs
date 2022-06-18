@@ -1,11 +1,12 @@
-use std::sync::Arc;
-
 use env_logger::Env;
-use gpu::{Device, Rasterizer, Surface, Swapchain, Vulkan};
-
+use gpu::{
+    device::Device, rasterizer::Rasterizer, surface::Surface, swapchain::Swapchain, vulkan::Vulkan,
+};
+use std::sync::Arc;
 use window::Window;
 
 mod gpu;
+mod presenter;
 mod window;
 
 struct KeaApp {

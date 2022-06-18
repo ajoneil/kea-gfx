@@ -1,3 +1,1 @@
-mod acceleration_structure;
-
-pub use acceleration_structure::Blas;
+pub mod acceleration_structure;

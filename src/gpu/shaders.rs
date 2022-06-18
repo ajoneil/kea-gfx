@@ -1,9 +1,7 @@
-use std::{fs::File, sync::Arc};
-
+use super::device::Device;
 use ash::{util::read_spv, vk};
 use spirv_builder::{MetadataPrintout, SpirvBuilder};
-
-use super::Device;
+use std::{fs::File, sync::Arc};
 
 pub struct ShaderModule {
     pub module: vk::ShaderModule,

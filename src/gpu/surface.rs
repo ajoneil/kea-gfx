@@ -1,10 +1,7 @@
-use std::sync::Arc;
-
-use ash::vk;
-
+use super::vulkan::Vulkan;
 use crate::window::Window;
-
-use super::Vulkan;
+use ash::vk;
+use std::sync::Arc;
 
 pub struct Surface {
     pub surface: vk::SurfaceKHR,

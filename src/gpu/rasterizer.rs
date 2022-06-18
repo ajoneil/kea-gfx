@@ -1,16 +1,15 @@
-use std::{mem, sync::Arc};
-
 use ash::vk;
 use glam::{vec2, vec3};
 use gpu_allocator::MemoryLocation;
+use std::{mem, sync::Arc};
 
 use super::{
     buffer::{AllocatedBuffer, Buffer},
     command::{CommandBuffer, CommandBufferRecorder, CommandPool},
+    device::Device,
     rasterization_pipeline::RasterizationPipeline,
-    swapchain::SwapchainImageView,
+    swapchain::{Swapchain, SwapchainImageView},
     sync::{Fence, Semaphore},
-    Device, Swapchain,
 };
 
 struct Semaphores {

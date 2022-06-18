@@ -1,8 +1,8 @@
-use std::sync::Arc;
-
+use super::{
+    buffer::AllocatedBuffer, device::Device, rt::acceleration_structure::Blas, swapchain::ImageView,
+};
 use ash::vk;
-
-use super::{buffer::AllocatedBuffer, rt::Blas, swapchain::ImageView, Device};
+use std::sync::Arc;
 
 pub struct CommandPool {
     pool: vk::CommandPool,

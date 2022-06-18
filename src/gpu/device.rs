@@ -1,14 +1,12 @@
+use super::{surface::Surface, vulkan::Vulkan};
+use ash::vk;
+use gpu_allocator::vulkan::{Allocator, AllocatorCreateDesc};
+use log::info;
 use std::{
     ffi::CStr,
     mem::ManuallyDrop,
     sync::{Arc, Mutex},
 };
-
-use ash::vk;
-use gpu_allocator::vulkan::{Allocator, AllocatorCreateDesc};
-use log::info;
-
-use super::{Surface, Vulkan};
 
 pub struct Device {
     physical_device: vk::PhysicalDevice,

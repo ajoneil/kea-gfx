@@ -1,16 +1,14 @@
-use std::{
-    mem::{self, ManuallyDrop},
-    slice,
-    sync::Arc,
-};
-
+use super::device::Device;
 use ash::vk;
 use gpu_allocator::{
     vulkan::{Allocation, AllocationCreateDesc},
     MemoryLocation,
 };
-
-use super::Device;
+use std::{
+    mem::{self, ManuallyDrop},
+    slice,
+    sync::Arc,
+};
 
 pub struct Buffer {
     device: Arc<Device>,

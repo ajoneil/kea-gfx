@@ -1,9 +1,7 @@
-use std::{ffi::CStr, mem, sync::Arc};
-
+use super::{device::Device, shaders::ShaderModule};
 use ash::vk;
 use memoffset::offset_of;
-
-use super::{shaders::ShaderModule, Device};
+use std::{ffi::CStr, mem, sync::Arc};
 
 pub struct RasterizationPipeline {
     pub pipeline: vk::Pipeline,

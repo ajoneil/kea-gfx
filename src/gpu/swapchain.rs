@@ -1,8 +1,6 @@
-use std::sync::Arc;
-
+use super::{device::Device, sync::Semaphore};
 use ash::vk;
-
-use super::{sync::Semaphore, Device};
+use std::sync::Arc;
 
 pub struct SwapchainImageView {
     pub image: vk::Image,

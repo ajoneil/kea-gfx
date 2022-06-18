@@ -1,6 +1,5 @@
-use std::{ffi::CStr, os::raw::c_char};
-
 use ash::vk;
+use std::{ffi::CStr, os::raw::c_char};
 
 pub struct Vulkan {
     pub entry: ash::Entry,

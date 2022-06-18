@@ -1,8 +1,6 @@
-use std::sync::Arc;
-
+use super::device::Device;
 use ash::vk;
-
-use super::Device;
+use std::sync::Arc;
 
 pub struct Semaphore {
     vk: vk::Semaphore,
