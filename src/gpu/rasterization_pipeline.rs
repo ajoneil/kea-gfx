@@ -150,7 +150,6 @@ impl RasterizationPipeline {
 impl Drop for RasterizationPipeline {
     fn drop(&mut self) {
         unsafe {
-            self.device.vk().queue_wait_idle(self.device.queue).unwrap();
             self.device.vk().destroy_pipeline(self.pipeline, None);
             self.device.vk().destroy_pipeline_layout(self.layout, None);
         }

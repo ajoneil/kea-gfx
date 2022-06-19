@@ -1,5 +1,8 @@
 use env_logger::Env;
-use gpu::{device::Device, surface::Surface, swapchain::Swapchain, vulkan::Vulkan};
+use gpu::{
+    device::Device, physical_device::PhysicalDevice, surface::Surface, swapchain::Swapchain,
+    vulkan::Vulkan,
+};
 use presenter::Presenter;
 use rasterizer::Rasterizer;
 use std::sync::Arc;
@@ -18,8 +21,14 @@ struct KeaApp {
 impl KeaApp {
     pub fn new(window: &Window) -> KeaApp {
         let vulkan = Arc::new(Vulkan::new(window.required_extensions()));
-        let device = Arc::new(Device::new(&vulkan, Surface::from_window(&vulkan, &window)));
-        let swapchain = Swapchain::new(&device);
+        let surface = Surface::from_window(vulkan.clone(), &window);
+        let device_selection = PhysicalDevice::select_physical_device(&vulkan, &surface);
+        let device = Arc::new(Device::new(
+            vulkan.clone(),
+            device_selection.clone(),
+            surface,
+        ));
+        let swapchain = Swapchain::new(&device, &device_selection.physical_device);
         let rasterizer = Rasterizer::new(&device, swapchain.format);
         let presenter = Presenter::new(swapchain);
 

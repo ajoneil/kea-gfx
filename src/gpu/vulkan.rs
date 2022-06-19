@@ -1,6 +1,8 @@
 use ash::vk;
 use std::{ffi::CStr, os::raw::c_char};
 
+use super::physical_device::PhysicalDevice;
+
 pub struct Vulkan {
     pub entry: ash::Entry,
     pub instance: ash::Instance,
@@ -15,13 +17,14 @@ impl Vulkan {
     pub fn new(extension_names: &[*const i8]) -> Vulkan {
         let entry = ash::Entry::linked();
         let instance = Self::create_instance(&entry, extension_names);
-
-        let surface = ash::extensions::khr::Surface::new(&entry, &instance);
+        let ext = Extensions {
+            surface: ash::extensions::khr::Surface::new(&entry, &instance),
+        };
 
         Vulkan {
             entry,
             instance,
-            ext: { Extensions { surface } },
+            ext,
         }
     }
 
@@ -45,6 +48,14 @@ impl Vulkan {
             .enabled_layer_names(&layers_names_raw);
 
         unsafe { entry.create_instance(&create_info, None).unwrap() }
+    }
+
+    pub fn physical_devices<'a>(&'a self) -> Vec<PhysicalDevice<'a>> {
+        unsafe { self.instance.enumerate_physical_devices() }
+            .unwrap()
+            .into_iter()
+            .map(|physical_device: vk::PhysicalDevice| PhysicalDevice::new(physical_device, self))
+            .collect()
     }
 }
 

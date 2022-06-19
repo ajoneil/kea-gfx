@@ -1,21 +1,40 @@
-use super::{surface::Surface, vulkan::Vulkan};
+use super::{physical_device::DeviceSelection, surface::Surface, vulkan::Vulkan};
 use ash::vk;
 use gpu_allocator::vulkan::{Allocator, AllocatorCreateDesc};
-use log::info;
 use std::{
-    ffi::CStr,
     mem::ManuallyDrop,
     sync::{Arc, Mutex},
 };
 
+pub struct Queues {
+    pub graphics: Queue,
+    pub compute: Queue,
+    pub transfer: Queue,
+}
+
+#[derive(Clone, Copy)]
+pub struct Queue {
+    vk: vk::Queue,
+    index: u32,
+    family_index: u32,
+}
+
+impl Queue {
+    pub unsafe fn vk(&self) -> vk::Queue {
+        self.vk
+    }
+
+    pub fn family_index(&self) -> u32 {
+        self.family_index
+    }
+}
+
 pub struct Device {
-    physical_device: vk::PhysicalDevice,
     device: ash::Device,
-    pub queue: vk::Queue,
-    pub queue_family_index: u32,
+    pub queues: Queues,
     pub ext: Extensions,
     pub vulkan: Arc<Vulkan>,
-    pub surface: Surface,
+    surface: Surface,
     pub allocator: ManuallyDrop<Mutex<Allocator>>,
 }
 
@@ -25,11 +44,12 @@ pub struct Extensions {
 }
 
 impl Device {
-    pub fn new(vulkan: &Arc<Vulkan>, surface: Surface) -> Device {
-        let (physical_device, queue_family_index) = Self::select_physical_device(vulkan, &surface);
-
-        let (device, queue) =
-            Self::create_logical_device_with_queue(vulkan, physical_device, queue_family_index);
+    pub fn new(
+        vulkan: Arc<Vulkan>,
+        device_selection: DeviceSelection,
+        surface: Surface,
+    ) -> Arc<Device> {
+        let (device, queues) = Self::create_logical_device_with_queue(&vulkan, &device_selection);
 
         let ext = Extensions {
             swapchain: ash::extensions::khr::Swapchain::new(&vulkan.instance, &device),
@@ -42,81 +62,29 @@ impl Device {
         let allocator = Allocator::new(&AllocatorCreateDesc {
             instance: vulkan.instance.clone(),
             device: device.clone(),
-            physical_device: physical_device,
+            physical_device: unsafe { device_selection.physical_device.vk() },
             debug_settings: Default::default(),
             buffer_device_address: true,
         })
         .unwrap();
 
-        Device {
-            physical_device,
+        Arc::new(Device {
             device,
             surface,
-            queue,
-            queue_family_index,
+            queues,
             ext,
 
-            vulkan: vulkan.clone(),
+            vulkan,
             allocator: ManuallyDrop::new(Mutex::new(allocator)),
-        }
-    }
-
-    fn select_physical_device(vulkan: &Vulkan, surface: &Surface) -> (vk::PhysicalDevice, u32) {
-        let devices = unsafe { vulkan.instance.enumerate_physical_devices() }.unwrap();
-        let (device, queue_family_index) = devices
-            .into_iter()
-            .find_map(
-                |device| match Self::find_queue_family_index(&vulkan, device, surface) {
-                    Some(index) => Some((device, index)),
-                    None => None,
-                },
-            )
-            .unwrap();
-
-        let props = unsafe { vulkan.instance.get_physical_device_properties(device) };
-
-        info!("Selected physical device: {:?}", unsafe {
-            CStr::from_ptr(props.device_name.as_ptr())
-        });
-
-        (device, queue_family_index)
-    }
-
-    fn find_queue_family_index(
-        vulkan: &Vulkan,
-        physical_device: vk::PhysicalDevice,
-        surface: &Surface,
-    ) -> Option<u32> {
-        let props = unsafe {
-            vulkan
-                .instance
-                .get_physical_device_queue_family_properties(physical_device)
-        };
-        props
-            .iter()
-            .enumerate()
-            .find(|(index, family)| {
-                family.queue_count > 0
-                    && family.queue_flags.contains(vk::QueueFlags::GRAPHICS)
-                    && unsafe {
-                        vulkan.ext.surface.get_physical_device_surface_support(
-                            physical_device,
-                            *index as u32,
-                            surface.surface,
-                        )
-                    }
-                    .unwrap()
-            })
-            .map(|(index, _)| index as _)
+        })
     }
 
     fn create_logical_device_with_queue(
         vulkan: &Vulkan,
-        physical_device: vk::PhysicalDevice,
-        queue_family_index: u32,
-    ) -> (ash::Device, vk::Queue) {
+        device_selection: &DeviceSelection,
+    ) -> (ash::Device, Queues) {
         let queue_create_infos = [vk::DeviceQueueCreateInfo::builder()
-            .queue_family_index(queue_family_index)
+            .queue_family_index(device_selection.graphics.index())
             .queue_priorities(&[1.0])
             .build()];
         let extension_names = Self::device_extension_names();
@@ -137,12 +105,24 @@ impl Device {
         let device = unsafe {
             vulkan
                 .instance
-                .create_device(physical_device, &create_info, None)
+                .create_device(device_selection.physical_device.vk(), &create_info, None)
         }
         .unwrap();
-        let present_queue = unsafe { device.get_device_queue(queue_family_index, 0) };
+        let queues = Queues {
+            graphics: Self::queue(&device, device_selection.graphics.index(), 0),
+            compute: Self::queue(&device, device_selection.compute.index(), 0),
+            transfer: Self::queue(&device, device_selection.transfer.index(), 0),
+        };
 
-        (device, present_queue)
+        (device, queues)
+    }
+
+    fn queue(device: &ash::Device, family_index: u32, index: u32) -> Queue {
+        Queue {
+            vk: unsafe { device.get_device_queue(family_index, index) },
+            family_index,
+            index,
+        }
     }
 
     fn device_extension_names() -> Vec<*const i8> {
@@ -153,44 +133,18 @@ impl Device {
         ]
     }
 
-    pub fn surface_capabilities(&self) -> vk::SurfaceCapabilitiesKHR {
-        unsafe {
-            self.vulkan
-                .ext
-                .surface
-                .get_physical_device_surface_capabilities(
-                    self.physical_device,
-                    self.surface.surface,
-                )
-        }
-        .unwrap()
-    }
-
-    pub fn surface_formats(&self) -> Vec<vk::SurfaceFormatKHR> {
-        unsafe {
-            self.vulkan
-                .ext
-                .surface
-                .get_physical_device_surface_formats(self.physical_device, self.surface.surface)
-        }
-        .unwrap()
-    }
-
-    pub fn surface_present_modes(&self) -> Vec<vk::PresentModeKHR> {
-        unsafe {
-            self.vulkan
-                .ext
-                .surface
-                .get_physical_device_surface_present_modes(
-                    self.physical_device,
-                    self.surface.surface,
-                )
-        }
-        .unwrap()
-    }
-
     pub unsafe fn vk(&self) -> &ash::Device {
         &self.device
+    }
+
+    pub fn surface(&self) -> &Surface {
+        &self.surface
+    }
+
+    pub fn queue_wait_idle(&self, queue: &Queue) {
+        unsafe {
+            self.device.queue_wait_idle(queue.vk()).unwrap();
+        }
     }
 }
 

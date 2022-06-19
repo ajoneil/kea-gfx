@@ -1,6 +1,7 @@
 pub mod buffer;
 pub mod command;
 pub mod device;
+pub mod physical_device;
 pub mod rasterization_pipeline;
 pub mod rt;
 pub mod shaders;

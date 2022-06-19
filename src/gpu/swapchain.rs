@@ -1,4 +1,4 @@
-use super::{device::Device, sync::Semaphore};
+use super::{device::Device, physical_device::PhysicalDevice, sync::Semaphore};
 use ash::vk;
 use std::sync::Arc;
 
@@ -15,8 +15,8 @@ pub struct Swapchain {
 }
 
 impl Swapchain {
-    pub fn new(device: &Arc<Device>) -> Swapchain {
-        let surface_capabilities = device.surface_capabilities();
+    pub fn new(device: &Arc<Device>, physical_device: &PhysicalDevice) -> Swapchain {
+        let surface_capabilities = physical_device.surface_capabilities(device.surface());
 
         let image_count = surface_capabilities.min_image_count + 1;
         let image_count = if surface_capabilities.max_image_count > 0 {
@@ -25,17 +25,17 @@ impl Swapchain {
             image_count
         };
 
-        let surface_format = device.surface_formats()[0];
+        let surface_format = physical_device.surface_formats(device.surface())[0];
 
-        let present_mode = device
-            .surface_present_modes()
+        let present_mode = physical_device
+            .surface_present_modes(device.surface())
             .iter()
             .cloned()
             .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
             .unwrap_or(vk::PresentModeKHR::FIFO);
 
         let swapchain_create_info = vk::SwapchainCreateInfoKHR::builder()
-            .surface(device.surface.surface)
+            .surface(device.surface().surface)
             .min_image_count(image_count)
             .image_color_space(surface_format.color_space)
             .image_format(surface_format.format)
