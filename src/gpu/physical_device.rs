@@ -1,8 +1,7 @@
-use std::ffi::CStr;
-
 use super::{surface::Surface, vulkan::Vulkan};
 use ash::vk;
 use log::info;
+use std::ffi::CStr;
 
 #[derive(Clone)]
 pub struct PhysicalDevice<'a> {
@@ -39,7 +38,8 @@ impl<'a> PhysicalDevice<'a> {
             .into_iter()
             .find_map(|physical_device: PhysicalDevice| {
                 let queue_families = physical_device.queue_families();
-                let gfx_family = queue_families.into_iter().find_map(|family: QueueFamily| {
+
+                let gfx_family = queue_families.iter().find_map(|family: &QueueFamily| {
                     if family.capabilities().contains(&QueueCapability::Graphics)
                         && family.queue_count() > 0
                         && physical_device.queue_family_supports_surface(&family, surface)
@@ -50,13 +50,43 @@ impl<'a> PhysicalDevice<'a> {
                     }
                 });
 
-                match gfx_family {
-                    Some(gfx_family) => Some(DeviceSelection {
-                        physical_device,
-                        graphics: gfx_family.clone(),
-                        compute: gfx_family.clone(),
-                        transfer: gfx_family,
-                    }),
+                let compute_family = queue_families
+                    .iter()
+                    .filter(|family| {
+                        family.capabilities().contains(&QueueCapability::Compute)
+                            && family.queue_count() > 0
+                    })
+                    .max_by_key(|family| {
+                        -(family
+                            .capabilities()
+                            .iter()
+                            .filter(|cap| **cap != QueueCapability::Compute)
+                            .count() as i32)
+                    });
+
+                let transfer_family = queue_families
+                    .iter()
+                    .filter(|family| {
+                        family.capabilities().contains(&QueueCapability::Transfer)
+                            && family.queue_count() > 0
+                    })
+                    .max_by_key(|family| {
+                        -(family
+                            .capabilities()
+                            .into_iter()
+                            .filter(|cap| **cap != QueueCapability::Transfer)
+                            .count() as i32)
+                    });
+
+                match (gfx_family, compute_family, transfer_family) {
+                    (Some(gfx_family), Some(compute_family), Some(transfer_family)) => {
+                        Some(DeviceSelection {
+                            physical_device,
+                            graphics: gfx_family.clone(),
+                            compute: compute_family.clone(),
+                            transfer: transfer_family.clone(),
+                        })
+                    }
                     _ => None,
                 }
             })
@@ -66,6 +96,13 @@ impl<'a> PhysicalDevice<'a> {
             "Selected physical device: {:?}",
             device_selection.physical_device.name()
         );
+        info!(
+            "All queue families: {:?}",
+            device_selection.physical_device.queue_families()
+        );
+        info!("Graphics queue family: {:?}", device_selection.graphics);
+        info!("Compute queue family: {:?}", device_selection.compute);
+        info!("Transfer queue family: {:?}", device_selection.transfer);
 
         device_selection
     }
@@ -136,14 +173,14 @@ impl<'a> PhysicalDevice<'a> {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum QueueCapability {
     Graphics,
     Compute,
     Transfer,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct QueueFamily {
     index: u32,
     queue_count: u32,

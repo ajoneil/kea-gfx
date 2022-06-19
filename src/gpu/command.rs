@@ -1,5 +1,8 @@
 use super::{
-    buffer::AllocatedBuffer, device::{Device, Queue}, rt::acceleration_structure::Blas, swapchain::ImageView,
+    buffer::AllocatedBuffer,
+    device::{Device, Queue},
+    rt::acceleration_structure::Blas,
+    swapchain::ImageView,
 };
 use ash::vk;
 use std::sync::Arc;
@@ -7,17 +10,21 @@ use std::sync::Arc;
 pub struct CommandPool {
     pool: vk::CommandPool,
     device: Arc<Device>,
-    queue: Queue
+    queue: Queue,
 }
 
 impl CommandPool {
     pub fn new(device: Arc<Device>, queue: Queue) -> CommandPool {
         let create_info = vk::CommandPoolCreateInfo::builder()
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
-            .queue_family_index(queue.family_index());
+            .queue_family_index(queue.family().index());
         let pool = unsafe { device.vk().create_command_pool(&create_info, None) }.unwrap();
 
-        CommandPool { pool, device, queue }
+        CommandPool {
+            pool,
+            device,
+            queue,
+        }
     }
 
     pub fn allocate_buffer(self: Arc<Self>) -> CommandBuffer {

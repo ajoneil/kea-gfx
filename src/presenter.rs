@@ -1,12 +1,10 @@
-use std::sync::Arc;
-
-use ash::vk;
-
 use crate::gpu::{
     command::{CommandBuffer, CommandBufferRecorder, CommandPool},
     swapchain::{Swapchain, SwapchainImageView},
     sync::{Fence, Semaphore},
 };
+use ash::vk;
+use std::sync::Arc;
 
 pub struct Presenter {
     swapchain: Swapchain,
@@ -28,7 +26,11 @@ impl Presenter {
                 render_finished: Semaphore::new(swapchain.device.clone()),
             },
             in_flight_fence: Fence::new(swapchain.device.clone(), true),
-            command_buffer: Arc::new(CommandPool::new(swapchain.device.clone(), swapchain.device.queues.graphics)).allocate_buffer(),
+            command_buffer: Arc::new(CommandPool::new(
+                swapchain.device.clone(),
+                swapchain.device.queues.graphics.clone(),
+            ))
+            .allocate_buffer(),
             swapchain,
         }
     }

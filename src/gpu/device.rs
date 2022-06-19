@@ -1,22 +1,30 @@
-use super::{physical_device::DeviceSelection, surface::Surface, vulkan::Vulkan};
+use super::{
+    physical_device::{DeviceSelection, QueueFamily},
+    surface::Surface,
+    vulkan::Vulkan,
+};
 use ash::vk;
 use gpu_allocator::vulkan::{Allocator, AllocatorCreateDesc};
+use log::info;
 use std::{
+    collections::HashMap,
+    iter,
     mem::ManuallyDrop,
     sync::{Arc, Mutex},
 };
 
+#[derive(Debug)]
 pub struct Queues {
     pub graphics: Queue,
     pub compute: Queue,
     pub transfer: Queue,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Debug)]
 pub struct Queue {
     vk: vk::Queue,
+    family: QueueFamily,
     index: u32,
-    family_index: u32,
 }
 
 impl Queue {
@@ -24,8 +32,8 @@ impl Queue {
         self.vk
     }
 
-    pub fn family_index(&self) -> u32 {
-        self.family_index
+    pub fn family(&self) -> &QueueFamily {
+        &self.family
     }
 }
 
@@ -83,10 +91,36 @@ impl Device {
         vulkan: &Vulkan,
         device_selection: &DeviceSelection,
     ) -> (ash::Device, Queues) {
-        let queue_create_infos = [vk::DeviceQueueCreateInfo::builder()
-            .queue_family_index(device_selection.graphics.index())
-            .queue_priorities(&[1.0])
-            .build()];
+        // This code is a mess, but it _should_ create a queue for each purpose
+        // in the correct family. Will probably explode if there aren't enough
+        // queues. I'm sure there's some iterator magic that could clean this all
+        // up.
+        let queue_families = [
+            &device_selection.graphics,
+            &device_selection.compute,
+            &device_selection.transfer,
+        ];
+
+        let queues: HashMap<u32, Vec<f32>> = queue_families
+            .iter()
+            .map(|qf| qf.index())
+            .fold(HashMap::new(), |mut counts, index| {
+                *counts.entry(index).or_insert(0) += 1;
+                counts
+            })
+            .iter()
+            .map(|(index, count)| (*index, iter::repeat(1.0).take(*count).collect()))
+            .collect();
+
+        let queue_create_infos: Vec<vk::DeviceQueueCreateInfo> = queues
+            .iter()
+            .map(|(family_index, priorities)| {
+                vk::DeviceQueueCreateInfo::builder()
+                    .queue_family_index(*family_index)
+                    .queue_priorities(priorities)
+                    .build()
+            })
+            .collect();
         let extension_names = Self::device_extension_names();
 
         let mut features_12 = vk::PhysicalDeviceVulkan12Features::builder()
@@ -108,19 +142,45 @@ impl Device {
                 .create_device(device_selection.physical_device.vk(), &create_info, None)
         }
         .unwrap();
+        let families = device_selection.physical_device.queue_families();
+
         let queues = Queues {
-            graphics: Self::queue(&device, device_selection.graphics.index(), 0),
-            compute: Self::queue(&device, device_selection.compute.index(), 0),
-            transfer: Self::queue(&device, device_selection.transfer.index(), 0),
+            graphics: Self::queue(
+                &device,
+                families[device_selection.graphics.index() as usize].clone(),
+                0,
+            ),
+            compute: Self::queue(
+                &device,
+                families[device_selection.compute.index() as usize].clone(),
+                if device_selection.graphics.index() == device_selection.compute.index() {
+                    1
+                } else {
+                    0
+                },
+            ),
+            transfer: Self::queue(
+                &device,
+                families[device_selection.transfer.index() as usize].clone(),
+                [
+                    device_selection.graphics.index(),
+                    device_selection.compute.index(),
+                ]
+                .iter()
+                .filter(|i| **i == device_selection.transfer.index())
+                .count() as u32,
+            ),
         };
+
+        info!("Created queues: {:?}", queues);
 
         (device, queues)
     }
 
-    fn queue(device: &ash::Device, family_index: u32, index: u32) -> Queue {
+    fn queue(device: &ash::Device, family: QueueFamily, index: u32) -> Queue {
         Queue {
-            vk: unsafe { device.get_device_queue(family_index, index) },
-            family_index,
+            vk: unsafe { device.get_device_queue(family.index(), index) },
+            family,
             index,
         }
     }
