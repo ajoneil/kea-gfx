@@ -1,10 +1,14 @@
+use std::ffi::CStr;
+
 use super::{surface::Surface, vulkan::Vulkan};
 use ash::vk;
+use log::info;
 
 #[derive(Clone)]
 pub struct PhysicalDevice<'a> {
     vk: vk::PhysicalDevice,
     vulkan: &'a Vulkan,
+    name: String,
 }
 
 #[derive(Clone)]
@@ -17,7 +21,13 @@ pub struct DeviceSelection<'a> {
 
 impl<'a> PhysicalDevice<'a> {
     pub fn new(vk: vk::PhysicalDevice, vulkan: &Vulkan) -> PhysicalDevice {
-        PhysicalDevice { vk, vulkan }
+        let props = unsafe { vulkan.instance.get_physical_device_properties(vk) };
+        let name = unsafe { CStr::from_ptr(props.device_name.as_ptr()) }
+            .to_str()
+            .unwrap()
+            .to_string();
+
+        PhysicalDevice { vk, vulkan, name }
     }
 
     pub fn select_physical_device<'b>(
@@ -41,25 +51,27 @@ impl<'a> PhysicalDevice<'a> {
                 });
 
                 match gfx_family {
-                    Some(gfx_family) => {
-                        let physical_device = physical_device.clone();
-                        Some(DeviceSelection {
-                            physical_device,
-                            graphics: gfx_family.clone(),
-                            compute: gfx_family.clone(),
-                            transfer: gfx_family,
-                        })
-                    }
+                    Some(gfx_family) => Some(DeviceSelection {
+                        physical_device,
+                        graphics: gfx_family.clone(),
+                        compute: gfx_family.clone(),
+                        transfer: gfx_family,
+                    }),
                     _ => None,
                 }
             })
             .unwrap();
 
-        device_selection
+        info!(
+            "Selected physical device: {:?}",
+            device_selection.physical_device.name()
+        );
 
-        // info!("Selected physical device: {:?}", unsafe {
-        //     CStr::from_ptr(props.device_name.as_ptr())
-        // });
+        device_selection
+    }
+
+    pub fn name(&self) -> &String {
+        &self.name
     }
 
     pub fn queue_families(&self) -> Vec<QueueFamily> {
