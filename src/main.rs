@@ -3,12 +3,14 @@ use gpu::{
     device::Device, physical_device::PhysicalDevice, surface::Surface, swapchain::Swapchain,
     vulkan::Vulkan,
 };
+use path_tracer::PathTracer;
 use presenter::Presenter;
 use rasterizer::Rasterizer;
 use std::sync::Arc;
 use window::Window;
 
 mod gpu;
+mod path_tracer;
 mod presenter;
 mod rasterizer;
 mod window;
@@ -16,6 +18,7 @@ mod window;
 struct KeaApp {
     presenter: Presenter,
     rasterizer: Rasterizer,
+    path_tracer: PathTracer,
 }
 
 impl KeaApp {
@@ -30,11 +33,13 @@ impl KeaApp {
         ));
         let swapchain = Swapchain::new(&device, &device_selection.physical_device);
         let rasterizer = Rasterizer::new(&device, swapchain.format);
+        let path_tracer = PathTracer::new(&device);
         let presenter = Presenter::new(swapchain);
 
         KeaApp {
             presenter,
             rasterizer,
+            path_tracer,
         }
     }
 
