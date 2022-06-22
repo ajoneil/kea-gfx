@@ -26,11 +26,8 @@ impl Presenter {
                 render_finished: Semaphore::new(swapchain.device.clone()),
             },
             in_flight_fence: Fence::new(swapchain.device.clone(), true),
-            command_buffer: Arc::new(CommandPool::new(
-                swapchain.device.clone(),
-                swapchain.device.queues.graphics.clone(),
-            ))
-            .allocate_buffer(),
+            command_buffer: Arc::new(CommandPool::new(swapchain.device.queues().graphics()))
+                .allocate_buffer(),
             swapchain,
         }
     }
@@ -61,7 +58,7 @@ impl Presenter {
                 .device
                 .vk()
                 .queue_submit(
-                    self.swapchain.device.queues.graphics.vk(),
+                    self.swapchain.device.queues().graphics().vk(),
                     &submits,
                     self.in_flight_fence.vk(),
                 )
@@ -77,7 +74,7 @@ impl Presenter {
                 .device
                 .ext
                 .swapchain
-                .queue_present(self.swapchain.device.queues.graphics.vk(), &present)
+                .queue_present(self.swapchain.device.queues().graphics().vk(), &present)
                 .unwrap();
         }
     }

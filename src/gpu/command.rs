@@ -3,28 +3,24 @@ use super::{
     device::{Device, Queue},
     rt::acceleration_structure::{AccelerationStructure, Blas},
     swapchain::ImageView,
+    sync::Fence,
 };
 use ash::vk;
-use std::sync::Arc;
+use std::{future::Future, sync::Arc};
 
 pub struct CommandPool {
     pool: vk::CommandPool,
-    device: Arc<Device>,
     queue: Queue,
 }
 
 impl CommandPool {
-    pub fn new(device: Arc<Device>, queue: Queue) -> CommandPool {
+    pub fn new(queue: Queue) -> CommandPool {
         let create_info = vk::CommandPoolCreateInfo::builder()
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
             .queue_family_index(queue.family().index());
-        let pool = unsafe { device.vk().create_command_pool(&create_info, None) }.unwrap();
+        let pool = unsafe { queue.device().vk().create_command_pool(&create_info, None) }.unwrap();
 
-        CommandPool {
-            pool,
-            device,
-            queue,
-        }
+        CommandPool { pool, queue }
     }
 
     pub fn allocate_buffer(self: &Arc<Self>) -> CommandBuffer {
@@ -33,20 +29,25 @@ impl CommandPool {
             .level(vk::CommandBufferLevel::PRIMARY)
             .command_buffer_count(1);
 
-        let buffer = unsafe { self.device.vk().allocate_command_buffers(&create_info) }.unwrap()[0];
+        let buffer =
+            unsafe { self.device().vk().allocate_command_buffers(&create_info) }.unwrap()[0];
 
         CommandBuffer {
             buffer,
             pool: self.clone(),
         }
     }
+
+    fn device(&self) -> &Arc<Device> {
+        self.queue.device()
+    }
 }
 
 impl Drop for CommandPool {
     fn drop(&mut self) {
         unsafe {
-            self.device.queue_wait_idle(&self.queue);
-            self.device.vk().destroy_command_pool(self.pool, None);
+            self.device().queue_wait_idle(&self.queue);
+            self.device().vk().destroy_command_pool(self.pool, None);
         }
     }
 }
@@ -72,8 +73,7 @@ impl CommandBuffer {
 
     pub fn reset(&self) {
         unsafe {
-            self.pool
-                .device
+            self.device()
                 .vk()
                 .reset_command_buffer(self.buffer, vk::CommandBufferResetFlags::empty())
         }
@@ -82,8 +82,7 @@ impl CommandBuffer {
 
     fn begin(&self) {
         unsafe {
-            self.pool
-                .device
+            self.device()
                 .vk()
                 .begin_command_buffer(self.buffer, &vk::CommandBufferBeginInfo::default())
         }
@@ -91,7 +90,15 @@ impl CommandBuffer {
     }
 
     fn end(&self) {
-        unsafe { self.pool.device.vk().end_command_buffer(self.buffer) }.unwrap()
+        unsafe { self.device().vk().end_command_buffer(self.buffer) }.unwrap()
+    }
+
+    pub fn device(&self) -> &Arc<Device> {
+        self.pool.device()
+    }
+
+    pub fn submit(&self) -> Fence {
+        self.pool.queue.submit(&[self])
     }
 }
 
@@ -135,29 +142,23 @@ impl CommandBufferRecorder<'_> {
             .color_attachments(&color_attachments);
 
         unsafe {
-            self.buffer
-                .pool
-                .device
+            self.device()
                 .vk()
                 .cmd_begin_rendering(self.buffer.buffer, &rendering_info);
         }
     }
 
     fn end_rendering(&self) {
-        unsafe {
-            self.buffer
-                .pool
-                .device
-                .vk()
-                .cmd_end_rendering(self.buffer.buffer)
-        }
+        unsafe { self.device().vk().cmd_end_rendering(self.buffer.buffer) }
+    }
+
+    pub fn device(&self) -> &Arc<Device> {
+        self.buffer.device()
     }
 
     pub fn bind_pipeline(&self, bind_point: vk::PipelineBindPoint, pipeline: vk::Pipeline) {
         unsafe {
-            self.buffer
-                .pool
-                .device
+            self.device()
                 .vk()
                 .cmd_bind_pipeline(self.buffer.buffer, bind_point, pipeline)
         }
@@ -167,7 +168,7 @@ impl CommandBufferRecorder<'_> {
         let buffers: Vec<vk::Buffer> = buffers.iter().map(|b| unsafe { b.buffer().vk() }).collect();
         let offsets: Vec<vk::DeviceSize> = buffers.iter().map(|_| 0).collect();
         unsafe {
-            self.buffer.pool.device.vk().cmd_bind_vertex_buffers(
+            self.device().vk().cmd_bind_vertex_buffers(
                 self.buffer.buffer,
                 first_binding,
                 &buffers,
@@ -184,7 +185,7 @@ impl CommandBufferRecorder<'_> {
         first_instance: u32,
     ) {
         unsafe {
-            self.buffer.pool.device.vk().cmd_draw(
+            self.device().vk().cmd_draw(
                 self.buffer.buffer,
                 vertex_count,
                 instance_count,
@@ -204,7 +205,7 @@ impl CommandBufferRecorder<'_> {
         image_memory_barriers: &[vk::ImageMemoryBarrier],
     ) {
         unsafe {
-            self.buffer.pool.device.vk().cmd_pipeline_barrier(
+            self.device().vk().cmd_pipeline_barrier(
                 self.buffer.buffer,
                 src_stage_mask,
                 dst_stage_mask,
@@ -277,9 +278,7 @@ impl CommandBufferRecorder<'_> {
     ) {
         let blas = blas.bind_for_build(destination, scratch);
         unsafe {
-            self.buffer
-                .pool
-                .device
+            self.device()
                 .ext
                 .acceleration_structure
                 .cmd_build_acceleration_structures(

@@ -1,6 +1,8 @@
 use super::{
+    command::CommandBuffer,
     physical_device::{DeviceSelection, QueueFamily},
     surface::Surface,
+    sync::Fence,
     vulkan::Vulkan,
 };
 use ash::vk;
@@ -8,23 +10,48 @@ use gpu_allocator::vulkan::{Allocator, AllocatorCreateDesc};
 use log::info;
 use std::{
     collections::HashMap,
+    fmt::{self, Debug, Formatter},
+    future::Future,
     iter,
     mem::ManuallyDrop,
     sync::{Arc, Mutex},
 };
 
 #[derive(Debug)]
-pub struct Queues {
-    pub graphics: Queue,
-    pub compute: Queue,
-    pub transfer: Queue,
+struct Queues {
+    graphics: QueueHandle,
+    compute: QueueHandle,
+    transfer: QueueHandle,
 }
 
-#[derive(Clone, Debug)]
 pub struct Queue {
+    device: Arc<Device>,
     vk: vk::Queue,
     family: QueueFamily,
     index: u32,
+}
+
+#[derive(Debug)]
+struct QueueHandle {
+    vk: vk::Queue,
+    family: QueueFamily,
+    index: u32,
+}
+
+pub struct DeviceQueues<'a> {
+    device: &'a Arc<Device>,
+    queues: &'a Queues,
+}
+
+impl<'a> DeviceQueues<'a> {
+    pub fn graphics(&self) -> Queue {
+        Queue {
+            device: self.device.clone(),
+            vk: self.queues.graphics.vk,
+            family: self.queues.graphics.family.clone(),
+            index: self.queues.graphics.index,
+        }
+    }
 }
 
 impl Queue {
@@ -35,14 +62,33 @@ impl Queue {
     pub fn family(&self) -> &QueueFamily {
         &self.family
     }
+
+    pub fn device(&self) -> &Arc<Device> {
+        &self.device
+    }
+
+    pub fn submit(&self, command_buffers: &[&CommandBuffer]) -> Fence {
+        let fence = Fence::new(self.device.clone(), false);
+        let buffers: Vec<vk::CommandBuffer> =
+            command_buffers.into_iter().map(|cmd| cmd.buffer).collect();
+        let submits = [vk::SubmitInfo::builder().command_buffers(&buffers).build()];
+        unsafe {
+            self.device
+                .vk()
+                .queue_submit(self.vk(), &submits, fence.vk())
+                .unwrap();
+        }
+
+        fence
+    }
 }
 
 pub struct Device {
     device: ash::Device,
-    pub queues: Queues,
+    queues: Queues,
+    surface: Surface,
     pub ext: Extensions,
     pub vulkan: Arc<Vulkan>,
-    surface: Surface,
     pub allocator: ManuallyDrop<Mutex<Allocator>>,
 }
 
@@ -57,7 +103,7 @@ impl Device {
         device_selection: DeviceSelection,
         surface: Surface,
     ) -> Arc<Device> {
-        let (device, queues) = Self::create_logical_device_with_queue(&vulkan, &device_selection);
+        let device = Self::create_logical_device(&vulkan, &device_selection);
 
         let ext = Extensions {
             swapchain: ash::extensions::khr::Swapchain::new(&vulkan.instance, &device),
@@ -76,6 +122,8 @@ impl Device {
         })
         .unwrap();
 
+        let queues = Self::create_queues(&device_selection, &device);
+
         Arc::new(Device {
             device,
             surface,
@@ -87,10 +135,7 @@ impl Device {
         })
     }
 
-    fn create_logical_device_with_queue(
-        vulkan: &Vulkan,
-        device_selection: &DeviceSelection,
-    ) -> (ash::Device, Queues) {
+    fn create_logical_device(vulkan: &Vulkan, device_selection: &DeviceSelection) -> ash::Device {
         // This code is a mess, but it _should_ create a queue for each purpose
         // in the correct family. Will probably explode if there aren't enough
         // queues. I'm sure there's some iterator magic that could clean this all
@@ -148,16 +193,21 @@ impl Device {
                 .create_device(device_selection.physical_device.vk(), &create_info, None)
         }
         .unwrap();
+
+        device
+    }
+
+    fn create_queues(device_selection: &DeviceSelection, vk_device: &ash::Device) -> Queues {
         let families = device_selection.physical_device.queue_families();
 
         let queues = Queues {
             graphics: Self::queue(
-                &device,
+                vk_device,
                 families[device_selection.graphics.index() as usize].clone(),
                 0,
             ),
             compute: Self::queue(
-                &device,
+                vk_device,
                 families[device_selection.compute.index() as usize].clone(),
                 if device_selection.graphics.index() == device_selection.compute.index() {
                     1
@@ -166,7 +216,7 @@ impl Device {
                 },
             ),
             transfer: Self::queue(
-                &device,
+                vk_device,
                 families[device_selection.transfer.index() as usize].clone(),
                 [
                     device_selection.graphics.index(),
@@ -180,12 +230,12 @@ impl Device {
 
         info!("Created queues: {:?}", queues);
 
-        (device, queues)
+        queues
     }
 
-    fn queue(device: &ash::Device, family: QueueFamily, index: u32) -> Queue {
-        Queue {
-            vk: unsafe { device.get_device_queue(family.index(), index) },
+    fn queue(vk_device: &ash::Device, family: QueueFamily, index: u32) -> QueueHandle {
+        QueueHandle {
+            vk: unsafe { vk_device.get_device_queue(family.index(), index) },
             family,
             index,
         }
@@ -210,6 +260,13 @@ impl Device {
     pub fn queue_wait_idle(&self, queue: &Queue) {
         unsafe {
             self.device.queue_wait_idle(queue.vk()).unwrap();
+        }
+    }
+
+    pub fn queues<'a>(self: &'a Arc<Self>) -> DeviceQueues<'a> {
+        DeviceQueues {
+            device: self,
+            queues: &self.queues,
         }
     }
 }

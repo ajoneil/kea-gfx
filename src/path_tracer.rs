@@ -41,10 +41,7 @@ impl Sphere {
 impl PathTracer {
     pub fn new(device: &Arc<Device>) -> PathTracer {
         let device = device.clone();
-        let command_pool = Arc::new(CommandPool::new(
-            device.clone(),
-            device.queues.graphics.clone(),
-        ));
+        let command_pool = Arc::new(CommandPool::new(device.queues().graphics()));
         Self::build_acceleration_structure(&device, &command_pool);
 
         PathTracer {
@@ -88,7 +85,8 @@ impl PathTracer {
         let cmd = command_pool.allocate_buffer();
         cmd.record(true, |cmd| {
             cmd.build_blas(&blas, &acceleration_structure, &scratch_buffer);
-        })
+        });
+        cmd.submit().wait()
     }
 
     fn create_buffers(
