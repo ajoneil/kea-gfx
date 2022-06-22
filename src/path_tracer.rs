@@ -1,14 +1,18 @@
 use crate::gpu::{
     buffer::{AllocatedBuffer, Buffer},
+    command::CommandPool,
     device::Device,
-    rt::acceleration_structure::{Aabb, Blas, Geometry},
+    rt::acceleration_structure::{Aabb, AccelerationStructure, Blas, Geometry},
 };
 use ash::vk;
 use glam::{vec3, Vec3};
 use gpu_allocator::MemoryLocation;
 use std::{mem, sync::Arc};
 
-pub struct PathTracer {}
+pub struct PathTracer {
+    device: Arc<Device>,
+    command_pool: Arc<CommandPool>,
+}
 
 struct Sphere {
     position: Vec3,
@@ -36,11 +40,20 @@ impl Sphere {
 
 impl PathTracer {
     pub fn new(device: &Arc<Device>) -> PathTracer {
-        Self::build_acceleration_structure(device);
-        PathTracer {}
+        let device = device.clone();
+        let command_pool = Arc::new(CommandPool::new(
+            device.clone(),
+            device.queues.graphics.clone(),
+        ));
+        Self::build_acceleration_structure(&device, &command_pool);
+
+        PathTracer {
+            device,
+            command_pool,
+        }
     }
 
-    fn build_acceleration_structure(device: &Arc<Device>) {
+    fn build_acceleration_structure(device: &Arc<Device>, command_pool: &Arc<CommandPool>) {
         let spheres = [Sphere {
             position: vec3(0.0, 0.0, 1.0),
             radius: 0.5,
@@ -49,6 +62,31 @@ impl PathTracer {
         let (spheres_buffer, aabbs_buffer) = Self::create_buffers(device, &spheres);
         let geometries = [Geometry::aabbs(&aabbs_buffer)];
         let blas = Blas::new(&geometries);
+
+        let scratch_buffer = Buffer::new(
+            device,
+            blas.build_scratch_size(device),
+            vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+        )
+        .allocate("scratch", MemoryLocation::CpuToGpu, true);
+
+        let acceleration_structure_buffer = Buffer::new(
+            device,
+            blas.build_scratch_size(device),
+            vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR,
+        )
+        .allocate("acceleration structure", MemoryLocation::CpuToGpu, true);
+
+        let acceleration_structure = AccelerationStructure::new(
+            device,
+            acceleration_structure_buffer,
+            vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL,
+        );
+
+        let cmd = command_pool.allocate_buffer();
+        cmd.record(true, |cmd| {
+            //cmd.build_blas(&blas, )
+        })
     }
 
     fn create_buffers(

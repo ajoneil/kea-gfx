@@ -27,7 +27,7 @@ impl CommandPool {
         }
     }
 
-    pub fn allocate_buffer(self: Arc<Self>) -> CommandBuffer {
+    pub fn allocate_buffer(self: &Arc<Self>) -> CommandBuffer {
         let create_info = vk::CommandBufferAllocateInfo::builder()
             .command_pool(self.pool)
             .level(vk::CommandBufferLevel::PRIMARY)
@@ -35,7 +35,10 @@ impl CommandPool {
 
         let buffer = unsafe { self.device.vk().allocate_command_buffers(&create_info) }.unwrap()[0];
 
-        CommandBuffer { buffer, pool: self }
+        CommandBuffer {
+            buffer,
+            pool: self.clone(),
+        }
     }
 }
 

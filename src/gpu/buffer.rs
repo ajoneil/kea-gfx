@@ -13,6 +13,7 @@ use std::{
 pub struct Buffer {
     device: Arc<Device>,
     vk: vk::Buffer,
+    size: u64,
 }
 
 pub struct AllocatedBuffer {
@@ -31,6 +32,7 @@ impl Buffer {
         Buffer {
             device: device.clone(),
             vk: buffer,
+            size,
         }
     }
 
@@ -63,6 +65,10 @@ impl Buffer {
         }
     }
 
+    pub fn size(&self) -> usize {
+        self.size as usize
+    }
+
     pub unsafe fn vk(&self) -> vk::Buffer {
         self.vk
     }
@@ -85,7 +91,7 @@ impl AllocatedBuffer {
         }
     }
 
-    pub fn size(&self) -> usize {
+    pub fn allocated_size(&self) -> usize {
         self.allocation.size() as usize
     }
 
@@ -93,7 +99,7 @@ impl AllocatedBuffer {
         let data = unsafe {
             slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * mem::size_of::<T>())
         };
-        assert!(data.len() <= self.size());
+        assert!(data.len() <= self.allocated_size());
 
         unsafe {
             let pointer = self.allocation.mapped_ptr().unwrap().as_ptr() as *mut u8;

@@ -129,12 +129,18 @@ impl Device {
             .build();
 
         let mut features_13 = vk::PhysicalDeviceVulkan13Features::builder().dynamic_rendering(true);
+        let mut features_rt =
+            vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::builder().ray_tracing_pipeline(true);
+        let mut features_as = vk::PhysicalDeviceAccelerationStructureFeaturesKHR::builder()
+            .acceleration_structure(true);
 
         let create_info = vk::DeviceCreateInfo::builder()
             .queue_create_infos(&queue_create_infos)
             .enabled_extension_names(&extension_names)
             .push_next(&mut features_12)
-            .push_next(&mut features_13);
+            .push_next(&mut features_13)
+            .push_next(&mut features_rt)
+            .push_next(&mut features_as);
 
         let device = unsafe {
             vulkan
