@@ -54,6 +54,11 @@ pub struct Blas<'a> {
     marker: PhantomData<&'a ()>,
 }
 
+pub struct BuildSizes {
+    pub acceleration_structure: vk::DeviceSize,
+    pub build_scratch: vk::DeviceSize,
+}
+
 impl<'a> Blas<'a> {
     pub fn new(geometries: &[Geometry<'a>]) -> Blas<'a> {
         Blas {
@@ -63,10 +68,14 @@ impl<'a> Blas<'a> {
         }
     }
 
-    pub fn build_scratch_size(&self, device: &Device) -> u64 {
+    pub fn build_sizes(&self, device: &Device) -> BuildSizes {
         let primitive_counts: Vec<u32> = self.ranges.iter().map(|r| r.primitive_count).collect();
 
-        unsafe {
+        let vk::AccelerationStructureBuildSizesInfoKHR {
+            acceleration_structure_size,
+            build_scratch_size,
+            ..
+        } = unsafe {
             device
                 .ext
                 .acceleration_structure
@@ -75,8 +84,12 @@ impl<'a> Blas<'a> {
                     &self.geometry_info(),
                     &primitive_counts,
                 )
+        };
+
+        BuildSizes {
+            acceleration_structure: acceleration_structure_size,
+            build_scratch: build_scratch_size,
         }
-        .build_scratch_size
     }
 
     pub fn geometry_info(&self) -> vk::AccelerationStructureBuildGeometryInfoKHRBuilder {
@@ -87,14 +100,12 @@ impl<'a> Blas<'a> {
 
     pub fn bind_for_build(
         &'a self,
-        src: vk::AccelerationStructureKHR,
-        dst: vk::AccelerationStructureKHR,
+        destination: &'a AccelerationStructure,
         scratch: &'a AllocatedBuffer,
     ) -> BoundBlas<'a> {
         BoundBlas {
             blas: self,
-            src,
-            dst,
+            destination,
             scratch,
         }
     }
@@ -102,8 +113,7 @@ impl<'a> Blas<'a> {
 
 pub struct BoundBlas<'a> {
     blas: &'a Blas<'a>,
-    src: vk::AccelerationStructureKHR,
-    dst: vk::AccelerationStructureKHR,
+    destination: &'a AccelerationStructure,
     scratch: &'a AllocatedBuffer,
 }
 
@@ -112,8 +122,7 @@ impl<'a> BoundBlas<'a> {
         self.blas
             .geometry_info()
             .flags(vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_TRACE)
-            .src_acceleration_structure(self.src)
-            .dst_acceleration_structure(self.dst)
+            .dst_acceleration_structure(self.destination.vk)
             .scratch_data(vk::DeviceOrHostAddressKHR {
                 device_address: self.scratch.device_address(),
             })

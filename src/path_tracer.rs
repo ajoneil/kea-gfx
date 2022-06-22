@@ -63,19 +63,21 @@ impl PathTracer {
         let geometries = [Geometry::aabbs(&aabbs_buffer)];
         let blas = Blas::new(&geometries);
 
+        let build_sizes = blas.build_sizes(device);
+
         let scratch_buffer = Buffer::new(
             device,
-            blas.build_scratch_size(device),
+            build_sizes.build_scratch,
             vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
         )
-        .allocate("scratch", MemoryLocation::CpuToGpu, true);
+        .allocate("scratch", MemoryLocation::GpuOnly, true);
 
         let acceleration_structure_buffer = Buffer::new(
             device,
-            blas.build_scratch_size(device),
+            build_sizes.acceleration_structure,
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR,
         )
-        .allocate("acceleration structure", MemoryLocation::CpuToGpu, true);
+        .allocate("acceleration structure", MemoryLocation::GpuOnly, true);
 
         let acceleration_structure = AccelerationStructure::new(
             device,
@@ -85,7 +87,7 @@ impl PathTracer {
 
         let cmd = command_pool.allocate_buffer();
         cmd.record(true, |cmd| {
-            //cmd.build_blas(&blas, )
+            cmd.build_blas(&blas, &acceleration_structure, &scratch_buffer);
         })
     }
 

@@ -1,7 +1,7 @@
 use super::{
     buffer::AllocatedBuffer,
     device::{Device, Queue},
-    rt::acceleration_structure::Blas,
+    rt::acceleration_structure::{AccelerationStructure, Blas},
     swapchain::ImageView,
 };
 use ash::vk;
@@ -272,11 +272,10 @@ impl CommandBufferRecorder<'_> {
     pub fn build_blas(
         &self,
         blas: &Blas,
-        src: vk::AccelerationStructureKHR,
-        dst: vk::AccelerationStructureKHR,
+        destination: &AccelerationStructure,
         scratch: &AllocatedBuffer,
     ) {
-        let blas = blas.bind_for_build(src, dst, scratch);
+        let blas = blas.bind_for_build(destination, scratch);
         unsafe {
             self.buffer
                 .pool
