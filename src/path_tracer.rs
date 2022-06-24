@@ -1,7 +1,9 @@
 use crate::gpu::{
     buffer::{AllocatedBuffer, Buffer},
     command::CommandPool,
-    descriptor_set::{DescriptorSetLayout, DescriptorSetLayoutBinding},
+    descriptor_set::{
+        DescriptorPool, DescriptorSet, DescriptorSetLayout, DescriptorSetLayoutBinding,
+    },
     device::Device,
     pipeline::{
         Pipeline, PipelineDescription, PipelineLayout, PipelineShaderStage,
@@ -23,6 +25,8 @@ pub struct PathTracer {
     tl_acceleration_structure: AccelerationStructure,
     bl_acceleration_structure: AccelerationStructure,
     pipeline: Pipeline,
+    descriptor_set_layouts: [DescriptorSetLayout; 1],
+    descriptor_sets: Vec<DescriptorSet>,
 }
 
 struct Sphere {
@@ -55,7 +59,8 @@ impl PathTracer {
         let (tl_acceleration_structure, bl_acceleration_structure) =
             Self::build_acceleration_structure(&device, &command_pool);
 
-        let pipeline = Self::create_pipeline(&device);
+        let (pipeline, descriptor_set_layouts) = Self::create_pipeline(&device);
+        let descriptor_sets = Self::create_descriptor_sets(device.clone(), &descriptor_set_layouts);
 
         PathTracer {
             device,
@@ -63,6 +68,8 @@ impl PathTracer {
             tl_acceleration_structure,
             bl_acceleration_structure,
             pipeline,
+            descriptor_set_layouts,
+            descriptor_sets,
         }
     }
 
@@ -205,7 +212,7 @@ impl PathTracer {
         (spheres_buffer, aabbs_buffer)
     }
 
-    fn create_pipeline(device: &Arc<Device>) -> Pipeline {
+    fn create_pipeline(device: &Arc<Device>) -> (Pipeline, [DescriptorSetLayout; 1]) {
         let bindings = [
             DescriptorSetLayoutBinding::new(
                 0,
@@ -221,8 +228,8 @@ impl PathTracer {
             ),
         ];
 
-        let descriptor_set_layout = DescriptorSetLayout::new(device.clone(), &bindings);
-        let pipeline_layout = PipelineLayout::new(device.clone(), &[descriptor_set_layout]);
+        let descriptor_set_layouts = [DescriptorSetLayout::new(device.clone(), &bindings)];
+        let pipeline_layout = PipelineLayout::new(device.clone(), &descriptor_set_layouts);
 
         let shader_module = ShaderModule::new(device.clone());
         let shader_stages = [
@@ -276,6 +283,26 @@ impl PathTracer {
             &shader_groups,
             &pipeline_layout,
         ));
-        Pipeline::new(device.clone(), &pipeline_desc)
+        let pipeline = Pipeline::new(device.clone(), &pipeline_desc);
+
+        (pipeline, descriptor_set_layouts)
+    }
+
+    fn create_descriptor_sets(
+        device: Arc<Device>,
+        layouts: &[DescriptorSetLayout],
+    ) -> Vec<DescriptorSet> {
+        let pool_sizes = [
+            vk::DescriptorPoolSize {
+                ty: vk::DescriptorType::ACCELERATION_STRUCTURE_KHR,
+                descriptor_count: 1,
+            },
+            vk::DescriptorPoolSize {
+                ty: vk::DescriptorType::STORAGE_IMAGE,
+                descriptor_count: 1,
+            },
+        ];
+        let descriptor_pool = DescriptorPool::new(device, 1, &pool_sizes);
+        descriptor_pool.allocate_descriptor_sets(layouts)
     }
 }
