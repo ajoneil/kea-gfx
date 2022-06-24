@@ -32,3 +32,15 @@ pub fn main_vertex(
 pub fn main_fragment(fragment_color: Vec3, output: &mut Vec4) {
     *output = vec4(fragment_color.x, fragment_color.y, fragment_color.z, 1.0);
 }
+
+#[spirv(ray_generation)]
+pub fn generate_rays() {}
+
+#[spirv(miss)]
+pub fn ray_miss() {}
+
+#[spirv(closest_hit)]
+pub fn ray_hit() {}
+
+#[spirv(intersection)]
+pub fn intersect_sphere() {}

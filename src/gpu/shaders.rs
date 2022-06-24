@@ -27,6 +27,8 @@ impl ShaderModule {
 
     fn compile_shaders() -> (Vec<String>, Vec<u32>) {
         let compile_result = SpirvBuilder::new("src/shaders", "spirv-unknown-vulkan1.2")
+            .capability(spirv_builder::Capability::RayTracingKHR)
+            .extension("SPV_KHR_ray_tracing")
             .print_metadata(MetadataPrintout::None)
             .build()
             .unwrap();

@@ -94,6 +94,8 @@ pub struct Device {
 pub struct Extensions {
     pub swapchain: ash::extensions::khr::Swapchain,
     pub acceleration_structure: ash::extensions::khr::AccelerationStructure,
+    pub deferred_host_operations: ash::extensions::khr::DeferredHostOperations,
+    pub ray_tracing_pipeline: ash::extensions::khr::RayTracingPipeline,
 }
 
 impl Device {
@@ -107,6 +109,14 @@ impl Device {
         let ext = Extensions {
             swapchain: ash::extensions::khr::Swapchain::new(&vulkan.instance, &device),
             acceleration_structure: ash::extensions::khr::AccelerationStructure::new(
+                &vulkan.instance,
+                &device,
+            ),
+            deferred_host_operations: ash::extensions::khr::DeferredHostOperations::new(
+                &vulkan.instance,
+                &device,
+            ),
+            ray_tracing_pipeline: ash::extensions::khr::RayTracingPipeline::new(
                 &vulkan.instance,
                 &device,
             ),
@@ -245,6 +255,7 @@ impl Device {
             ash::extensions::khr::Swapchain::name().as_ptr(),
             ash::extensions::khr::AccelerationStructure::name().as_ptr(),
             ash::extensions::khr::DeferredHostOperations::name().as_ptr(),
+            ash::extensions::khr::RayTracingPipeline::name().as_ptr(),
         ]
     }
 

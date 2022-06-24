@@ -3,10 +3,14 @@ use crate::gpu::{
     command::CommandPool,
     descriptor_set::{DescriptorSetLayout, DescriptorSetLayoutBinding},
     device::Device,
-    pipeline::PipelineLayout,
+    pipeline::{
+        Pipeline, PipelineDescription, PipelineLayout, PipelineShaderStage,
+        RayTracingPipelineDescription,
+    },
     rt::acceleration_structure::{
         Aabb, AccelerationStructure, AccelerationStructureDescription, Geometry,
     },
+    shaders::ShaderModule,
 };
 use ash::vk;
 use glam::{vec3, Vec3};
@@ -18,6 +22,7 @@ pub struct PathTracer {
     command_pool: Arc<CommandPool>,
     tl_acceleration_structure: AccelerationStructure,
     bl_acceleration_structure: AccelerationStructure,
+    pipeline: Pipeline,
 }
 
 struct Sphere {
@@ -50,13 +55,14 @@ impl PathTracer {
         let (tl_acceleration_structure, bl_acceleration_structure) =
             Self::build_acceleration_structure(&device, &command_pool);
 
-        Self::create_pipeline(&device);
+        let pipeline = Self::create_pipeline(&device);
 
         PathTracer {
             device,
             command_pool,
             tl_acceleration_structure,
             bl_acceleration_structure,
+            pipeline,
         }
     }
 
@@ -199,7 +205,7 @@ impl PathTracer {
         (spheres_buffer, aabbs_buffer)
     }
 
-    fn create_pipeline(device: &Arc<Device>) {
+    fn create_pipeline(device: &Arc<Device>) -> Pipeline {
         let bindings = [
             DescriptorSetLayoutBinding::new(
                 0,
@@ -217,5 +223,59 @@ impl PathTracer {
 
         let descriptor_set_layout = DescriptorSetLayout::new(device.clone(), &bindings);
         let pipeline_layout = PipelineLayout::new(device.clone(), &[descriptor_set_layout]);
+
+        let shader_module = ShaderModule::new(device.clone());
+        let shader_stages = [
+            PipelineShaderStage::new(
+                vk::ShaderStageFlags::RAYGEN_KHR,
+                &shader_module.entry_point("generate_rays"),
+            ),
+            PipelineShaderStage::new(
+                vk::ShaderStageFlags::MISS_KHR,
+                &shader_module.entry_point("ray_miss"),
+            ),
+            PipelineShaderStage::new(
+                vk::ShaderStageFlags::CLOSEST_HIT_KHR,
+                &shader_module.entry_point("ray_hit"),
+            ),
+            PipelineShaderStage::new(
+                vk::ShaderStageFlags::INTERSECTION_KHR,
+                &shader_module.entry_point("intersect_sphere"),
+            ),
+        ];
+
+        let shader_groups = [
+            // generate
+            vk::RayTracingShaderGroupCreateInfoKHR::builder()
+                .ty(vk::RayTracingShaderGroupTypeKHR::GENERAL)
+                .general_shader(0)
+                .closest_hit_shader(vk::SHADER_UNUSED_KHR)
+                .any_hit_shader(vk::SHADER_UNUSED_KHR)
+                .intersection_shader(vk::SHADER_UNUSED_KHR)
+                .build(),
+            // miss
+            vk::RayTracingShaderGroupCreateInfoKHR::builder()
+                .ty(vk::RayTracingShaderGroupTypeKHR::GENERAL)
+                .general_shader(1)
+                .closest_hit_shader(vk::SHADER_UNUSED_KHR)
+                .any_hit_shader(vk::SHADER_UNUSED_KHR)
+                .intersection_shader(vk::SHADER_UNUSED_KHR)
+                .build(),
+            // sphere hit
+            vk::RayTracingShaderGroupCreateInfoKHR::builder()
+                .ty(vk::RayTracingShaderGroupTypeKHR::PROCEDURAL_HIT_GROUP)
+                .general_shader(vk::SHADER_UNUSED_KHR)
+                .closest_hit_shader(2)
+                .any_hit_shader(vk::SHADER_UNUSED_KHR)
+                .intersection_shader(3)
+                .build(),
+        ];
+
+        let pipeline_desc = PipelineDescription::RayTracing(RayTracingPipelineDescription::new(
+            &shader_stages,
+            &shader_groups,
+            &pipeline_layout,
+        ));
+        Pipeline::new(device.clone(), &pipeline_desc)
     }
 }

@@ -67,7 +67,7 @@ pub struct Pipeline {
 }
 
 impl Pipeline {
-    pub fn new(device: Arc<Device>, pipeline_description: &mut PipelineDescription) -> Pipeline {
+    pub fn new(device: Arc<Device>, pipeline_description: &PipelineDescription) -> Pipeline {
         let raw = match pipeline_description {
             PipelineDescription::Graphics(desc) => unsafe {
                 device.vk().create_graphics_pipelines(
@@ -75,6 +75,18 @@ impl Pipeline {
                     &[desc.raw()],
                     None,
                 )
+            }
+            .unwrap()[0],
+            PipelineDescription::RayTracing(desc) => unsafe {
+                device
+                    .ext
+                    .ray_tracing_pipeline
+                    .create_ray_tracing_pipelines(
+                        vk::DeferredOperationKHR::null(),
+                        vk::PipelineCache::null(),
+                        &[desc.raw()],
+                        None,
+                    )
             }
             .unwrap()[0],
         };
@@ -97,6 +109,7 @@ impl Drop for Pipeline {
 
 pub enum PipelineDescription<'a> {
     Graphics(GraphicsPipelineDescription<'a>),
+    RayTracing(RayTracingPipelineDescription<'a>),
 }
 
 pub struct GraphicsPipelineDescription<'a> {
@@ -183,5 +196,39 @@ impl PipelineViewportState {
 
     pub unsafe fn raw(&self) -> &vk::PipelineViewportStateCreateInfo {
         &self.raw
+    }
+}
+
+pub struct RayTracingPipelineDescription<'a> {
+    raw: vk::RayTracingPipelineCreateInfoKHR,
+    _raw_stages: Vec<vk::PipelineShaderStageCreateInfo>,
+    marker: PhantomData<&'a ()>,
+}
+
+impl<'a> RayTracingPipelineDescription<'a> {
+    pub fn new(
+        stages: &[PipelineShaderStage<'a>],
+        groups: &'a [vk::RayTracingShaderGroupCreateInfoKHR],
+        layout: &'a PipelineLayout,
+    ) -> RayTracingPipelineDescription<'a> {
+        let raw_stages: Vec<vk::PipelineShaderStageCreateInfo> =
+            stages.iter().map(|ss| unsafe { ss.raw() }).collect();
+
+        let raw = vk::RayTracingPipelineCreateInfoKHR::builder()
+            .stages(&raw_stages)
+            .groups(groups)
+            .max_pipeline_ray_recursion_depth(1)
+            .layout(unsafe { layout.raw() })
+            .build();
+
+        RayTracingPipelineDescription {
+            raw,
+            _raw_stages: raw_stages,
+            marker: PhantomData,
+        }
+    }
+
+    pub unsafe fn raw(&self) -> vk::RayTracingPipelineCreateInfoKHR {
+        self.raw
     }
 }
