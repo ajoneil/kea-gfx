@@ -2,7 +2,9 @@ use crate::gpu::{
     buffer::{AllocatedBuffer, Buffer},
     command::CommandPool,
     device::Device,
-    rt::acceleration_structure::{Aabb, AccelerationStructure, Blas, Geometry},
+    rt::acceleration_structure::{
+        Aabb, AccelerationStructure, AccelerationStructureDescription, Geometry,
+    },
 };
 use ash::vk;
 use glam::{vec3, Vec3};
@@ -58,10 +60,12 @@ impl PathTracer {
 
         let (spheres_buffer, aabbs_buffer) = Self::create_buffers(device, &spheres);
         let geometries = [Geometry::aabbs(&aabbs_buffer)];
-        let blas = Blas::new(&geometries);
+        let blas = AccelerationStructureDescription::new(
+            vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL,
+            &geometries,
+        );
 
         let build_sizes = blas.build_sizes(device);
-
         let scratch_buffer = Buffer::new(
             device,
             build_sizes.build_scratch,
@@ -69,24 +73,90 @@ impl PathTracer {
         )
         .allocate("scratch", MemoryLocation::GpuOnly, true);
 
-        let acceleration_structure_buffer = Buffer::new(
+        let bl_acceleration_structure_buffer = Buffer::new(
             device,
             build_sizes.acceleration_structure,
-            vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR,
+            vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR
+                | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
         )
-        .allocate("acceleration structure", MemoryLocation::GpuOnly, true);
+        .allocate("bl acceleration structure", MemoryLocation::GpuOnly, true);
 
-        let acceleration_structure = AccelerationStructure::new(
+        let bl_acceleration_structure = AccelerationStructure::new(
             device,
-            acceleration_structure_buffer,
+            bl_acceleration_structure_buffer,
             vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL,
         );
 
         let cmd = command_pool.allocate_buffer();
         cmd.record(true, |cmd| {
-            cmd.build_blas(&blas, &acceleration_structure, &scratch_buffer);
+            cmd.build_acceleration_structure(&blas, &bl_acceleration_structure, &scratch_buffer);
         });
-        cmd.submit().wait()
+        cmd.submit().wait();
+
+        let identity_transform = vk::TransformMatrixKHR {
+            matrix: [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+        };
+
+        let custom_index = 0;
+        let mask = 0xff;
+        let shader_binding_table_record_offset = 0;
+        let flags = vk::GeometryInstanceFlagsKHR::TRIANGLE_FACING_CULL_DISABLE
+            .as_raw()
+            .try_into()
+            .unwrap();
+        let tlas_instance = vk::AccelerationStructureInstanceKHR {
+            transform: identity_transform,
+            instance_custom_index_and_mask: vk::Packed24_8::new(custom_index, mask),
+            instance_shader_binding_table_record_offset_and_flags: vk::Packed24_8::new(
+                shader_binding_table_record_offset,
+                flags,
+            ),
+            acceleration_structure_reference: vk::AccelerationStructureReferenceKHR {
+                device_handle: bl_acceleration_structure.buffer().device_address(),
+            },
+        };
+        let tlas_buffer = Buffer::new(
+            device,
+            mem::size_of_val(&tlas_instance) as u64,
+            vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
+                | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+        )
+        .allocate("tlas build", MemoryLocation::CpuToGpu, true);
+        tlas_buffer.fill(&[tlas_instance]);
+
+        let geometries = [Geometry::instances(&tlas_buffer)];
+        let tlas = AccelerationStructureDescription::new(
+            vk::AccelerationStructureTypeKHR::TOP_LEVEL,
+            &geometries,
+        );
+
+        let build_sizes = tlas.build_sizes(device);
+        let scratch_buffer = Buffer::new(
+            device,
+            build_sizes.build_scratch,
+            vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+        )
+        .allocate("scratch", MemoryLocation::GpuOnly, true);
+
+        let tl_acceleration_structure_buffer = Buffer::new(
+            device,
+            build_sizes.acceleration_structure,
+            vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR
+                | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+        )
+        .allocate("tl acceleration structure", MemoryLocation::GpuOnly, true);
+
+        let tl_acceleration_structure = AccelerationStructure::new(
+            device,
+            tl_acceleration_structure_buffer,
+            vk::AccelerationStructureTypeKHR::TOP_LEVEL,
+        );
+
+        let cmd = command_pool.allocate_buffer();
+        cmd.record(true, |cmd| {
+            cmd.build_acceleration_structure(&tlas, &tl_acceleration_structure, &scratch_buffer);
+        });
+        cmd.submit().wait();
     }
 
     fn create_buffers(

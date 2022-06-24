@@ -10,8 +10,7 @@ use gpu_allocator::vulkan::{Allocator, AllocatorCreateDesc};
 use log::info;
 use std::{
     collections::HashMap,
-    fmt::{self, Debug, Formatter},
-    future::Future,
+    fmt::Debug,
     iter,
     mem::ManuallyDrop,
     sync::{Arc, Mutex},

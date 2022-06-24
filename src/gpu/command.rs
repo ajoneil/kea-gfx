@@ -1,12 +1,12 @@
 use super::{
     buffer::AllocatedBuffer,
     device::{Device, Queue},
-    rt::acceleration_structure::{AccelerationStructure, Blas},
+    rt::acceleration_structure::{AccelerationStructure, AccelerationStructureDescription},
     swapchain::ImageView,
     sync::Fence,
 };
 use ash::vk;
-use std::{future::Future, sync::Arc};
+use std::sync::Arc;
 
 pub struct CommandPool {
     pool: vk::CommandPool,
@@ -270,21 +270,21 @@ impl CommandBufferRecorder<'_> {
         );
     }
 
-    pub fn build_blas(
+    pub fn build_acceleration_structure(
         &self,
-        blas: &Blas,
+        description: &AccelerationStructureDescription,
         destination: &AccelerationStructure,
         scratch: &AllocatedBuffer,
     ) {
-        let blas = blas.bind_for_build(destination, scratch);
+        let description = description.bind_for_build(destination, scratch);
         unsafe {
             self.device()
                 .ext
                 .acceleration_structure
                 .cmd_build_acceleration_structures(
                     self.buffer.buffer,
-                    &[blas.geometry_info()],
-                    &[blas.ranges()],
+                    &[description.geometry_info()],
+                    &[description.ranges()],
                 );
         }
     }

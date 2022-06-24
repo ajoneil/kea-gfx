@@ -44,9 +44,40 @@ impl<'a> Geometry<'a> {
             marker: PhantomData,
         }
     }
+
+    pub fn instances(buffer: &'a AllocatedBuffer) -> Geometry<'a> {
+        let geometry_data = vk::AccelerationStructureGeometryDataKHR {
+            instances: vk::AccelerationStructureGeometryInstancesDataKHR::builder()
+                .data(vk::DeviceOrHostAddressConstKHR {
+                    device_address: buffer.device_address(),
+                })
+                .array_of_pointers(false)
+                .build(),
+        };
+
+        let geometry = vk::AccelerationStructureGeometryKHR::builder()
+            .geometry_type(vk::GeometryTypeKHR::INSTANCES)
+            .flags(vk::GeometryFlagsKHR::OPAQUE)
+            .geometry(geometry_data)
+            .build();
+
+        let range = vk::AccelerationStructureBuildRangeInfoKHR::builder()
+            .primitive_count(
+                (buffer.buffer().size() / mem::size_of::<vk::AccelerationStructureInstanceKHR>())
+                    as u32,
+            )
+            .build();
+
+        Geometry {
+            geometry,
+            range,
+            marker: PhantomData,
+        }
+    }
 }
 
-pub struct Blas<'a> {
+pub struct AccelerationStructureDescription<'a> {
+    ty: vk::AccelerationStructureTypeKHR,
     geometries: Vec<vk::AccelerationStructureGeometryKHR>,
     ranges: Vec<vk::AccelerationStructureBuildRangeInfoKHR>,
 
@@ -59,9 +90,13 @@ pub struct BuildSizes {
     pub build_scratch: vk::DeviceSize,
 }
 
-impl<'a> Blas<'a> {
-    pub fn new(geometries: &[Geometry<'a>]) -> Blas<'a> {
-        Blas {
+impl<'a> AccelerationStructureDescription<'a> {
+    pub fn new(
+        ty: vk::AccelerationStructureTypeKHR,
+        geometries: &[Geometry<'a>],
+    ) -> AccelerationStructureDescription<'a> {
+        AccelerationStructureDescription {
+            ty,
             geometries: geometries.iter().map(|g: &Geometry| g.geometry).collect(),
             ranges: geometries.iter().map(|g: &Geometry| g.range).collect(),
             marker: PhantomData,
@@ -94,7 +129,7 @@ impl<'a> Blas<'a> {
 
     pub fn geometry_info(&self) -> vk::AccelerationStructureBuildGeometryInfoKHRBuilder {
         vk::AccelerationStructureBuildGeometryInfoKHR::builder()
-            .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
+            .ty(self.ty)
             .geometries(&self.geometries)
     }
 
@@ -102,24 +137,24 @@ impl<'a> Blas<'a> {
         &'a self,
         destination: &'a AccelerationStructure,
         scratch: &'a AllocatedBuffer,
-    ) -> BoundBlas<'a> {
-        BoundBlas {
-            blas: self,
+    ) -> BoundAccelerationStructureDescription<'a> {
+        BoundAccelerationStructureDescription {
+            acceleration_structure_description: self,
             destination,
             scratch,
         }
     }
 }
 
-pub struct BoundBlas<'a> {
-    blas: &'a Blas<'a>,
+pub struct BoundAccelerationStructureDescription<'a> {
+    acceleration_structure_description: &'a AccelerationStructureDescription<'a>,
     destination: &'a AccelerationStructure,
     scratch: &'a AllocatedBuffer,
 }
 
-impl<'a> BoundBlas<'a> {
+impl<'a> BoundAccelerationStructureDescription<'a> {
     pub fn geometry_info(&self) -> vk::AccelerationStructureBuildGeometryInfoKHR {
-        self.blas
+        self.acceleration_structure_description
             .geometry_info()
             .flags(vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_TRACE)
             .dst_acceleration_structure(self.destination.vk)
@@ -130,7 +165,7 @@ impl<'a> BoundBlas<'a> {
     }
 
     pub fn ranges(&self) -> &[vk::AccelerationStructureBuildRangeInfoKHR] {
-        &self.blas.ranges
+        &self.acceleration_structure_description.ranges
     }
 }
 
@@ -164,6 +199,10 @@ impl AccelerationStructure {
             vk,
             buffer,
         }
+    }
+
+    pub fn buffer(&self) -> &AllocatedBuffer {
+        &self.buffer
     }
 }
 
