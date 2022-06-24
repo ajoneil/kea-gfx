@@ -17,8 +17,8 @@ pub struct Rasterizer {
 }
 
 impl Rasterizer {
-    pub fn new(device: &Arc<Device>, format: vk::Format) -> Rasterizer {
-        let pipeline = RasterizationPipeline::new(device, format);
+    pub fn new(device: Arc<Device>, format: vk::Format) -> Rasterizer {
+        let pipeline = RasterizationPipeline::new(device.clone(), format);
 
         let vertices = vec![
             shaders::Vertex {
@@ -43,7 +43,7 @@ impl Rasterizer {
         }
     }
 
-    fn create_vertex_buffer(device: &Arc<Device>, vertices: &[shaders::Vertex]) -> AllocatedBuffer {
+    fn create_vertex_buffer(device: Arc<Device>, vertices: &[shaders::Vertex]) -> AllocatedBuffer {
         let buffer = Buffer::new(
             device,
             (mem::size_of::<shaders::Vertex>() * vertices.len()) as u64,
@@ -59,7 +59,7 @@ impl Rasterizer {
     pub fn draw(&self, cmd: &CommandBufferRecorder, image_view: &SwapchainImageView) {
         cmd.with_render_image_barrier(image_view.image, || {
             cmd.render(&image_view.view, || {
-                cmd.bind_pipeline(vk::PipelineBindPoint::GRAPHICS, self.pipeline.pipeline);
+                cmd.bind_pipeline(vk::PipelineBindPoint::GRAPHICS, &self.pipeline.pipeline);
                 cmd.bind_vertex_buffers(&[&self.vertex_buffer], 0);
                 cmd.draw(self.vertices.len() as u32, 1, 0, 0);
             });

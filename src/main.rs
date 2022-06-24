@@ -26,14 +26,10 @@ impl KeaApp {
         let vulkan = Arc::new(Vulkan::new(window.required_extensions()));
         let surface = Surface::from_window(vulkan.clone(), &window);
         let device_selection = PhysicalDevice::select_physical_device(&vulkan, &surface);
-        let device = Arc::new(Device::new(
-            vulkan.clone(),
-            device_selection.clone(),
-            surface,
-        ));
+        let device = Device::new(vulkan.clone(), device_selection.clone(), surface);
         let swapchain = Swapchain::new(&device, &device_selection.physical_device);
-        let rasterizer = Rasterizer::new(&device, swapchain.format);
-        let path_tracer = PathTracer::new(&device);
+        let rasterizer = Rasterizer::new(device.clone(), swapchain.format);
+        let path_tracer = PathTracer::new(device);
         let presenter = Presenter::new(swapchain);
 
         KeaApp {

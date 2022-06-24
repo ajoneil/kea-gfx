@@ -1,7 +1,9 @@
 use crate::gpu::{
     buffer::{AllocatedBuffer, Buffer},
     command::CommandPool,
+    descriptor_set::{DescriptorSetLayout, DescriptorSetLayoutBinding},
     device::Device,
+    pipeline::PipelineLayout,
     rt::acceleration_structure::{
         Aabb, AccelerationStructure, AccelerationStructureDescription, Geometry,
     },
@@ -14,6 +16,8 @@ use std::{mem, sync::Arc};
 pub struct PathTracer {
     device: Arc<Device>,
     command_pool: Arc<CommandPool>,
+    tl_acceleration_structure: AccelerationStructure,
+    bl_acceleration_structure: AccelerationStructure,
 }
 
 struct Sphere {
@@ -41,18 +45,25 @@ impl Sphere {
 }
 
 impl PathTracer {
-    pub fn new(device: &Arc<Device>) -> PathTracer {
-        let device = device.clone();
+    pub fn new(device: Arc<Device>) -> PathTracer {
         let command_pool = Arc::new(CommandPool::new(device.queues().graphics()));
-        Self::build_acceleration_structure(&device, &command_pool);
+        let (tl_acceleration_structure, bl_acceleration_structure) =
+            Self::build_acceleration_structure(&device, &command_pool);
+
+        Self::create_pipeline(&device);
 
         PathTracer {
             device,
             command_pool,
+            tl_acceleration_structure,
+            bl_acceleration_structure,
         }
     }
 
-    fn build_acceleration_structure(device: &Arc<Device>, command_pool: &Arc<CommandPool>) {
+    fn build_acceleration_structure(
+        device: &Arc<Device>,
+        command_pool: &Arc<CommandPool>,
+    ) -> (AccelerationStructure, AccelerationStructure) {
         let spheres = [Sphere {
             position: vec3(0.0, 0.0, 1.0),
             radius: 0.5,
@@ -67,14 +78,14 @@ impl PathTracer {
 
         let build_sizes = blas.build_sizes(device);
         let scratch_buffer = Buffer::new(
-            device,
+            device.clone(),
             build_sizes.build_scratch,
             vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
         )
         .allocate("scratch", MemoryLocation::GpuOnly, true);
 
         let bl_acceleration_structure_buffer = Buffer::new(
-            device,
+            device.clone(),
             build_sizes.acceleration_structure,
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
@@ -116,7 +127,7 @@ impl PathTracer {
             },
         };
         let tlas_buffer = Buffer::new(
-            device,
+            device.clone(),
             mem::size_of_val(&tlas_instance) as u64,
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
@@ -132,14 +143,14 @@ impl PathTracer {
 
         let build_sizes = tlas.build_sizes(device);
         let scratch_buffer = Buffer::new(
-            device,
+            device.clone(),
             build_sizes.build_scratch,
             vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
         )
         .allocate("scratch", MemoryLocation::GpuOnly, true);
 
         let tl_acceleration_structure_buffer = Buffer::new(
-            device,
+            device.clone(),
             build_sizes.acceleration_structure,
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
@@ -157,6 +168,8 @@ impl PathTracer {
             cmd.build_acceleration_structure(&tlas, &tl_acceleration_structure, &scratch_buffer);
         });
         cmd.submit().wait();
+
+        (bl_acceleration_structure, tl_acceleration_structure)
     }
 
     fn create_buffers(
@@ -164,7 +177,7 @@ impl PathTracer {
         spheres: &[Sphere],
     ) -> (AllocatedBuffer, AllocatedBuffer) {
         let spheres_buffer = Buffer::new(
-            device,
+            device.clone(),
             (mem::size_of::<Sphere>() * spheres.len()) as u64,
             vk::BufferUsageFlags::STORAGE_BUFFER,
         );
@@ -174,7 +187,7 @@ impl PathTracer {
 
         let aabbs: Vec<Aabb> = spheres.iter().map(|s: &Sphere| s.aabb()).collect();
         let aabbs_buffer = Buffer::new(
-            device,
+            device.clone(),
             (mem::size_of::<Aabb>() * aabbs.len()) as u64,
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
@@ -184,5 +197,25 @@ impl PathTracer {
         aabbs_buffer.fill(&aabbs);
 
         (spheres_buffer, aabbs_buffer)
+    }
+
+    fn create_pipeline(device: &Arc<Device>) {
+        let bindings = [
+            DescriptorSetLayoutBinding::new(
+                0,
+                vk::DescriptorType::ACCELERATION_STRUCTURE_KHR,
+                1,
+                vk::ShaderStageFlags::RAYGEN_KHR,
+            ),
+            DescriptorSetLayoutBinding::new(
+                1,
+                vk::DescriptorType::STORAGE_IMAGE,
+                1,
+                vk::ShaderStageFlags::RAYGEN_KHR,
+            ),
+        ];
+
+        let descriptor_set_layout = DescriptorSetLayout::new(device.clone(), &bindings);
+        let pipeline_layout = PipelineLayout::new(device.clone(), &[descriptor_set_layout]);
     }
 }

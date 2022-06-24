@@ -22,7 +22,7 @@ pub struct AllocatedBuffer {
 }
 
 impl Buffer {
-    pub fn new(device: &Arc<Device>, size: u64, usage: vk::BufferUsageFlags) -> Buffer {
+    pub fn new(device: Arc<Device>, size: u64, usage: vk::BufferUsageFlags) -> Buffer {
         let buffer_info = vk::BufferCreateInfo::builder()
             .size(size)
             .usage(usage)
@@ -30,7 +30,7 @@ impl Buffer {
         let buffer = unsafe { device.vk().create_buffer(&buffer_info, None) }.unwrap();
 
         Buffer {
-            device: device.clone(),
+            device,
             vk: buffer,
             size,
         }

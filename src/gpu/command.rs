@@ -1,6 +1,7 @@
 use super::{
     buffer::AllocatedBuffer,
     device::{Device, Queue},
+    pipeline::Pipeline,
     rt::acceleration_structure::{AccelerationStructure, AccelerationStructureDescription},
     swapchain::ImageView,
     sync::Fence,
@@ -156,11 +157,11 @@ impl CommandBufferRecorder<'_> {
         self.buffer.device()
     }
 
-    pub fn bind_pipeline(&self, bind_point: vk::PipelineBindPoint, pipeline: vk::Pipeline) {
+    pub fn bind_pipeline(&self, bind_point: vk::PipelineBindPoint, pipeline: &Pipeline) {
         unsafe {
             self.device()
                 .vk()
-                .cmd_bind_pipeline(self.buffer.buffer, bind_point, pipeline)
+                .cmd_bind_pipeline(self.buffer.buffer, bind_point, pipeline.raw())
         }
     }
 
