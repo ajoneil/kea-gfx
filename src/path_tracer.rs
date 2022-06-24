@@ -1,6 +1,6 @@
 use crate::gpu::{
     buffer::{AllocatedBuffer, Buffer},
-    command::CommandPool,
+    command::{CommandBufferRecorder, CommandPool},
     descriptor_set::{
         DescriptorPool, DescriptorSet, DescriptorSetLayout, DescriptorSetLayoutBinding,
     },
@@ -13,11 +13,19 @@ use crate::gpu::{
         Aabb, AccelerationStructure, AccelerationStructureDescription, Geometry,
     },
     shaders::ShaderModule,
+    swapchain::SwapchainImageView,
 };
 use ash::vk;
 use glam::{vec3, Vec3};
-use gpu_allocator::MemoryLocation;
-use std::{mem, sync::Arc};
+use gpu_allocator::{
+    vulkan::{Allocation, AllocationCreateDesc},
+    MemoryLocation,
+};
+use std::{
+    mem::{self, ManuallyDrop},
+    slice,
+    sync::Arc,
+};
 
 pub struct PathTracer {
     device: Arc<Device>,
@@ -25,8 +33,11 @@ pub struct PathTracer {
     tl_acceleration_structure: AccelerationStructure,
     bl_acceleration_structure: AccelerationStructure,
     pipeline: Pipeline,
-    descriptor_set_layouts: [DescriptorSetLayout; 1],
-    descriptor_sets: Vec<DescriptorSet>,
+    descriptor_set_layout: DescriptorSetLayout,
+    descriptor_set: DescriptorSet,
+    storage_image: vk::Image,
+    storage_image_view: vk::ImageView,
+    allocation: ManuallyDrop<Allocation>,
 }
 
 struct Sphere {
@@ -54,13 +65,22 @@ impl Sphere {
 }
 
 impl PathTracer {
-    pub fn new(device: Arc<Device>) -> PathTracer {
+    pub fn new(device: Arc<Device>, format: vk::Format) -> PathTracer {
         let command_pool = Arc::new(CommandPool::new(device.queues().graphics()));
-        let (tl_acceleration_structure, bl_acceleration_structure) =
+        let (tl_acceleration_structure, bl_acceleration_structure, spheres_buffer) =
             Self::build_acceleration_structure(&device, &command_pool);
+        let (pipeline, descriptor_set_layout) = Self::create_pipeline(&device);
 
-        let (pipeline, descriptor_set_layouts) = Self::create_pipeline(&device);
-        let descriptor_sets = Self::create_descriptor_sets(device.clone(), &descriptor_set_layouts);
+        let (storage_image, storage_image_view, allocation) =
+            Self::create_storage_image(&device, format, &command_pool);
+
+        let descriptor_set = Self::create_descriptor_set(
+            &device,
+            &descriptor_set_layout,
+            &tl_acceleration_structure,
+            storage_image_view,
+            &spheres_buffer,
+        );
 
         PathTracer {
             device,
@@ -68,15 +88,22 @@ impl PathTracer {
             tl_acceleration_structure,
             bl_acceleration_structure,
             pipeline,
-            descriptor_set_layouts,
-            descriptor_sets,
+            descriptor_set_layout,
+            descriptor_set,
+            storage_image,
+            storage_image_view,
+            allocation: ManuallyDrop::new(allocation),
         }
     }
 
     fn build_acceleration_structure(
         device: &Arc<Device>,
         command_pool: &Arc<CommandPool>,
-    ) -> (AccelerationStructure, AccelerationStructure) {
+    ) -> (
+        AccelerationStructure,
+        AccelerationStructure,
+        AllocatedBuffer,
+    ) {
         let spheres = [Sphere {
             position: vec3(0.0, 0.0, 1.0),
             radius: 0.5,
@@ -182,7 +209,11 @@ impl PathTracer {
         });
         cmd.submit().wait();
 
-        (bl_acceleration_structure, tl_acceleration_structure)
+        (
+            tl_acceleration_structure,
+            bl_acceleration_structure,
+            spheres_buffer,
+        )
     }
 
     fn create_buffers(
@@ -212,7 +243,7 @@ impl PathTracer {
         (spheres_buffer, aabbs_buffer)
     }
 
-    fn create_pipeline(device: &Arc<Device>) -> (Pipeline, [DescriptorSetLayout; 1]) {
+    fn create_pipeline(device: &Arc<Device>) -> (Pipeline, DescriptorSetLayout) {
         let bindings = [
             DescriptorSetLayoutBinding::new(
                 0,
@@ -226,10 +257,17 @@ impl PathTracer {
                 1,
                 vk::ShaderStageFlags::RAYGEN_KHR,
             ),
+            DescriptorSetLayoutBinding::new(
+                2,
+                vk::DescriptorType::STORAGE_BUFFER,
+                1,
+                vk::ShaderStageFlags::INTERSECTION_KHR,
+            ),
         ];
 
-        let descriptor_set_layouts = [DescriptorSetLayout::new(device.clone(), &bindings)];
-        let pipeline_layout = PipelineLayout::new(device.clone(), &descriptor_set_layouts);
+        let descriptor_set_layout = DescriptorSetLayout::new(device.clone(), &bindings);
+        let pipeline_layout =
+            PipelineLayout::new(device.clone(), slice::from_ref(&descriptor_set_layout));
 
         let shader_module = ShaderModule::new(device.clone());
         let shader_stages = [
@@ -285,13 +323,89 @@ impl PathTracer {
         ));
         let pipeline = Pipeline::new(device.clone(), &pipeline_desc);
 
-        (pipeline, descriptor_set_layouts)
+        (pipeline, descriptor_set_layout)
     }
 
-    fn create_descriptor_sets(
-        device: Arc<Device>,
-        layouts: &[DescriptorSetLayout],
-    ) -> Vec<DescriptorSet> {
+    fn create_storage_image(
+        device: &Device,
+        format: vk::Format,
+        command_pool: &Arc<CommandPool>,
+    ) -> (vk::Image, vk::ImageView, Allocation) {
+        let image_create_info = vk::ImageCreateInfo::builder()
+            .image_type(vk::ImageType::TYPE_2D)
+            .format(format)
+            .extent(vk::Extent3D {
+                width: 1920,
+                height: 1080,
+                depth: 1,
+            })
+            .mip_levels(1)
+            .array_layers(1)
+            .samples(vk::SampleCountFlags::TYPE_1)
+            .tiling(vk::ImageTiling::OPTIMAL)
+            .usage(vk::ImageUsageFlags::STORAGE)
+            .initial_layout(vk::ImageLayout::UNDEFINED);
+
+        let image = unsafe { device.vk().create_image(&image_create_info, None) }.unwrap();
+        let requirements = unsafe { device.vk().get_image_memory_requirements(image) };
+
+        let allocation = device
+            .allocator
+            .lock()
+            .unwrap()
+            .allocate(&AllocationCreateDesc {
+                name: "rt image output",
+                requirements,
+                location: MemoryLocation::GpuOnly,
+                linear: true,
+            })
+            .unwrap();
+
+        unsafe {
+            device
+                .vk()
+                .bind_image_memory(image, allocation.memory(), allocation.offset())
+        }
+        .unwrap();
+
+        let view_info = vk::ImageViewCreateInfo::builder()
+            .view_type(vk::ImageViewType::TYPE_2D)
+            .format(format)
+            .subresource_range(vk::ImageSubresourceRange {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            })
+            .image(image);
+
+        let image_view = unsafe { device.vk().create_image_view(&view_info, None) }.unwrap();
+
+        let cmd = command_pool.allocate_buffer();
+        cmd.record(true, |cmd| {
+            cmd.transition_image_layout(
+                image,
+                vk::ImageLayout::UNDEFINED,
+                vk::ImageLayout::GENERAL,
+                vk::AccessFlags::empty(),
+                vk::AccessFlags::empty(),
+                vk::PipelineStageFlags::TOP_OF_PIPE,
+                vk::PipelineStageFlags::TOP_OF_PIPE,
+            )
+        });
+        cmd.submit().wait();
+
+        (image, image_view, allocation)
+    }
+
+    fn create_descriptor_set(
+        device: &Arc<Device>,
+        layout: &DescriptorSetLayout,
+        tl_acceleration_structure: &AccelerationStructure,
+        storage_image_view: vk::ImageView,
+        spheres_buffer: &AllocatedBuffer,
+    ) -> DescriptorSet {
         let pool_sizes = [
             vk::DescriptorPoolSize {
                 ty: vk::DescriptorType::ACCELERATION_STRUCTURE_KHR,
@@ -301,8 +415,72 @@ impl PathTracer {
                 ty: vk::DescriptorType::STORAGE_IMAGE,
                 descriptor_count: 1,
             },
+            vk::DescriptorPoolSize {
+                ty: vk::DescriptorType::STORAGE_BUFFER,
+                descriptor_count: 1,
+            },
         ];
-        let descriptor_pool = DescriptorPool::new(device, 1, &pool_sizes);
-        descriptor_pool.allocate_descriptor_sets(layouts)
+        let descriptor_pool = DescriptorPool::new(device.clone(), 1, &pool_sizes);
+        let descriptor_sets = descriptor_pool.allocate_descriptor_sets(slice::from_ref(layout));
+        let descriptor_set = descriptor_sets.into_iter().nth(0).unwrap();
+
+        let raw_as = unsafe { tl_acceleration_structure.raw() };
+        let accel_slice = std::slice::from_ref(&raw_as);
+        let mut write_set_as = vk::WriteDescriptorSetAccelerationStructureKHR::builder()
+            .acceleration_structures(accel_slice);
+        let mut as_write_set = vk::WriteDescriptorSet::builder()
+            .descriptor_type(vk::DescriptorType::ACCELERATION_STRUCTURE_KHR)
+            .dst_set(unsafe { descriptor_set.raw() })
+            .dst_binding(0)
+            .push_next(&mut write_set_as)
+            .build();
+        as_write_set.descriptor_count = 1;
+
+        let desc_img_info = vk::DescriptorImageInfo::builder()
+            .image_view(storage_image_view)
+            .image_layout(vk::ImageLayout::GENERAL);
+
+        let img_write_set = vk::WriteDescriptorSet::builder()
+            .descriptor_type(vk::DescriptorType::STORAGE_IMAGE)
+            .dst_set(unsafe { descriptor_set.raw() })
+            .dst_binding(1)
+            .image_info(std::slice::from_ref(&desc_img_info))
+            .build();
+
+        let sphere_buffer_info = vk::DescriptorBufferInfo {
+            buffer: unsafe { spheres_buffer.buffer().raw() },
+            offset: 0,
+            range: spheres_buffer.buffer().size() as vk::DeviceSize,
+        };
+        let spheres_write_set = vk::WriteDescriptorSet::builder()
+            .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+            .dst_set(unsafe { descriptor_set.raw() })
+            .dst_binding(2)
+            .buffer_info(&[sphere_buffer_info])
+            .build();
+
+        let write_sets = [as_write_set, img_write_set, spheres_write_set];
+
+        unsafe { device.vk().update_descriptor_sets(&write_sets, &[]) };
+        descriptor_set
+    }
+
+    pub fn draw(&self, cmd: &CommandBufferRecorder, image_view: &SwapchainImageView) {}
+}
+
+impl Drop for PathTracer {
+    fn drop(&mut self) {
+        unsafe {
+            self.device
+                .vk()
+                .destroy_image_view(self.storage_image_view, None);
+            self.device.vk().destroy_image(self.storage_image, None);
+            self.device
+                .allocator
+                .lock()
+                .unwrap()
+                .free(ManuallyDrop::take(&mut self.allocation))
+                .unwrap();
+        }
     }
 }

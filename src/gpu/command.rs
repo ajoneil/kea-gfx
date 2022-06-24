@@ -121,7 +121,7 @@ impl CommandBufferRecorder<'_> {
 
     fn begin_rendering(&self, image_view: &ImageView) {
         let color_attachments = [vk::RenderingAttachmentInfo::builder()
-            .image_view(unsafe { image_view.vk() })
+            .image_view(unsafe { image_view.raw() })
             .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
             .load_op(vk::AttachmentLoadOp::CLEAR)
             .clear_value(vk::ClearValue {
@@ -166,7 +166,10 @@ impl CommandBufferRecorder<'_> {
     }
 
     pub fn bind_vertex_buffers(&self, buffers: &[&AllocatedBuffer], first_binding: u32) {
-        let buffers: Vec<vk::Buffer> = buffers.iter().map(|b| unsafe { b.buffer().vk() }).collect();
+        let buffers: Vec<vk::Buffer> = buffers
+            .iter()
+            .map(|b| unsafe { b.buffer().raw() })
+            .collect();
         let offsets: Vec<vk::DeviceSize> = buffers.iter().map(|_| 0).collect();
         unsafe {
             self.device().vk().cmd_bind_vertex_buffers(
@@ -222,35 +225,44 @@ impl CommandBufferRecorder<'_> {
     where
         F: FnOnce(),
     {
-        let barrier = vk::ImageMemoryBarrier::builder()
-            .src_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
-            .old_layout(vk::ImageLayout::UNDEFINED)
-            .new_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-            .image(image)
-            .subresource_range(
-                vk::ImageSubresourceRange::builder()
-                    .aspect_mask(vk::ImageAspectFlags::COLOR)
-                    .level_count(1)
-                    .layer_count(1)
-                    .build(),
-            )
-            .build();
-
-        self.pipeline_barrier(
+        self.transition_image_layout(
+            image,
+            vk::ImageLayout::UNDEFINED,
+            vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+            vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+            vk::AccessFlags::empty(),
             vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
             vk::PipelineStageFlags::BOTTOM_OF_PIPE,
-            vk::DependencyFlags::empty(),
-            &[],
-            &[],
-            &[barrier],
         );
 
         func();
 
+        self.transition_image_layout(
+            image,
+            vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+            vk::ImageLayout::PRESENT_SRC_KHR,
+            vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+            vk::AccessFlags::empty(),
+            vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+            vk::PipelineStageFlags::BOTTOM_OF_PIPE,
+        );
+    }
+
+    pub fn transition_image_layout(
+        &self,
+        image: vk::Image,
+        old_layout: vk::ImageLayout,
+        new_layout: vk::ImageLayout,
+        src_access_mask: vk::AccessFlags,
+        dst_access_mask: vk::AccessFlags,
+        src_stage_mask: vk::PipelineStageFlags,
+        dst_stage_mask: vk::PipelineStageFlags,
+    ) {
         let barrier = vk::ImageMemoryBarrier::builder()
-            .src_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
-            .old_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-            .new_layout(vk::ImageLayout::PRESENT_SRC_KHR)
+            .src_access_mask(src_access_mask)
+            .dst_access_mask(dst_access_mask)
+            .old_layout(old_layout)
+            .new_layout(new_layout)
             .image(image)
             .subresource_range(
                 vk::ImageSubresourceRange::builder()
@@ -262,8 +274,8 @@ impl CommandBufferRecorder<'_> {
             .build();
 
         self.pipeline_barrier(
-            vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-            vk::PipelineStageFlags::BOTTOM_OF_PIPE,
+            src_stage_mask,
+            dst_stage_mask,
             vk::DependencyFlags::empty(),
             &[],
             &[],

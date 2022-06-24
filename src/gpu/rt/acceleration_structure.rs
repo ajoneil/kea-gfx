@@ -157,7 +157,7 @@ impl<'a> BoundAccelerationStructureDescription<'a> {
         self.acceleration_structure_description
             .geometry_info()
             .flags(vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_TRACE)
-            .dst_acceleration_structure(self.destination.vk)
+            .dst_acceleration_structure(self.destination.raw)
             .scratch_data(vk::DeviceOrHostAddressKHR {
                 device_address: self.scratch.device_address(),
             })
@@ -172,7 +172,7 @@ impl<'a> BoundAccelerationStructureDescription<'a> {
 pub struct AccelerationStructure {
     device: Arc<Device>,
     buffer: AllocatedBuffer,
-    vk: vk::AccelerationStructureKHR,
+    raw: vk::AccelerationStructureKHR,
 }
 
 impl AccelerationStructure {
@@ -181,9 +181,9 @@ impl AccelerationStructure {
         buffer: AllocatedBuffer,
         ty: vk::AccelerationStructureTypeKHR,
     ) -> AccelerationStructure {
-        let vk = unsafe {
+        let raw = unsafe {
             let create_info = vk::AccelerationStructureCreateInfoKHR::builder()
-                .buffer(buffer.buffer().vk())
+                .buffer(buffer.buffer().raw())
                 .size(buffer.buffer().size() as u64)
                 .ty(ty);
 
@@ -196,13 +196,17 @@ impl AccelerationStructure {
 
         AccelerationStructure {
             device: device.clone(),
-            vk,
+            raw,
             buffer,
         }
     }
 
     pub fn buffer(&self) -> &AllocatedBuffer {
         &self.buffer
+    }
+
+    pub unsafe fn raw(&self) -> vk::AccelerationStructureKHR {
+        self.raw
     }
 }
 
@@ -212,7 +216,7 @@ impl Drop for AccelerationStructure {
             self.device
                 .ext
                 .acceleration_structure
-                .destroy_acceleration_structure(self.vk, None)
+                .destroy_acceleration_structure(self.raw, None)
         }
     }
 }

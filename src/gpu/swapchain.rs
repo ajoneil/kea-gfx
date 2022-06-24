@@ -111,7 +111,7 @@ impl Drop for Swapchain {
 }
 
 pub struct ImageView {
-    vk: vk::ImageView,
+    raw: vk::ImageView,
     device: Arc<Device>,
 }
 
@@ -135,24 +135,23 @@ impl ImageView {
                 layer_count: 1,
             });
 
-        let image_view =
-            unsafe { device.vk().create_image_view(&imageview_create_info, None) }.unwrap();
+        let raw = unsafe { device.vk().create_image_view(&imageview_create_info, None) }.unwrap();
 
         ImageView {
-            vk: image_view,
+            raw,
             device: device.clone(),
         }
     }
 
-    pub unsafe fn vk(&self) -> vk::ImageView {
-        self.vk
+    pub unsafe fn raw(&self) -> vk::ImageView {
+        self.raw
     }
 }
 
 impl Drop for ImageView {
     fn drop(&mut self) {
         unsafe {
-            self.device.vk().destroy_image_view(self.vk(), None);
+            self.device.vk().destroy_image_view(self.raw(), None);
         }
     }
 }

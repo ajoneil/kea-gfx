@@ -1,4 +1,4 @@
-use super::device::Device;
+use super::{device::Device, rt::acceleration_structure::AccelerationStructure};
 use ash::vk::{self, DescriptorBindingFlags, DescriptorSetAllocateInfo};
 use std::sync::Arc;
 
@@ -118,5 +118,17 @@ pub struct DescriptorSet {
 impl DescriptorSet {
     pub unsafe fn raw(&self) -> vk::DescriptorSet {
         self.raw
+    }
+}
+
+pub struct WriteDescriptorSet {}
+
+impl WriteDescriptorSet {
+    pub fn for_acceleration_structures(
+        acceleration_structures: &[AccelerationStructure],
+    ) -> WriteDescriptorSet {
+        // vk::WriteDescriptorSetAccelerationStructureKHR::builder()
+        //     .acceleration_structures(std::slice::from_ref(&top_as.handle));
+        WriteDescriptorSet {}
     }
 }

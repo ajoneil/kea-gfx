@@ -12,7 +12,7 @@ use std::{
 
 pub struct Buffer {
     device: Arc<Device>,
-    vk: vk::Buffer,
+    raw: vk::Buffer,
     size: u64,
 }
 
@@ -27,17 +27,13 @@ impl Buffer {
             .size(size)
             .usage(usage)
             .sharing_mode(vk::SharingMode::EXCLUSIVE);
-        let buffer = unsafe { device.vk().create_buffer(&buffer_info, None) }.unwrap();
+        let raw = unsafe { device.vk().create_buffer(&buffer_info, None) }.unwrap();
 
-        Buffer {
-            device,
-            vk: buffer,
-            size,
-        }
+        Buffer { device, raw, size }
     }
 
     pub fn allocate(self, name: &str, location: MemoryLocation, linear: bool) -> AllocatedBuffer {
-        let requirements = unsafe { self.device.vk().get_buffer_memory_requirements(self.vk) };
+        let requirements = unsafe { self.device.vk().get_buffer_memory_requirements(self.raw) };
 
         let allocation = self
             .device
@@ -55,7 +51,7 @@ impl Buffer {
         unsafe {
             self.device
                 .vk()
-                .bind_buffer_memory(self.vk, allocation.memory(), allocation.offset())
+                .bind_buffer_memory(self.raw, allocation.memory(), allocation.offset())
                 .unwrap()
         }
 
@@ -69,15 +65,15 @@ impl Buffer {
         self.size as usize
     }
 
-    pub unsafe fn vk(&self) -> vk::Buffer {
-        self.vk
+    pub unsafe fn raw(&self) -> vk::Buffer {
+        self.raw
     }
 }
 
 impl Drop for Buffer {
     fn drop(&mut self) {
         unsafe {
-            self.device.vk().destroy_buffer(self.vk, None);
+            self.device.vk().destroy_buffer(self.raw, None);
         }
     }
 }
@@ -86,7 +82,7 @@ impl AllocatedBuffer {
     pub fn device_address(&self) -> vk::DeviceAddress {
         unsafe {
             self.buffer.device.vk().get_buffer_device_address(
-                &vk::BufferDeviceAddressInfo::builder().buffer(self.buffer.vk),
+                &vk::BufferDeviceAddressInfo::builder().buffer(self.buffer.raw),
             )
         }
     }
