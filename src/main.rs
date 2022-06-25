@@ -29,7 +29,13 @@ impl KeaApp {
         let device = Device::new(vulkan.clone(), device_selection.clone(), surface);
         let swapchain = Swapchain::new(&device, &device_selection.physical_device);
         let rasterizer = Rasterizer::new(device.clone(), swapchain.format);
-        let path_tracer = PathTracer::new(device, swapchain.format);
+        let path_tracer = PathTracer::new(
+            device,
+            swapchain.format,
+            &device_selection
+                .physical_device
+                .ray_tracing_pipeline_properties(),
+        );
         let presenter = Presenter::new(swapchain);
 
         KeaApp {

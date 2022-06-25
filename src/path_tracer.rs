@@ -9,8 +9,11 @@ use crate::gpu::{
         Pipeline, PipelineDescription, PipelineLayout, PipelineShaderStage,
         RayTracingPipelineDescription,
     },
-    rt::acceleration_structure::{
-        Aabb, AccelerationStructure, AccelerationStructureDescription, Geometry,
+    rt::{
+        acceleration_structure::{
+            Aabb, AccelerationStructure, AccelerationStructureDescription, Geometry,
+        },
+        shader_binding_table::{RayTracingShaderBindingTables, ShaderBindingTable},
     },
     shaders::ShaderModule,
     swapchain::SwapchainImageView,
@@ -22,6 +25,7 @@ use gpu_allocator::{
     MemoryLocation,
 };
 use std::{
+    iter,
     mem::{self, ManuallyDrop},
     slice,
     sync::Arc,
@@ -39,6 +43,8 @@ pub struct PathTracer {
     storage_image: vk::Image,
     storage_image_view: vk::ImageView,
     allocation: ManuallyDrop<Allocation>,
+    shader_binding_tables_buffer: AllocatedBuffer,
+    shader_binding_tables: RayTracingShaderBindingTables,
 }
 
 struct Sphere {
@@ -66,7 +72,11 @@ impl Sphere {
 }
 
 impl PathTracer {
-    pub fn new(device: Arc<Device>, format: vk::Format) -> PathTracer {
+    pub fn new(
+        device: Arc<Device>,
+        format: vk::Format,
+        rt_pipeline_props: &vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
+    ) -> PathTracer {
         let command_pool = Arc::new(CommandPool::new(device.queues().graphics()));
         let (tl_acceleration_structure, bl_acceleration_structure, spheres_buffer) =
             Self::build_acceleration_structure(&device, &command_pool);
@@ -83,6 +93,9 @@ impl PathTracer {
             &spheres_buffer,
         );
 
+        let (shader_binding_tables_buffer, shader_binding_tables) =
+            Self::create_shader_binding_tables(&device, &pipeline, rt_pipeline_props);
+
         PathTracer {
             device,
             command_pool,
@@ -95,6 +108,8 @@ impl PathTracer {
             storage_image,
             storage_image_view,
             allocation: ManuallyDrop::new(allocation),
+            shader_binding_tables_buffer,
+            shader_binding_tables,
         }
     }
 
@@ -467,6 +482,86 @@ impl PathTracer {
         descriptor_set
     }
 
+    fn create_shader_binding_tables(
+        device: &Arc<Device>,
+        pipeline: &Pipeline,
+        rt_pipeline_props: &vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
+    ) -> (AllocatedBuffer, RayTracingShaderBindingTables) {
+        let handle_size = rt_pipeline_props.shader_group_handle_size;
+        let aligned_handle_size =
+            Self::aligned_size(handle_size, rt_pipeline_props.shader_group_handle_alignment);
+        let aligned_base_size = Self::aligned_size(
+            aligned_handle_size,
+            rt_pipeline_props.shader_group_base_alignment,
+        );
+
+        let group_count = 3;
+
+        let group_handles = unsafe {
+            device
+                .ext
+                .ray_tracing_pipeline
+                .get_ray_tracing_shader_group_handles(
+                    pipeline.raw(),
+                    0,
+                    group_count,
+                    (handle_size * group_count) as _,
+                )
+        }
+        .unwrap();
+
+        // This assumes one shader per group!
+        // I think all sizes are in bytes?
+        let buffer_size = aligned_base_size * group_count;
+        let binding_table_buffer = Buffer::new(
+            device.clone(),
+            buffer_size as _,
+            vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR
+                | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+        )
+        .allocate("rt shader binding table", MemoryLocation::CpuToGpu, true);
+
+        let aligned_handles: Vec<u8> = group_handles
+            .chunks(handle_size as usize)
+            .map(|h: &[u8]| {
+                let mut v: Vec<u8> = h.to_vec();
+                v.extend(iter::repeat(0u8).take((aligned_base_size - handle_size) as usize));
+                v
+            })
+            .flatten()
+            .collect();
+
+        binding_table_buffer.fill(&aligned_handles);
+
+        let buffer_address = binding_table_buffer.device_address();
+
+        let tables = RayTracingShaderBindingTables {
+            raygen: ShaderBindingTable::new(
+                buffer_address,
+                aligned_base_size as _,
+                aligned_base_size as _,
+            ),
+            miss: ShaderBindingTable::new(
+                buffer_address,
+                aligned_base_size as _,
+                aligned_base_size as _,
+            ),
+            hit: ShaderBindingTable::new(
+                buffer_address,
+                aligned_base_size as _,
+                aligned_base_size as _,
+            ),
+            callable: ShaderBindingTable::empty(),
+        };
+
+        (binding_table_buffer, tables)
+    }
+
+    fn aligned_size(size: u32, alignment: u32) -> u32 {
+        // from nvh::align_up
+        (size + (alignment - 1)) & !(alignment - 1)
+    }
+
     pub fn draw(&self, cmd: &CommandBufferRecorder, image_view: &SwapchainImageView) {
         cmd.bind_pipeline(vk::PipelineBindPoint::RAY_TRACING_KHR, &self.pipeline);
         cmd.bind_descriptor_sets(
@@ -474,6 +569,8 @@ impl PathTracer {
             &self.pipeline_layout,
             slice::from_ref(&self.descriptor_set),
         );
+
+        cmd.trace_rays(&self.shader_binding_tables, 1920, 1080, 1);
     }
 }
 

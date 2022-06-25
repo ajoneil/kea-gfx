@@ -3,7 +3,10 @@ use super::{
     descriptor_set::DescriptorSet,
     device::{Device, Queue},
     pipeline::{Pipeline, PipelineLayout},
-    rt::acceleration_structure::{AccelerationStructure, AccelerationStructureDescription},
+    rt::{
+        acceleration_structure::{AccelerationStructure, AccelerationStructureDescription},
+        shader_binding_table::RayTracingShaderBindingTables,
+    },
     swapchain::ImageView,
     sync::Fence,
 };
@@ -323,6 +326,27 @@ impl CommandBufferRecorder<'_> {
                     &[description.geometry_info()],
                     &[description.ranges()],
                 );
+        }
+    }
+
+    pub fn trace_rays(
+        &self,
+        binding_tables: &RayTracingShaderBindingTables,
+        width: u32,
+        height: u32,
+        depth: u32,
+    ) {
+        unsafe {
+            self.device().ext.ray_tracing_pipeline.cmd_trace_rays(
+                self.buffer.buffer,
+                binding_tables.raygen.raw(),
+                binding_tables.miss.raw(),
+                binding_tables.miss.raw(),
+                binding_tables.callable.raw(),
+                width,
+                height,
+                depth,
+            )
         }
     }
 }
