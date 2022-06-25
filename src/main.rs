@@ -18,7 +18,7 @@ mod window;
 
 struct KeaApp {
     presenter: Presenter,
-    rasterizer: Rasterizer,
+    // rasterizer: Rasterizer,
     path_tracer: PathTracer,
 }
 
@@ -29,7 +29,7 @@ impl KeaApp {
         let device_selection = PhysicalDevice::select_physical_device(&vulkan, &surface);
         let device = Device::new(vulkan.clone(), device_selection.clone(), surface);
         let swapchain = Swapchain::new(&device, &device_selection.physical_device);
-        let rasterizer = Rasterizer::new(device.clone(), swapchain.format);
+        // let rasterizer = Rasterizer::new(device.clone(), swapchain.format);
         let path_tracer = PathTracer::new(
             device,
             swapchain.format,
@@ -44,7 +44,7 @@ impl KeaApp {
 
         KeaApp {
             presenter,
-            rasterizer,
+            // rasterizer,
             path_tracer,
         }
     }

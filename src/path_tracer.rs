@@ -49,6 +49,8 @@ pub struct PathTracer {
     shader_binding_tables: RayTracingShaderBindingTables,
 }
 
+#[derive(Debug)]
+#[repr(C)]
 struct Sphere {
     position: Vec3,
     radius: f32,
@@ -135,18 +137,18 @@ impl PathTracer {
                 position: vec3(1.0, 1.0, 1.0),
                 radius: 0.5,
             },
-            Sphere {
-                position: vec3(-1.0, -1.0, 1.0),
-                radius: 0.5,
-            },
-            Sphere {
-                position: vec3(0.0, 0.0, 5.0),
-                radius: 0.5,
-            },
-            Sphere {
-                position: vec3(0.0, 0.0, -5.0),
-                radius: 0.5,
-            },
+            // Sphere {
+            //     position: vec3(-1.0, -1.0, 1.0),
+            //     radius: 0.5,
+            // },
+            // Sphere {
+            //     position: vec3(0.0, 0.0, 5.0),
+            //     radius: 0.5,
+            // },
+            // Sphere {
+            //     position: vec3(0.0, 0.0, -5.0),
+            //     radius: 0.5,
+            // },
         ];
 
         let (spheres_buffer, aabbs_buffer) = Self::create_buffers(device, &spheres);
@@ -275,6 +277,7 @@ impl PathTracer {
         );
 
         let spheres_buffer = spheres_buffer.allocate("spheres", MemoryLocation::CpuToGpu);
+        info!("spheres data {:?}", spheres);
         spheres_buffer.fill(spheres);
 
         let aabbs: Vec<vk::AabbPositionsKHR> = spheres

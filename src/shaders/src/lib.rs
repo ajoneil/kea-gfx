@@ -102,20 +102,25 @@ pub struct Sphere {
 pub fn intersect_sphere(
     #[spirv(world_ray_origin)] ray_origin: Vec3,
     #[spirv(world_ray_direction)] ray_direction: Vec3,
-    #[spirv(primitive_id)] sphere_id: u32,
+    #[spirv(ray_geometry_index)] sphere_id: usize,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] spheres: &mut [Sphere],
 ) {
     // unsafe {
     //     report_intersection(1.0, 4);
     // }
 
-    let sphere = &spheres[sphere_id as usize];
+    // let sphere = &spheres[sphere_id as usize];
+    let sphere = Sphere {
+        position: vec3(0.0, 0.0, 1.5),
+        radius: 0.5,
+    };
+    // let sphere = &spheres[sphere_id];
 
     let oc = ray_origin - sphere.position;
     let a = ray_direction.dot(ray_direction);
     let b = 2.0 * oc.dot(ray_direction);
-    let c = oc.dot(oc) - sphere.radius * sphere.radius;
-    let discriminant = b * b - 4.0 * a * c;
+    let c = oc.dot(oc) - (sphere.radius * sphere.radius);
+    let discriminant = b * b - (4.0 * a * c);
 
     if discriminant >= 0.0 {
         let hit = (-b - discriminant.sqrt()) / (2.0 * a);
