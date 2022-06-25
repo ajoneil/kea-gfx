@@ -105,6 +105,10 @@ pub fn intersect_sphere(
     #[spirv(primitive_id)] sphere_id: u32,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] spheres: &mut [Sphere],
 ) {
+    // unsafe {
+    //     report_intersection(1.0, 4);
+    // }
+
     let sphere = &spheres[sphere_id as usize];
 
     let oc = ray_origin - sphere.position;

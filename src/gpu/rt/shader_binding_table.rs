@@ -1,5 +1,6 @@
 use ash::vk;
 
+#[derive(Debug)]
 pub struct RayTracingShaderBindingTables {
     pub raygen: ShaderBindingTable,
     pub miss: ShaderBindingTable,
@@ -7,6 +8,7 @@ pub struct RayTracingShaderBindingTables {
     pub callable: ShaderBindingTable,
 }
 
+#[derive(Debug)]
 pub struct ShaderBindingTable {
     raw: vk::StridedDeviceAddressRegionKHR,
 }

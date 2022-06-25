@@ -354,12 +354,13 @@ impl CommandBufferRecorder<'_> {
         height: u32,
         depth: u32,
     ) {
+        // info!("binding tables: {:?}", binding_tables);
         unsafe {
             self.device().ext.ray_tracing_pipeline.cmd_trace_rays(
                 self.buffer.buffer,
                 binding_tables.raygen.raw(),
                 binding_tables.miss.raw(),
-                binding_tables.miss.raw(),
+                binding_tables.hit.raw(),
                 binding_tables.callable.raw(),
                 width,
                 height,

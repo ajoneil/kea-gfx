@@ -128,7 +128,7 @@ impl PathTracer {
     ) {
         let spheres = [
             Sphere {
-                position: vec3(0.0, 0.0, 1.0),
+                position: vec3(0.0, 0.0, 1.5),
                 radius: 0.5,
             },
             Sphere {
@@ -359,14 +359,6 @@ impl PathTracer {
                 .any_hit_shader(vk::SHADER_UNUSED_KHR)
                 .intersection_shader(vk::SHADER_UNUSED_KHR)
                 .build(),
-            // sphere hit
-            vk::RayTracingShaderGroupCreateInfoKHR::builder()
-                .ty(vk::RayTracingShaderGroupTypeKHR::PROCEDURAL_HIT_GROUP)
-                .general_shader(vk::SHADER_UNUSED_KHR)
-                .closest_hit_shader(2)
-                .any_hit_shader(vk::SHADER_UNUSED_KHR)
-                .intersection_shader(3)
-                .build(),
             // miss
             vk::RayTracingShaderGroupCreateInfoKHR::builder()
                 .ty(vk::RayTracingShaderGroupTypeKHR::GENERAL)
@@ -374,6 +366,14 @@ impl PathTracer {
                 .closest_hit_shader(vk::SHADER_UNUSED_KHR)
                 .any_hit_shader(vk::SHADER_UNUSED_KHR)
                 .intersection_shader(vk::SHADER_UNUSED_KHR)
+                .build(),
+            // sphere hit
+            vk::RayTracingShaderGroupCreateInfoKHR::builder()
+                .ty(vk::RayTracingShaderGroupTypeKHR::PROCEDURAL_HIT_GROUP)
+                .general_shader(vk::SHADER_UNUSED_KHR)
+                .closest_hit_shader(2)
+                .any_hit_shader(vk::SHADER_UNUSED_KHR)
+                .intersection_shader(3)
                 .build(),
         ];
 
@@ -532,14 +532,16 @@ impl PathTracer {
         rt_pipeline_props: &vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
     ) -> (AllocatedBuffer, RayTracingShaderBindingTables) {
         let handle_size = rt_pipeline_props.shader_group_handle_size;
-        let aligned_handle_size =
+        let handle_alignment =
             Self::aligned_size(handle_size, rt_pipeline_props.shader_group_handle_alignment);
-        let aligned_base_size = Self::aligned_size(
-            aligned_handle_size,
-            rt_pipeline_props.shader_group_base_alignment,
-        );
+        let aligned_handle_size = Self::aligned_size(handle_size, handle_alignment);
+        let handle_pad = aligned_handle_size - handle_size;
+
+        let group_alignment = rt_pipeline_props.shader_group_base_alignment;
 
         let group_count = 3;
+        //
+        let data_size = group_count * handle_size;
 
         let group_handles = unsafe {
             device
@@ -549,14 +551,54 @@ impl PathTracer {
                     pipeline.raw(),
                     0,
                     group_count,
-                    (handle_size * group_count) as _,
+                    data_size as _,
                 )
         }
         .unwrap();
 
-        // This assumes one shader per group!
-        // I think all sizes are in bytes?
-        let buffer_size = aligned_base_size * group_count;
+        let raygen_count = 1;
+        let raygen_region_size =
+            Self::aligned_size(raygen_count * aligned_handle_size, group_alignment);
+
+        let miss_count = 1;
+        let miss_region_size =
+            Self::aligned_size(miss_count * aligned_handle_size, group_alignment);
+
+        let hit_count = 1;
+        let hit_region_size = Self::aligned_size(hit_count * aligned_handle_size, group_alignment);
+
+        let buffer_size = raygen_region_size + miss_region_size + hit_region_size;
+        let mut aligned_handles = Vec::<u8>::with_capacity(buffer_size as _);
+
+        let groups_shader_count = [raygen_count, miss_count, hit_count];
+        let mut offset = 0;
+        // for each groups
+        for group_shader_count in groups_shader_count {
+            let group_size = group_shader_count * aligned_handle_size;
+            let aligned_group_size =
+                Self::aligned_size(group_size, rt_pipeline_props.shader_group_base_alignment);
+            let group_pad = aligned_group_size - group_size;
+
+            // for each handle
+            for _ in 0..group_shader_count {
+                //copy handle
+                for _ in 0..handle_size as usize {
+                    aligned_handles.push(group_handles[offset]);
+                    offset += 1;
+                }
+
+                // pad handle to alignment
+                for _ in 0..handle_pad {
+                    aligned_handles.push(0);
+                }
+            }
+
+            // pad group to alignment
+            for _ in 0..group_pad {
+                aligned_handles.push(0);
+            }
+        }
+
         let binding_table_buffer = Buffer::new(
             device.clone(),
             buffer_size as _,
@@ -565,15 +607,6 @@ impl PathTracer {
         )
         .allocate("rt shader binding table", MemoryLocation::CpuToGpu);
 
-        let aligned_handles: Vec<u8> = group_handles
-            .chunks(handle_size as usize)
-            .map(|h: &[u8]| {
-                let mut v: Vec<u8> = h.to_vec();
-                v.extend(iter::repeat(0u8).take((aligned_base_size - handle_size) as usize));
-                v
-            })
-            .flatten()
-            .collect();
         info!("unaligned shader handles {:?}", group_handles);
         info!("aligned shader handles {:?}", aligned_handles);
 
@@ -584,18 +617,20 @@ impl PathTracer {
         let tables = RayTracingShaderBindingTables {
             raygen: ShaderBindingTable::new(
                 buffer_address,
-                aligned_base_size as _,
-                aligned_base_size as _,
+                raygen_region_size as _,
+                raygen_region_size as _,
             ),
-            hit: ShaderBindingTable::new(
-                buffer_address + aligned_base_size as u64,
-                aligned_base_size as _,
-                aligned_base_size as _,
-            ),
+
             miss: ShaderBindingTable::new(
-                buffer_address + (aligned_base_size * 2) as u64,
-                aligned_base_size as _,
-                aligned_base_size as _,
+                buffer_address + raygen_region_size as u64,
+                miss_region_size as _,
+                aligned_handle_size as _,
+            ),
+
+            hit: ShaderBindingTable::new(
+                buffer_address + raygen_region_size as u64 + miss_region_size as u64,
+                hit_region_size as _,
+                aligned_handle_size as _,
             ),
 
             callable: ShaderBindingTable::empty(),

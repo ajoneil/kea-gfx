@@ -31,6 +31,7 @@ impl<'a> Geometry<'a> {
         let geometry = vk::AccelerationStructureGeometryKHR::builder()
             .geometry_type(vk::GeometryTypeKHR::AABBS)
             .geometry(geometry_data)
+            .flags(vk::GeometryFlagsKHR::OPAQUE)
             .build();
 
         let range = vk::AccelerationStructureBuildRangeInfoKHR::builder()
