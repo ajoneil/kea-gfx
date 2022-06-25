@@ -1,7 +1,8 @@
 use super::{
     buffer::AllocatedBuffer,
+    descriptor_set::DescriptorSet,
     device::{Device, Queue},
-    pipeline::Pipeline,
+    pipeline::{Pipeline, PipelineLayout},
     rt::acceleration_structure::{AccelerationStructure, AccelerationStructureDescription},
     swapchain::ImageView,
     sync::Fence,
@@ -162,6 +163,29 @@ impl CommandBufferRecorder<'_> {
             self.device()
                 .vk()
                 .cmd_bind_pipeline(self.buffer.buffer, bind_point, pipeline.raw())
+        }
+    }
+
+    pub fn bind_descriptor_sets(
+        &self,
+        bind_point: vk::PipelineBindPoint,
+        layout: &PipelineLayout,
+        descriptor_sets: &[DescriptorSet],
+    ) {
+        let raw_sets: Vec<vk::DescriptorSet> = descriptor_sets
+            .into_iter()
+            .map(|ds| unsafe { ds.raw() })
+            .collect();
+
+        unsafe {
+            self.device().vk().cmd_bind_descriptor_sets(
+                self.buffer.buffer,
+                bind_point,
+                layout.raw(),
+                0,
+                &raw_sets,
+                &[],
+            );
         }
     }
 

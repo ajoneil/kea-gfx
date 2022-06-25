@@ -33,6 +33,7 @@ pub struct PathTracer {
     tl_acceleration_structure: AccelerationStructure,
     bl_acceleration_structure: AccelerationStructure,
     pipeline: Pipeline,
+    pipeline_layout: PipelineLayout,
     descriptor_set_layout: DescriptorSetLayout,
     descriptor_set: DescriptorSet,
     storage_image: vk::Image,
@@ -69,7 +70,7 @@ impl PathTracer {
         let command_pool = Arc::new(CommandPool::new(device.queues().graphics()));
         let (tl_acceleration_structure, bl_acceleration_structure, spheres_buffer) =
             Self::build_acceleration_structure(&device, &command_pool);
-        let (pipeline, descriptor_set_layout) = Self::create_pipeline(&device);
+        let (pipeline, pipeline_layout, descriptor_set_layout) = Self::create_pipeline(&device);
 
         let (storage_image, storage_image_view, allocation) =
             Self::create_storage_image(&device, format, &command_pool);
@@ -88,6 +89,7 @@ impl PathTracer {
             tl_acceleration_structure,
             bl_acceleration_structure,
             pipeline,
+            pipeline_layout,
             descriptor_set_layout,
             descriptor_set,
             storage_image,
@@ -243,7 +245,7 @@ impl PathTracer {
         (spheres_buffer, aabbs_buffer)
     }
 
-    fn create_pipeline(device: &Arc<Device>) -> (Pipeline, DescriptorSetLayout) {
+    fn create_pipeline(device: &Arc<Device>) -> (Pipeline, PipelineLayout, DescriptorSetLayout) {
         let bindings = [
             DescriptorSetLayoutBinding::new(
                 0,
@@ -323,7 +325,7 @@ impl PathTracer {
         ));
         let pipeline = Pipeline::new(device.clone(), &pipeline_desc);
 
-        (pipeline, descriptor_set_layout)
+        (pipeline, pipeline_layout, descriptor_set_layout)
     }
 
     fn create_storage_image(
@@ -465,7 +467,14 @@ impl PathTracer {
         descriptor_set
     }
 
-    pub fn draw(&self, cmd: &CommandBufferRecorder, image_view: &SwapchainImageView) {}
+    pub fn draw(&self, cmd: &CommandBufferRecorder, image_view: &SwapchainImageView) {
+        cmd.bind_pipeline(vk::PipelineBindPoint::RAY_TRACING_KHR, &self.pipeline);
+        cmd.bind_descriptor_sets(
+            vk::PipelineBindPoint::RAY_TRACING_KHR,
+            &self.pipeline_layout,
+            slice::from_ref(&self.descriptor_set),
+        );
+    }
 }
 
 impl Drop for PathTracer {

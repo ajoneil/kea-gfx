@@ -42,6 +42,7 @@ impl KeaApp {
     pub fn draw(&self) {
         self.presenter.draw(|cmd, image_view| {
             self.rasterizer.draw(cmd, image_view);
+            self.path_tracer.draw(cmd, image_view);
         });
     }
 }
