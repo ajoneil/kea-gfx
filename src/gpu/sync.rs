@@ -1,5 +1,6 @@
 use super::device::Device;
 use ash::vk;
+use log::debug;
 use std::sync::Arc;
 
 pub struct Semaphore {
@@ -9,17 +10,16 @@ pub struct Semaphore {
 
 impl Semaphore {
     pub fn new(device: Arc<Device>) -> Semaphore {
-        let semaphore = unsafe {
+        let vk = unsafe {
             device
                 .vk()
                 .create_semaphore(&vk::SemaphoreCreateInfo::default(), None)
         }
         .unwrap();
 
-        Semaphore {
-            vk: semaphore,
-            device,
-        }
+        debug!("created semaphore {:?}", vk);
+
+        Semaphore { vk, device }
     }
 
     pub unsafe fn vk(&self) -> vk::Semaphore {
@@ -29,6 +29,8 @@ impl Semaphore {
 
 impl Drop for Semaphore {
     fn drop(&mut self) {
+        debug!("destroying semaphore {:?}", self.vk);
+
         unsafe {
             self.device.vk().destroy_semaphore(self.vk, None);
         }

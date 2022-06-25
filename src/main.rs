@@ -52,7 +52,7 @@ impl KeaApp {
 }
 
 fn main() {
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
     let window = Window::new(1920, 1080);
     let app = KeaApp::new(&window);

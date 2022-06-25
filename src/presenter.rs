@@ -47,11 +47,16 @@ impl Presenter {
         });
 
         unsafe {
+            let wait_semaphores: Vec<vk::Semaphore> = vec![self.semaphores.image_available.vk()];
+            let render_finished: Vec<vk::Semaphore> = vec![self.semaphores.render_finished.vk()];
+            let command_buffers: Vec<vk::CommandBuffer> = vec![self.command_buffer.buffer];
+            let color_attachment_stage = vec![vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
+
             let submits = [vk::SubmitInfo::builder()
-                .wait_semaphores(&[self.semaphores.image_available.vk()])
-                .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
-                .command_buffers(&[self.command_buffer.buffer])
-                .signal_semaphores(&[self.semaphores.render_finished.vk()])
+                .wait_semaphores(&wait_semaphores)
+                .wait_dst_stage_mask(&color_attachment_stage)
+                .command_buffers(&command_buffers)
+                .signal_semaphores(&render_finished)
                 .build()];
 
             self.swapchain
@@ -64,10 +69,13 @@ impl Presenter {
                 )
                 .unwrap();
 
+            let swapchains: Vec<vk::SwapchainKHR> = vec![self.swapchain.swapchain];
+            let image_indices = vec![image_index];
+
             let present = vk::PresentInfoKHR::builder()
-                .wait_semaphores(&[self.semaphores.render_finished.vk()])
-                .swapchains(&[self.swapchain.swapchain])
-                .image_indices(&[image_index])
+                .wait_semaphores(&render_finished)
+                .swapchains(&swapchains)
+                .image_indices(&image_indices)
                 .build();
 
             self.swapchain
