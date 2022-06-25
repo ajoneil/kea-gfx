@@ -6,6 +6,7 @@ use gpu::{
 use path_tracer::PathTracer;
 use presenter::Presenter;
 use rasterizer::Rasterizer;
+use shaders::ray_for_pixel;
 use std::sync::Arc;
 use window::Window;
 
@@ -61,6 +62,8 @@ fn main() {
 
     let window = Window::new(1920, 1080);
     let app = KeaApp::new(&window);
+
+    println!("ray: {:?}", ray_for_pixel(1000, 700));
 
     window.event_loop(move || app.draw())
 }

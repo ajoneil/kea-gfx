@@ -11,6 +11,7 @@ use super::{
     sync::Fence,
 };
 use ash::vk;
+use log::info;
 use std::sync::Arc;
 
 pub struct CommandPool {
@@ -330,6 +331,10 @@ impl CommandBufferRecorder<'_> {
         scratch: &AllocatedBuffer,
     ) {
         let description = description.bind_for_build(destination, scratch);
+        info!("geo: {:?}", unsafe {
+            *description.geometry_info().p_geometries
+        });
+        info!("ranges: {:?}", description.ranges());
         unsafe {
             self.device()
                 .ext

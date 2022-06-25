@@ -7,10 +7,10 @@ use ash::vk;
 use std::sync::Arc;
 
 pub struct Presenter {
-    swapchain: Swapchain,
     command_buffer: CommandBuffer,
     semaphores: Semaphores,
     in_flight_fence: Fence,
+    swapchain: Swapchain,
 }
 
 struct Semaphores {

@@ -24,6 +24,7 @@ use gpu_allocator::{
     vulkan::{Allocation, AllocationCreateDesc},
     MemoryLocation,
 };
+use log::info;
 use std::{
     iter,
     mem::{self, ManuallyDrop},
@@ -40,6 +41,7 @@ pub struct PathTracer {
     pipeline_layout: PipelineLayout,
     descriptor_set_layout: DescriptorSetLayout,
     descriptor_set: DescriptorSet,
+    spheres_buffer: AllocatedBuffer,
     storage_image: vk::Image,
     storage_image_view: vk::ImageView,
     allocation: ManuallyDrop<Allocation>,
@@ -106,6 +108,7 @@ impl PathTracer {
             pipeline_layout,
             descriptor_set_layout,
             descriptor_set,
+            spheres_buffer,
             storage_image,
             storage_image_view,
             allocation: ManuallyDrop::new(allocation),
@@ -123,10 +126,28 @@ impl PathTracer {
         AccelerationStructure,
         AllocatedBuffer,
     ) {
-        let spheres = [Sphere {
-            position: vec3(0.0, 0.0, 1.0),
-            radius: 0.5,
-        }];
+        let spheres = [
+            Sphere {
+                position: vec3(0.0, 0.0, 1.0),
+                radius: 0.5,
+            },
+            Sphere {
+                position: vec3(1.0, 1.0, 1.0),
+                radius: 0.5,
+            },
+            Sphere {
+                position: vec3(-1.0, -1.0, 1.0),
+                radius: 0.5,
+            },
+            Sphere {
+                position: vec3(0.0, 0.0, 5.0),
+                radius: 0.5,
+            },
+            Sphere {
+                position: vec3(0.0, 0.0, -5.0),
+                radius: 0.5,
+            },
+        ];
 
         let (spheres_buffer, aabbs_buffer) = Self::create_buffers(device, &spheres);
         let geometries = [Geometry::aabbs(&aabbs_buffer)];
@@ -256,10 +277,23 @@ impl PathTracer {
         let spheres_buffer = spheres_buffer.allocate("spheres", MemoryLocation::CpuToGpu);
         spheres_buffer.fill(spheres);
 
-        let aabbs: Vec<Aabb> = spheres.iter().map(|s: &Sphere| s.aabb()).collect();
+        let aabbs: Vec<vk::AabbPositionsKHR> = spheres
+            .iter()
+            .map(|s: &Sphere| {
+                let aabb = s.aabb();
+                vk::AabbPositionsKHR {
+                    min_x: aabb.min.x,
+                    min_y: aabb.min.y,
+                    min_z: aabb.min.z,
+                    max_x: aabb.max.x,
+                    max_y: aabb.max.y,
+                    max_z: aabb.max.z,
+                }
+            })
+            .collect();
         let aabbs_buffer = Buffer::new(
             device.clone(),
-            (mem::size_of::<Aabb>() * aabbs.len()) as u64,
+            (mem::size_of::<vk::AabbPositionsKHR>() * aabbs.len()) as u64,
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
         );
@@ -325,14 +359,6 @@ impl PathTracer {
                 .any_hit_shader(vk::SHADER_UNUSED_KHR)
                 .intersection_shader(vk::SHADER_UNUSED_KHR)
                 .build(),
-            // miss
-            vk::RayTracingShaderGroupCreateInfoKHR::builder()
-                .ty(vk::RayTracingShaderGroupTypeKHR::GENERAL)
-                .general_shader(1)
-                .closest_hit_shader(vk::SHADER_UNUSED_KHR)
-                .any_hit_shader(vk::SHADER_UNUSED_KHR)
-                .intersection_shader(vk::SHADER_UNUSED_KHR)
-                .build(),
             // sphere hit
             vk::RayTracingShaderGroupCreateInfoKHR::builder()
                 .ty(vk::RayTracingShaderGroupTypeKHR::PROCEDURAL_HIT_GROUP)
@@ -340,6 +366,14 @@ impl PathTracer {
                 .closest_hit_shader(2)
                 .any_hit_shader(vk::SHADER_UNUSED_KHR)
                 .intersection_shader(3)
+                .build(),
+            // miss
+            vk::RayTracingShaderGroupCreateInfoKHR::builder()
+                .ty(vk::RayTracingShaderGroupTypeKHR::GENERAL)
+                .general_shader(1)
+                .closest_hit_shader(vk::SHADER_UNUSED_KHR)
+                .any_hit_shader(vk::SHADER_UNUSED_KHR)
+                .intersection_shader(vk::SHADER_UNUSED_KHR)
                 .build(),
         ];
 
@@ -540,6 +574,8 @@ impl PathTracer {
             })
             .flatten()
             .collect();
+        info!("unaligned shader handles {:?}", group_handles);
+        info!("aligned shader handles {:?}", aligned_handles);
 
         binding_table_buffer.fill(&aligned_handles);
 
@@ -551,16 +587,17 @@ impl PathTracer {
                 aligned_base_size as _,
                 aligned_base_size as _,
             ),
-            miss: ShaderBindingTable::new(
-                buffer_address,
-                aligned_base_size as _,
-                aligned_base_size as _,
-            ),
             hit: ShaderBindingTable::new(
-                buffer_address,
+                buffer_address + aligned_base_size as u64,
                 aligned_base_size as _,
                 aligned_base_size as _,
             ),
+            miss: ShaderBindingTable::new(
+                buffer_address + (aligned_base_size * 2) as u64,
+                aligned_base_size as _,
+                aligned_base_size as _,
+            ),
+
             callable: ShaderBindingTable::empty(),
         };
 

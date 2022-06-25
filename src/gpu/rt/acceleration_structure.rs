@@ -24,18 +24,19 @@ impl<'a> Geometry<'a> {
                 .data(vk::DeviceOrHostAddressConstKHR {
                     device_address: buffer.device_address(),
                 })
-                .stride(mem::size_of::<Aabb>() as u64)
+                .stride(mem::size_of::<vk::AabbPositionsKHR>() as u64)
                 .build(),
         };
 
         let geometry = vk::AccelerationStructureGeometryKHR::builder()
             .geometry_type(vk::GeometryTypeKHR::AABBS)
-            .flags(vk::GeometryFlagsKHR::OPAQUE)
             .geometry(geometry_data)
             .build();
 
         let range = vk::AccelerationStructureBuildRangeInfoKHR::builder()
-            .primitive_count((buffer.buffer().size() / mem::size_of::<Aabb>()) as u32)
+            .primitive_count(
+                (buffer.buffer().size() / mem::size_of::<vk::AabbPositionsKHR>()) as u32,
+            )
             .build();
 
         Geometry {
@@ -156,6 +157,7 @@ impl<'a> BoundAccelerationStructureDescription<'a> {
     pub fn geometry_info(&self) -> vk::AccelerationStructureBuildGeometryInfoKHR {
         self.acceleration_structure_description
             .geometry_info()
+            .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
             .flags(vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_TRACE)
             .dst_acceleration_structure(self.destination.raw)
             .scratch_data(vk::DeviceOrHostAddressKHR {
