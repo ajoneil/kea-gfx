@@ -76,10 +76,11 @@ impl PathTracer {
         device: Arc<Device>,
         format: vk::Format,
         rt_pipeline_props: &vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
+        accel_struct_props: &vk::PhysicalDeviceAccelerationStructurePropertiesKHR,
     ) -> PathTracer {
         let command_pool = Arc::new(CommandPool::new(device.queues().graphics()));
         let (tl_acceleration_structure, bl_acceleration_structure, spheres_buffer) =
-            Self::build_acceleration_structure(&device, &command_pool);
+            Self::build_acceleration_structure(&device, &command_pool, accel_struct_props);
         let (pipeline, pipeline_layout, descriptor_set_layout) = Self::create_pipeline(&device);
 
         let (storage_image, storage_image_view, allocation) =
@@ -116,6 +117,7 @@ impl PathTracer {
     fn build_acceleration_structure(
         device: &Arc<Device>,
         command_pool: &Arc<CommandPool>,
+        accel_struct_props: &vk::PhysicalDeviceAccelerationStructurePropertiesKHR,
     ) -> (
         AccelerationStructure,
         AccelerationStructure,
@@ -139,7 +141,11 @@ impl PathTracer {
             build_sizes.build_scratch,
             vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
         )
-        .allocate("scratch", MemoryLocation::GpuOnly, true);
+        .allocate_with_alignment(
+            "scratch",
+            MemoryLocation::GpuOnly,
+            accel_struct_props.min_acceleration_structure_scratch_offset_alignment as _,
+        );
 
         let bl_acceleration_structure_buffer = Buffer::new(
             device.clone(),
@@ -147,7 +153,7 @@ impl PathTracer {
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
         )
-        .allocate("bl acceleration structure", MemoryLocation::GpuOnly, true);
+        .allocate("bl acceleration structure", MemoryLocation::GpuOnly);
 
         let bl_acceleration_structure = AccelerationStructure::new(
             device,
@@ -189,7 +195,7 @@ impl PathTracer {
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
         )
-        .allocate("tlas build", MemoryLocation::CpuToGpu, true);
+        .allocate("tlas build", MemoryLocation::CpuToGpu);
         tlas_buffer.fill(&[tlas_instance]);
 
         let geometries = [Geometry::instances(&tlas_buffer)];
@@ -204,7 +210,11 @@ impl PathTracer {
             build_sizes.build_scratch,
             vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
         )
-        .allocate("scratch", MemoryLocation::GpuOnly, true);
+        .allocate_with_alignment(
+            "scratch",
+            MemoryLocation::GpuOnly,
+            accel_struct_props.min_acceleration_structure_scratch_offset_alignment as _,
+        );
 
         let tl_acceleration_structure_buffer = Buffer::new(
             device.clone(),
@@ -212,7 +222,7 @@ impl PathTracer {
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
         )
-        .allocate("tl acceleration structure", MemoryLocation::GpuOnly, true);
+        .allocate("tl acceleration structure", MemoryLocation::GpuOnly);
 
         let tl_acceleration_structure = AccelerationStructure::new(
             device,
@@ -243,7 +253,7 @@ impl PathTracer {
             vk::BufferUsageFlags::STORAGE_BUFFER,
         );
 
-        let spheres_buffer = spheres_buffer.allocate("spheres", MemoryLocation::CpuToGpu, true);
+        let spheres_buffer = spheres_buffer.allocate("spheres", MemoryLocation::CpuToGpu);
         spheres_buffer.fill(spheres);
 
         let aabbs: Vec<Aabb> = spheres.iter().map(|s: &Sphere| s.aabb()).collect();
@@ -254,7 +264,7 @@ impl PathTracer {
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
         );
 
-        let aabbs_buffer = aabbs_buffer.allocate("vertices", MemoryLocation::CpuToGpu, true);
+        let aabbs_buffer = aabbs_buffer.allocate("vertices", MemoryLocation::CpuToGpu);
         aabbs_buffer.fill(&aabbs);
 
         (spheres_buffer, aabbs_buffer)
@@ -519,7 +529,7 @@ impl PathTracer {
             vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
         )
-        .allocate("rt shader binding table", MemoryLocation::CpuToGpu, true);
+        .allocate("rt shader binding table", MemoryLocation::CpuToGpu);
 
         let aligned_handles: Vec<u8> = group_handles
             .chunks(handle_size as usize)

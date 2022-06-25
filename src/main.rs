@@ -35,6 +35,9 @@ impl KeaApp {
             &device_selection
                 .physical_device
                 .ray_tracing_pipeline_properties(),
+            &device_selection
+                .physical_device
+                .acceleration_structure_properties(),
         );
         let presenter = Presenter::new(swapchain);
 

@@ -1,5 +1,5 @@
 use super::device::Device;
-use ash::vk;
+use ash::vk::{self, MemoryRequirements};
 use gpu_allocator::{
     vulkan::{Allocation, AllocationCreateDesc},
     MemoryLocation,
@@ -32,9 +32,30 @@ impl Buffer {
         Buffer { device, raw, size }
     }
 
-    pub fn allocate(self, name: &str, location: MemoryLocation, linear: bool) -> AllocatedBuffer {
+    pub fn allocate(self, name: &str, location: MemoryLocation) -> AllocatedBuffer {
         let requirements = unsafe { self.device.vk().get_buffer_memory_requirements(self.raw) };
 
+        self.allocate_with_mem_requirements(name, location, requirements)
+    }
+
+    pub fn allocate_with_alignment(
+        self,
+        name: &str,
+        location: MemoryLocation,
+        alignment: vk::DeviceSize,
+    ) -> AllocatedBuffer {
+        let mut requirements = unsafe { self.device.vk().get_buffer_memory_requirements(self.raw) };
+        requirements.alignment = alignment;
+
+        self.allocate_with_mem_requirements(name, location, requirements)
+    }
+
+    fn allocate_with_mem_requirements(
+        self,
+        name: &str,
+        location: MemoryLocation,
+        requirements: MemoryRequirements,
+    ) -> AllocatedBuffer {
         let allocation = self
             .device
             .allocator
@@ -44,7 +65,7 @@ impl Buffer {
                 name,
                 requirements,
                 location,
-                linear,
+                linear: true,
             })
             .unwrap();
 

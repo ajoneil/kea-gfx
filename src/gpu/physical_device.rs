@@ -199,6 +199,24 @@ impl<'a> PhysicalDevice<'a> {
 
         rt_props
     }
+
+    pub fn acceleration_structure_properties(
+        &self,
+    ) -> vk::PhysicalDeviceAccelerationStructurePropertiesKHR {
+        let mut accel_props =
+            vk::PhysicalDeviceAccelerationStructurePropertiesKHR::builder().build();
+        let mut props = vk::PhysicalDeviceProperties2::builder()
+            .push_next(&mut accel_props)
+            .build();
+
+        unsafe {
+            self.vulkan
+                .instance
+                .get_physical_device_properties2(self.vk, &mut props)
+        }
+
+        accel_props
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]

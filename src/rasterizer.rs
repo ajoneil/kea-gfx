@@ -50,7 +50,7 @@ impl Rasterizer {
             vk::BufferUsageFlags::VERTEX_BUFFER,
         );
 
-        let buffer = buffer.allocate("vertices", MemoryLocation::CpuToGpu, true);
+        let buffer = buffer.allocate("vertices", MemoryLocation::CpuToGpu);
         buffer.fill(vertices);
 
         buffer
