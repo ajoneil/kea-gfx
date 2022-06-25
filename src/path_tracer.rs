@@ -360,7 +360,7 @@ impl PathTracer {
             .array_layers(1)
             .samples(vk::SampleCountFlags::TYPE_1)
             .tiling(vk::ImageTiling::OPTIMAL)
-            .usage(vk::ImageUsageFlags::STORAGE)
+            .usage(vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_SRC)
             .initial_layout(vk::ImageLayout::UNDEFINED);
 
         let image = unsafe { device.vk().create_image(&image_create_info, None) }.unwrap();
@@ -562,7 +562,7 @@ impl PathTracer {
         (size + (alignment - 1)) & !(alignment - 1)
     }
 
-    pub fn draw(&self, cmd: &CommandBufferRecorder, image_view: &SwapchainImageView) {
+    pub fn draw(&self, cmd: &CommandBufferRecorder, swapchain_image_view: &SwapchainImageView) {
         cmd.bind_pipeline(vk::PipelineBindPoint::RAY_TRACING_KHR, &self.pipeline);
         cmd.bind_descriptor_sets(
             vk::PipelineBindPoint::RAY_TRACING_KHR,
@@ -571,6 +571,68 @@ impl PathTracer {
         );
 
         cmd.trace_rays(&self.shader_binding_tables, 1920, 1080, 1);
+
+        cmd.transition_image_layout(
+            swapchain_image_view.image,
+            vk::ImageLayout::UNDEFINED,
+            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+            vk::AccessFlags::empty(),
+            vk::AccessFlags::TRANSFER_WRITE,
+            vk::PipelineStageFlags::TOP_OF_PIPE,
+            vk::PipelineStageFlags::TRANSFER,
+        );
+
+        cmd.transition_image_layout(
+            self.storage_image,
+            vk::ImageLayout::GENERAL,
+            vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+            vk::AccessFlags::empty(),
+            vk::AccessFlags::TRANSFER_READ,
+            vk::PipelineStageFlags::TOP_OF_PIPE,
+            vk::PipelineStageFlags::TRANSFER,
+        );
+
+        let copy_region = vk::ImageCopy::builder()
+            .src_subresource(vk::ImageSubresourceLayers {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                base_array_layer: 0,
+                mip_level: 0,
+                layer_count: 1,
+            })
+            .dst_subresource(vk::ImageSubresourceLayers {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                base_array_layer: 0,
+                mip_level: 0,
+                layer_count: 1,
+            })
+            .extent(vk::Extent3D {
+                width: 1920,
+                height: 1080,
+                depth: 1,
+            })
+            .build();
+
+        cmd.copy_image(self.storage_image, swapchain_image_view.image, &copy_region);
+
+        cmd.transition_image_layout(
+            swapchain_image_view.image,
+            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+            vk::ImageLayout::PRESENT_SRC_KHR,
+            vk::AccessFlags::TRANSFER_WRITE,
+            vk::AccessFlags::COLOR_ATTACHMENT_READ,
+            vk::PipelineStageFlags::TRANSFER,
+            vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+        );
+
+        cmd.transition_image_layout(
+            self.storage_image,
+            vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+            vk::ImageLayout::GENERAL,
+            vk::AccessFlags::TRANSFER_READ,
+            vk::AccessFlags::empty(),
+            vk::PipelineStageFlags::TRANSFER,
+            vk::PipelineStageFlags::TOP_OF_PIPE,
+        );
     }
 }
 

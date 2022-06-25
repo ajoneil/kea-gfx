@@ -9,7 +9,11 @@
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
 
-use spirv_std::glam::{vec4, Vec2, Vec3, Vec4};
+use spirv_std::{
+    glam::{vec4, UVec2, UVec3, Vec2, Vec3, Vec4},
+    ray_tracing::AccelerationStructure,
+    Image,
+};
 
 #[repr(C)]
 pub struct Vertex {
@@ -34,7 +38,18 @@ pub fn main_fragment(fragment_color: Vec3, output: &mut Vec4) {
 }
 
 #[spirv(ray_generation)]
-pub fn generate_rays() {}
+pub fn generate_rays(
+    #[spirv(launch_id)] launch_id: UVec3,
+    #[spirv(descriptor_set = 0, binding = 0)] _accel_structure: &AccelerationStructure,
+    #[spirv(descriptor_set = 0, binding = 1)] image: &mut Image!(2D, format=rgba32f, sampled=false),
+) {
+    unsafe {
+        image.write(
+            UVec2::new(launch_id.x, launch_id.y),
+            vec4(0.5, 0.5, 0.5, 1.0),
+        );
+    }
+}
 
 #[spirv(miss)]
 pub fn ray_miss() {}

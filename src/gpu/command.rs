@@ -310,6 +310,19 @@ impl CommandBufferRecorder<'_> {
         );
     }
 
+    pub fn copy_image(&self, from: vk::Image, to: vk::Image, region: &vk::ImageCopy) {
+        unsafe {
+            self.device().vk().cmd_copy_image(
+                self.buffer.buffer,
+                from,
+                vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+                to,
+                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                std::slice::from_ref(region),
+            )
+        };
+    }
+
     pub fn build_acceleration_structure(
         &self,
         description: &AccelerationStructureDescription,
