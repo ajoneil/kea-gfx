@@ -1,5 +1,5 @@
-use super::{device::Device, rt::acceleration_structure::AccelerationStructure};
-use ash::vk::{self, DescriptorBindingFlags, DescriptorSetAllocateInfo};
+use super::device::Device;
+use ash::vk;
 use std::sync::Arc;
 
 pub struct DescriptorSetLayout {
@@ -95,7 +95,7 @@ impl DescriptorPool {
         descriptor_sets
             .into_iter()
             .map(|raw| DescriptorSet {
-                pool: self.clone(),
+                _pool: self.clone(),
                 raw,
             })
             .collect()
@@ -111,24 +111,12 @@ impl Drop for DescriptorPool {
 }
 
 pub struct DescriptorSet {
-    pool: Arc<DescriptorPool>,
+    _pool: Arc<DescriptorPool>,
     raw: vk::DescriptorSet,
 }
 
 impl DescriptorSet {
     pub unsafe fn raw(&self) -> vk::DescriptorSet {
         self.raw
-    }
-}
-
-pub struct WriteDescriptorSet {}
-
-impl WriteDescriptorSet {
-    pub fn for_acceleration_structures(
-        acceleration_structures: &[AccelerationStructure],
-    ) -> WriteDescriptorSet {
-        // vk::WriteDescriptorSetAccelerationStructureKHR::builder()
-        //     .acceleration_structures(std::slice::from_ref(&top_as.handle));
-        WriteDescriptorSet {}
     }
 }

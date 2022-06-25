@@ -11,37 +11,18 @@ use spirv_std::macros::spirv;
 
 use spirv_std::{
     arch::report_intersection,
-    glam::{vec2, vec3, vec4, UVec2, UVec3, Vec2, Vec3, Vec4},
-    num_traits::Float,
+    glam::{vec2, vec3, vec4, UVec2, UVec3, Vec3},
     ray_tracing::{AccelerationStructure, RayFlags},
     Image,
 };
 
-#[repr(C)]
-pub struct Vertex {
-    pub position: Vec2,
-    pub color: Vec3,
-}
+// Needed for .sqrt()
+#[allow(unused_imports)]
+use spirv_std::num_traits::Float;
 
 #[repr(C)]
 pub struct RayPayload {
     color: Vec3,
-}
-
-#[spirv(vertex)]
-pub fn main_vertex(
-    position: Vec2,
-    color: Vec3,
-    #[spirv(position)] out_pos: &mut Vec4,
-    fragment_color: &mut Vec3,
-) {
-    *out_pos = vec4(position.x, position.y, 0.0, 1.0);
-    *fragment_color = color;
-}
-
-#[spirv(fragment)]
-pub fn main_fragment(fragment_color: Vec3, output: &mut Vec4) {
-    *output = vec4(fragment_color.x, fragment_color.y, fragment_color.z, 1.0);
 }
 
 #[spirv(ray_generation)]
@@ -105,16 +86,7 @@ pub fn intersect_sphere(
     #[spirv(ray_geometry_index)] sphere_id: usize,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] spheres: &mut [Sphere],
 ) {
-    // unsafe {
-    //     report_intersection(1.0, 4);
-    // }
-
-    // let sphere = &spheres[sphere_id as usize];
-    let sphere = Sphere {
-        position: vec3(0.0, 0.0, 1.5),
-        radius: 0.5,
-    };
-    // let sphere = &spheres[sphere_id];
+    let sphere = &spheres[sphere_id as usize];
 
     let oc = ray_origin - sphere.position;
     let a = ray_direction.dot(ray_direction);

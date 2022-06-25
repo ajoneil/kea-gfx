@@ -7,7 +7,6 @@ use super::{
         acceleration_structure::{AccelerationStructure, AccelerationStructureDescription},
         shader_binding_table::RayTracingShaderBindingTables,
     },
-    swapchain::ImageView,
     sync::Fence,
 };
 use ash::vk;
@@ -113,51 +112,6 @@ pub struct CommandBufferRecorder<'a> {
 }
 
 impl CommandBufferRecorder<'_> {
-    pub fn render<F>(&self, image_view: &ImageView, func: F)
-    where
-        F: FnOnce(),
-    {
-        self.begin_rendering(image_view);
-
-        func();
-
-        self.end_rendering();
-    }
-
-    fn begin_rendering(&self, image_view: &ImageView) {
-        let color_attachments = [vk::RenderingAttachmentInfo::builder()
-            .image_view(unsafe { image_view.raw() })
-            .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-            .load_op(vk::AttachmentLoadOp::CLEAR)
-            .clear_value(vk::ClearValue {
-                color: vk::ClearColorValue {
-                    float32: [0.0, 0.0, 0.0, 1.0],
-                },
-            })
-            .store_op(vk::AttachmentStoreOp::STORE)
-            .build()];
-        let rendering_info = vk::RenderingInfo::builder()
-            .render_area(vk::Rect2D {
-                offset: vk::Offset2D { x: 0, y: 0 },
-                extent: vk::Extent2D {
-                    width: 1920,
-                    height: 1080,
-                },
-            })
-            .layer_count(1)
-            .color_attachments(&color_attachments);
-
-        unsafe {
-            self.device()
-                .vk()
-                .cmd_begin_rendering(self.buffer.buffer, &rendering_info);
-        }
-    }
-
-    fn end_rendering(&self) {
-        unsafe { self.device().vk().cmd_end_rendering(self.buffer.buffer) }
-    }
-
     pub fn device(&self) -> &Arc<Device> {
         self.buffer.device()
     }
@@ -193,40 +147,6 @@ impl CommandBufferRecorder<'_> {
         }
     }
 
-    pub fn bind_vertex_buffers(&self, buffers: &[&AllocatedBuffer], first_binding: u32) {
-        let buffers: Vec<vk::Buffer> = buffers
-            .iter()
-            .map(|b| unsafe { b.buffer().raw() })
-            .collect();
-        let offsets: Vec<vk::DeviceSize> = buffers.iter().map(|_| 0).collect();
-        unsafe {
-            self.device().vk().cmd_bind_vertex_buffers(
-                self.buffer.buffer,
-                first_binding,
-                &buffers,
-                &offsets,
-            );
-        }
-    }
-
-    pub fn draw(
-        &self,
-        vertex_count: u32,
-        instance_count: u32,
-        first_vertex: u32,
-        first_instance: u32,
-    ) {
-        unsafe {
-            self.device().vk().cmd_draw(
-                self.buffer.buffer,
-                vertex_count,
-                instance_count,
-                first_vertex,
-                first_instance,
-            );
-        }
-    }
-
     pub fn pipeline_barrier(
         &self,
         src_stage_mask: vk::PipelineStageFlags,
@@ -247,33 +167,6 @@ impl CommandBufferRecorder<'_> {
                 image_memory_barriers,
             );
         }
-    }
-
-    pub fn with_render_image_barrier<F>(&self, image: vk::Image, func: F)
-    where
-        F: FnOnce(),
-    {
-        self.transition_image_layout(
-            image,
-            vk::ImageLayout::UNDEFINED,
-            vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-            vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
-            vk::AccessFlags::empty(),
-            vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-            vk::PipelineStageFlags::BOTTOM_OF_PIPE,
-        );
-
-        func();
-
-        self.transition_image_layout(
-            image,
-            vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-            vk::ImageLayout::PRESENT_SRC_KHR,
-            vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
-            vk::AccessFlags::empty(),
-            vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-            vk::PipelineStageFlags::BOTTOM_OF_PIPE,
-        );
     }
 
     pub fn transition_image_layout(

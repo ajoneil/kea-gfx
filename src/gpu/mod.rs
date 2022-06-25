@@ -4,7 +4,6 @@ pub mod descriptor_set;
 pub mod device;
 pub mod physical_device;
 pub mod pipeline;
-pub mod rasterization_pipeline;
 pub mod rt;
 pub mod shaders;
 pub mod surface;

@@ -26,7 +26,6 @@ use gpu_allocator::{
 };
 use log::info;
 use std::{
-    iter,
     mem::{self, ManuallyDrop},
     slice,
     sync::Arc,
@@ -34,18 +33,18 @@ use std::{
 
 pub struct PathTracer {
     device: Arc<Device>,
-    command_pool: Arc<CommandPool>,
-    tl_acceleration_structure: AccelerationStructure,
-    bl_acceleration_structure: AccelerationStructure,
+    _command_pool: Arc<CommandPool>,
+    _tl_acceleration_structure: AccelerationStructure,
+    _bl_acceleration_structure: AccelerationStructure,
     pipeline: Pipeline,
     pipeline_layout: PipelineLayout,
-    descriptor_set_layout: DescriptorSetLayout,
+    _descriptor_set_layout: DescriptorSetLayout,
     descriptor_set: DescriptorSet,
-    spheres_buffer: AllocatedBuffer,
+    _spheres_buffer: AllocatedBuffer,
     storage_image: vk::Image,
     storage_image_view: vk::ImageView,
     allocation: ManuallyDrop<Allocation>,
-    shader_binding_tables_buffer: AllocatedBuffer,
+    _shader_binding_tables_buffer: AllocatedBuffer,
     shader_binding_tables: RayTracingShaderBindingTables,
 }
 
@@ -103,18 +102,18 @@ impl PathTracer {
 
         PathTracer {
             device,
-            command_pool,
-            tl_acceleration_structure,
-            bl_acceleration_structure,
+            _command_pool: command_pool,
+            _tl_acceleration_structure: tl_acceleration_structure,
+            _bl_acceleration_structure: bl_acceleration_structure,
             pipeline,
             pipeline_layout,
-            descriptor_set_layout,
+            _descriptor_set_layout: descriptor_set_layout,
             descriptor_set,
-            spheres_buffer,
+            _spheres_buffer: spheres_buffer,
             storage_image,
             storage_image_view,
             allocation: ManuallyDrop::new(allocation),
-            shader_binding_tables_buffer,
+            _shader_binding_tables_buffer: shader_binding_tables_buffer,
             shader_binding_tables,
         }
     }

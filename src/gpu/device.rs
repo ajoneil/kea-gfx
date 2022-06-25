@@ -19,22 +19,20 @@ use std::{
 #[derive(Debug)]
 struct Queues {
     graphics: QueueHandle,
-    compute: QueueHandle,
-    transfer: QueueHandle,
+    _compute: QueueHandle,
+    _transfer: QueueHandle,
 }
 
 pub struct Queue {
     device: Arc<Device>,
     vk: vk::Queue,
     family: QueueFamily,
-    index: u32,
 }
 
 #[derive(Debug)]
 struct QueueHandle {
     vk: vk::Queue,
     family: QueueFamily,
-    index: u32,
 }
 
 pub struct DeviceQueues<'a> {
@@ -48,7 +46,6 @@ impl<'a> DeviceQueues<'a> {
             device: self.device.clone(),
             vk: self.queues.graphics.vk,
             family: self.queues.graphics.family.clone(),
-            index: self.queues.graphics.index,
         }
     }
 }
@@ -215,7 +212,7 @@ impl Device {
                 families[device_selection.graphics.index() as usize].clone(),
                 0,
             ),
-            compute: Self::queue(
+            _compute: Self::queue(
                 vk_device,
                 families[device_selection.compute.index() as usize].clone(),
                 if device_selection.graphics.index() == device_selection.compute.index() {
@@ -224,7 +221,7 @@ impl Device {
                     0
                 },
             ),
-            transfer: Self::queue(
+            _transfer: Self::queue(
                 vk_device,
                 families[device_selection.transfer.index() as usize].clone(),
                 [
@@ -246,7 +243,6 @@ impl Device {
         QueueHandle {
             vk: unsafe { vk_device.get_device_queue(family.index(), index) },
             family,
-            index,
         }
     }
 

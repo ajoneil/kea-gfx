@@ -172,17 +172,6 @@ impl<'a> PhysicalDevice<'a> {
         .unwrap()
     }
 
-    pub fn properties(&self) -> vk::PhysicalDeviceProperties2 {
-        let mut props = vk::PhysicalDeviceProperties2::builder().build();
-        unsafe {
-            self.vulkan
-                .instance
-                .get_physical_device_properties2(self.vk, &mut props)
-        }
-
-        props
-    }
-
     pub fn ray_tracing_pipeline_properties(
         &self,
     ) -> vk::PhysicalDeviceRayTracingPipelinePropertiesKHR {

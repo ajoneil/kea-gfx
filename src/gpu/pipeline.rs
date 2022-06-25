@@ -1,6 +1,6 @@
 use super::{descriptor_set::DescriptorSetLayout, device::Device, shaders::ShaderEntryPoint};
 use ash::vk;
-use std::{ffi::CString, marker::PhantomData, ptr, sync::Arc};
+use std::{ffi::CString, marker::PhantomData, sync::Arc};
 
 pub struct PipelineLayout {
     device: Arc<Device>,
@@ -69,14 +69,6 @@ pub struct Pipeline {
 impl Pipeline {
     pub fn new(device: Arc<Device>, pipeline_description: &PipelineDescription) -> Pipeline {
         let raw = match pipeline_description {
-            PipelineDescription::Graphics(desc) => unsafe {
-                device.vk().create_graphics_pipelines(
-                    vk::PipelineCache::null(),
-                    &[desc.raw()],
-                    None,
-                )
-            }
-            .unwrap()[0],
             PipelineDescription::RayTracing(desc) => unsafe {
                 device
                     .ext
@@ -108,95 +100,7 @@ impl Drop for Pipeline {
 }
 
 pub enum PipelineDescription<'a> {
-    Graphics(GraphicsPipelineDescription<'a>),
     RayTracing(RayTracingPipelineDescription<'a>),
-}
-
-pub struct GraphicsPipelineDescription<'a> {
-    raw: vk::GraphicsPipelineCreateInfo,
-    _raw_stages: Vec<vk::PipelineShaderStageCreateInfo>,
-    rendering_info: vk::PipelineRenderingCreateInfo,
-    marker: PhantomData<&'a ()>,
-}
-
-impl<'a> GraphicsPipelineDescription<'a> {
-    pub fn new(
-        stages: &[PipelineShaderStage<'a>],
-        vertex_input_state: &'a vk::PipelineVertexInputStateCreateInfo,
-        input_assembly_state: &'a vk::PipelineInputAssemblyStateCreateInfo,
-        viewport_state: &'a PipelineViewportState,
-        rasterization_state: &'a vk::PipelineRasterizationStateCreateInfo,
-        multisample_state: &'a vk::PipelineMultisampleStateCreateInfo,
-        color_blend_state: &'a vk::PipelineColorBlendStateCreateInfo,
-        color_attachment_formats: &'a [vk::Format],
-        layout: &'a PipelineLayout,
-    ) -> GraphicsPipelineDescription<'a> {
-        let raw_stages: Vec<vk::PipelineShaderStageCreateInfo> =
-            stages.iter().map(|ss| unsafe { ss.raw() }).collect();
-
-        let rendering_info = vk::PipelineRenderingCreateInfo::builder()
-            .color_attachment_formats(color_attachment_formats)
-            .build();
-
-        let raw = vk::GraphicsPipelineCreateInfo::builder()
-            .stages(&raw_stages)
-            .vertex_input_state(vertex_input_state)
-            .input_assembly_state(input_assembly_state)
-            .viewport_state(unsafe { viewport_state.raw() })
-            .rasterization_state(rasterization_state)
-            .multisample_state(multisample_state)
-            .color_blend_state(color_blend_state)
-            .layout(unsafe { layout.raw() })
-            .build();
-
-        GraphicsPipelineDescription {
-            raw,
-            _raw_stages: raw_stages,
-            rendering_info,
-            marker: PhantomData,
-        }
-    }
-
-    pub unsafe fn raw(&self) -> vk::GraphicsPipelineCreateInfo {
-        vk::GraphicsPipelineCreateInfo {
-            p_next: ptr::addr_of!(self.rendering_info) as _,
-            ..self.raw
-        }
-    }
-}
-
-pub struct PipelineViewport {
-    pub viewport: vk::Viewport,
-    pub scissor: vk::Rect2D,
-}
-
-pub struct PipelineViewportState {
-    raw: vk::PipelineViewportStateCreateInfo,
-    _viewports: Vec<vk::Viewport>,
-    _scissors: Vec<vk::Rect2D>,
-}
-
-impl PipelineViewportState {
-    pub fn new(pipeline_viewports: &[PipelineViewport]) -> PipelineViewportState {
-        let viewports: Vec<vk::Viewport> =
-            pipeline_viewports.iter().map(|pv| pv.viewport).collect();
-        let scissors: Vec<vk::Rect2D> = pipeline_viewports.iter().map(|pv| pv.scissor).collect();
-
-        let raw = vk::PipelineViewportStateCreateInfo::builder()
-            .viewports(&viewports)
-            .scissors(&scissors)
-            .build();
-
-        PipelineViewportState {
-            raw,
-            _viewports: viewports,
-            _scissors: scissors,
-        }
-    }
-
-    pub unsafe fn raw(&self) -> &vk::PipelineViewportStateCreateInfo {
-        &self.raw
-    }
 }
 
 pub struct RayTracingPipelineDescription<'a> {
