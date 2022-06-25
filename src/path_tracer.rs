@@ -1,22 +1,25 @@
-use crate::gpu::{
-    buffer::{AllocatedBuffer, Buffer},
-    command::{CommandBufferRecorder, CommandPool},
-    descriptor_set::{
-        DescriptorPool, DescriptorSet, DescriptorSetLayout, DescriptorSetLayoutBinding,
-    },
-    device::Device,
-    pipeline::{
-        Pipeline, PipelineDescription, PipelineLayout, PipelineShaderStage,
-        RayTracingPipelineDescription,
-    },
-    rt::{
-        acceleration_structure::{
-            Aabb, AccelerationStructure, AccelerationStructureDescription, Geometry,
+use crate::{
+    gpu::{
+        buffer::{AllocatedBuffer, Buffer},
+        command::{CommandBufferRecorder, CommandPool},
+        descriptor_set::{
+            DescriptorPool, DescriptorSet, DescriptorSetLayout, DescriptorSetLayoutBinding,
         },
-        shader_binding_table::{RayTracingShaderBindingTables, ShaderBindingTable},
+        device::Device,
+        pipeline::{
+            Pipeline, PipelineDescription, PipelineLayout, PipelineShaderStage,
+            RayTracingPipelineDescription,
+        },
+        rt::{
+            acceleration_structure::{
+                Aabb, AccelerationStructure, AccelerationStructureDescription, Geometry,
+            },
+            shader_binding_table::{RayTracingShaderBindingTables, ShaderBindingTable},
+        },
+        shaders::ShaderModule,
+        swapchain::SwapchainImageView,
     },
-    shaders::ShaderModule,
-    swapchain::SwapchainImageView,
+    Kea,
 };
 use ash::vk;
 use glam::{vec3, Vec3};
@@ -75,22 +78,32 @@ impl Sphere {
 }
 
 impl PathTracer {
-    pub fn new(
-        device: Arc<Device>,
-        format: vk::Format,
-        rt_pipeline_props: &vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
-        accel_struct_props: &vk::PhysicalDeviceAccelerationStructurePropertiesKHR,
-    ) -> PathTracer {
-        let command_pool = Arc::new(CommandPool::new(device.queues().graphics()));
+    pub fn new(kea: &Kea) -> PathTracer {
+        //     device,
+        //     swapchain.format,
+        //     &device_selection
+        //         .physical_device
+        //         .ray_tracing_pipeline_properties(),
+        //     &device_selection
+        //         .physical_device
+        //         .acceleration_structure_properties(),
+        // );
+
+        let command_pool = Arc::new(CommandPool::new(kea.device().queues().graphics()));
         let (tl_acceleration_structure, bl_acceleration_structure, spheres_buffer) =
-            Self::build_acceleration_structure(&device, &command_pool, accel_struct_props);
-        let (pipeline, pipeline_layout, descriptor_set_layout) = Self::create_pipeline(&device);
+            Self::build_acceleration_structure(
+                kea.device(),
+                &command_pool,
+                &kea.physical_device().acceleration_structure_properties(),
+            );
+        let (pipeline, pipeline_layout, descriptor_set_layout) =
+            Self::create_pipeline(kea.device());
 
         let (storage_image, storage_image_view, allocation) =
-            Self::create_storage_image(&device, format, &command_pool);
+            Self::create_storage_image(kea.device(), kea.presenter().format(), &command_pool);
 
         let descriptor_set = Self::create_descriptor_set(
-            &device,
+            kea.device(),
             &descriptor_set_layout,
             &tl_acceleration_structure,
             storage_image_view,
@@ -98,10 +111,14 @@ impl PathTracer {
         );
 
         let (shader_binding_tables_buffer, shader_binding_tables) =
-            Self::create_shader_binding_tables(&device, &pipeline, rt_pipeline_props);
+            Self::create_shader_binding_tables(
+                kea.device(),
+                &pipeline,
+                &kea.physical_device().ray_tracing_pipeline_properties(),
+            );
 
         PathTracer {
-            device,
+            device: kea.device().clone(),
             _command_pool: command_pool,
             _tl_acceleration_structure: tl_acceleration_structure,
             _bl_acceleration_structure: bl_acceleration_structure,

@@ -9,7 +9,7 @@ pub struct SwapchainImageView {
 
 pub struct Swapchain {
     pub swapchain: vk::SwapchainKHR,
-    pub format: vk::Format,
+    format: vk::Format,
     pub image_views: Vec<SwapchainImageView>,
     pub device: Arc<Device>,
 }
@@ -96,6 +96,10 @@ impl Swapchain {
         .unwrap();
 
         (image_index, &self.image_views[image_index as usize])
+    }
+
+    pub fn format(&self) -> vk::Format {
+        self.format
     }
 }
 

@@ -3,7 +3,7 @@ use super::{
     physical_device::{DeviceSelection, QueueFamily},
     surface::Surface,
     sync::Fence,
-    vulkan::Vulkan,
+    vulkan::VulkanInstance,
 };
 use ash::vk;
 use gpu_allocator::vulkan::{Allocator, AllocatorCreateDesc};
@@ -84,7 +84,7 @@ pub struct Device {
     queues: Queues,
     surface: Surface,
     pub ext: Extensions,
-    pub vulkan: Arc<Vulkan>,
+    pub vulkan: Arc<VulkanInstance>,
     pub allocator: ManuallyDrop<Mutex<Allocator>>,
 }
 
@@ -97,35 +97,39 @@ pub struct Extensions {
 
 impl Device {
     pub fn new(
-        vulkan: Arc<Vulkan>,
+        vulkan: Arc<VulkanInstance>,
         device_selection: DeviceSelection,
         surface: Surface,
     ) -> Arc<Device> {
         let device = Self::create_logical_device(&vulkan, &device_selection);
 
-        let ext = Extensions {
-            swapchain: ash::extensions::khr::Swapchain::new(&vulkan.instance, &device),
-            acceleration_structure: ash::extensions::khr::AccelerationStructure::new(
-                &vulkan.instance,
-                &device,
-            ),
-            deferred_host_operations: ash::extensions::khr::DeferredHostOperations::new(
-                &vulkan.instance,
-                &device,
-            ),
-            ray_tracing_pipeline: ash::extensions::khr::RayTracingPipeline::new(
-                &vulkan.instance,
-                &device,
-            ),
+        let ext = unsafe {
+            Extensions {
+                swapchain: ash::extensions::khr::Swapchain::new(&vulkan.raw(), &device),
+                acceleration_structure: ash::extensions::khr::AccelerationStructure::new(
+                    &vulkan.raw(),
+                    &device,
+                ),
+                deferred_host_operations: ash::extensions::khr::DeferredHostOperations::new(
+                    &vulkan.raw(),
+                    &device,
+                ),
+                ray_tracing_pipeline: ash::extensions::khr::RayTracingPipeline::new(
+                    &vulkan.raw(),
+                    &device,
+                ),
+            }
         };
 
-        let allocator = Allocator::new(&AllocatorCreateDesc {
-            instance: vulkan.instance.clone(),
-            device: device.clone(),
-            physical_device: unsafe { device_selection.physical_device.vk() },
-            debug_settings: Default::default(),
-            buffer_device_address: true,
-        })
+        let allocator = unsafe {
+            Allocator::new(&AllocatorCreateDesc {
+                instance: vulkan.raw().clone(),
+                device: device.clone(),
+                physical_device: device_selection.physical_device.raw(),
+                debug_settings: Default::default(),
+                buffer_device_address: true,
+            })
+        }
         .unwrap();
 
         let queues = Self::create_queues(&device_selection, &device);
@@ -141,7 +145,10 @@ impl Device {
         })
     }
 
-    fn create_logical_device(vulkan: &Vulkan, device_selection: &DeviceSelection) -> ash::Device {
+    fn create_logical_device(
+        vulkan: &VulkanInstance,
+        device_selection: &DeviceSelection,
+    ) -> ash::Device {
         // This code is a mess, but it _should_ create a queue for each purpose
         // in the correct family. Will probably explode if there aren't enough
         // queues. I'm sure there's some iterator magic that could clean this all
@@ -195,8 +202,8 @@ impl Device {
 
         let device = unsafe {
             vulkan
-                .instance
-                .create_device(device_selection.physical_device.vk(), &create_info, None)
+                .raw()
+                .create_device(device_selection.physical_device.raw(), &create_info, None)
         }
         .unwrap();
 

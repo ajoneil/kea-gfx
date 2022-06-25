@@ -32,6 +32,10 @@ impl Presenter {
         }
     }
 
+    pub fn format(&self) -> vk::Format {
+        self.swapchain.format()
+    }
+
     pub fn draw<F>(&self, func: F)
     where
         F: FnOnce(&CommandBufferRecorder, &SwapchainImageView),

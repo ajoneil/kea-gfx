@@ -1,38 +1,38 @@
-use super::{surface::Surface, vulkan::Vulkan};
+use super::{surface::Surface, vulkan::VulkanInstance};
 use ash::vk;
 use log::info;
-use std::ffi::CStr;
+use std::{ffi::CStr, sync::Arc};
 
 #[derive(Clone)]
-pub struct PhysicalDevice<'a> {
-    vk: vk::PhysicalDevice,
-    vulkan: &'a Vulkan,
+pub struct PhysicalDevice {
+    vulkan: Arc<VulkanInstance>,
+    raw: vk::PhysicalDevice,
     name: String,
 }
 
 #[derive(Clone)]
-pub struct DeviceSelection<'a> {
-    pub physical_device: PhysicalDevice<'a>,
+pub struct DeviceSelection {
+    pub physical_device: PhysicalDevice,
     pub graphics: QueueFamily,
     pub compute: QueueFamily,
     pub transfer: QueueFamily,
 }
 
-impl<'a> PhysicalDevice<'a> {
-    pub fn new(vk: vk::PhysicalDevice, vulkan: &Vulkan) -> PhysicalDevice {
-        let props = unsafe { vulkan.instance.get_physical_device_properties(vk) };
+impl PhysicalDevice {
+    pub fn new(raw: vk::PhysicalDevice, vulkan: Arc<VulkanInstance>) -> PhysicalDevice {
+        let props = unsafe { vulkan.raw().get_physical_device_properties(raw) };
         let name = unsafe { CStr::from_ptr(props.device_name.as_ptr()) }
             .to_str()
             .unwrap()
             .to_string();
 
-        PhysicalDevice { vk, vulkan, name }
+        PhysicalDevice { raw, vulkan, name }
     }
 
-    pub fn select_physical_device<'b>(
-        vulkan: &'b Vulkan,
+    pub fn select_physical_device(
+        vulkan: &Arc<VulkanInstance>,
         surface: &Surface,
-    ) -> DeviceSelection<'b> {
+    ) -> DeviceSelection {
         let devices = vulkan.physical_devices();
         let device_selection = devices
             .into_iter()
@@ -114,8 +114,8 @@ impl<'a> PhysicalDevice<'a> {
     pub fn queue_families(&self) -> Vec<QueueFamily> {
         unsafe {
             self.vulkan
-                .instance
-                .get_physical_device_queue_family_properties(self.vk)
+                .raw()
+                .get_physical_device_queue_family_properties(self.raw)
         }
         .into_iter()
         .enumerate()
@@ -123,16 +123,16 @@ impl<'a> PhysicalDevice<'a> {
         .collect()
     }
 
-    pub unsafe fn vk(&self) -> vk::PhysicalDevice {
-        self.vk
+    pub unsafe fn raw(&self) -> vk::PhysicalDevice {
+        self.raw
     }
 
     pub fn surface_capabilities(&self, surface: &Surface) -> vk::SurfaceCapabilitiesKHR {
         unsafe {
             self.vulkan
-                .ext
+                .ext()
                 .surface
-                .get_physical_device_surface_capabilities(self.vk, surface.surface)
+                .get_physical_device_surface_capabilities(self.raw, surface.surface)
         }
         .unwrap()
     }
@@ -140,9 +140,9 @@ impl<'a> PhysicalDevice<'a> {
     pub fn surface_formats(&self, surface: &Surface) -> Vec<vk::SurfaceFormatKHR> {
         unsafe {
             self.vulkan
-                .ext
+                .ext()
                 .surface
-                .get_physical_device_surface_formats(self.vk, surface.surface)
+                .get_physical_device_surface_formats(self.raw, surface.surface)
         }
         .unwrap()
     }
@@ -150,9 +150,9 @@ impl<'a> PhysicalDevice<'a> {
     pub fn surface_present_modes(&self, surface: &Surface) -> Vec<vk::PresentModeKHR> {
         unsafe {
             self.vulkan
-                .ext
+                .ext()
                 .surface
-                .get_physical_device_surface_present_modes(self.vk, surface.surface)
+                .get_physical_device_surface_present_modes(self.raw, surface.surface)
         }
         .unwrap()
     }
@@ -163,11 +163,10 @@ impl<'a> PhysicalDevice<'a> {
         surface: &Surface,
     ) -> bool {
         unsafe {
-            self.vulkan.ext.surface.get_physical_device_surface_support(
-                self.vk,
-                queue_family.index,
-                surface.surface,
-            )
+            self.vulkan
+                .ext()
+                .surface
+                .get_physical_device_surface_support(self.raw, queue_family.index, surface.surface)
         }
         .unwrap()
     }
@@ -182,8 +181,8 @@ impl<'a> PhysicalDevice<'a> {
 
         unsafe {
             self.vulkan
-                .instance
-                .get_physical_device_properties2(self.vk, &mut props)
+                .raw()
+                .get_physical_device_properties2(self.raw, &mut props)
         }
 
         rt_props
@@ -200,8 +199,8 @@ impl<'a> PhysicalDevice<'a> {
 
         unsafe {
             self.vulkan
-                .instance
-                .get_physical_device_properties2(self.vk, &mut props)
+                .raw()
+                .get_physical_device_properties2(self.raw, &mut props)
         }
 
         accel_props

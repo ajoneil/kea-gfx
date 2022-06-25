@@ -1,31 +1,27 @@
 use ash::vk;
-use std::{ffi::CStr, os::raw::c_char};
+use std::{ffi::CStr, os::raw::c_char, sync::Arc};
 
 use super::physical_device::PhysicalDevice;
 
-pub struct Vulkan {
-    pub entry: ash::Entry,
-    pub instance: ash::Instance,
-    pub ext: Extensions,
+pub struct VulkanInstance {
+    entry: ash::Entry,
+    raw: ash::Instance,
+    ext: Extensions,
 }
 
 pub struct Extensions {
     pub surface: ash::extensions::khr::Surface,
 }
 
-impl Vulkan {
-    pub fn new(extension_names: &[*const i8]) -> Vulkan {
+impl VulkanInstance {
+    pub fn new(extension_names: &[*const i8]) -> Arc<VulkanInstance> {
         let entry = ash::Entry::linked();
-        let instance = Self::create_instance(&entry, extension_names);
+        let raw = Self::create_instance(&entry, extension_names);
         let ext = Extensions {
-            surface: ash::extensions::khr::Surface::new(&entry, &instance),
+            surface: ash::extensions::khr::Surface::new(&entry, &raw),
         };
 
-        Vulkan {
-            entry,
-            instance,
-            ext,
-        }
+        Arc::new(VulkanInstance { entry, raw, ext })
     }
 
     fn create_instance(entry: &ash::Entry, extension_names: &[*const i8]) -> ash::Instance {
@@ -50,17 +46,31 @@ impl Vulkan {
         unsafe { entry.create_instance(&create_info, None).unwrap() }
     }
 
-    pub fn physical_devices<'a>(&'a self) -> Vec<PhysicalDevice<'a>> {
-        unsafe { self.instance.enumerate_physical_devices() }
+    pub unsafe fn raw(&self) -> &ash::Instance {
+        &self.raw
+    }
+
+    pub unsafe fn entry(&self) -> &ash::Entry {
+        &self.entry
+    }
+
+    pub unsafe fn ext(&self) -> &Extensions {
+        &self.ext
+    }
+
+    pub fn physical_devices(self: &Arc<VulkanInstance>) -> Vec<PhysicalDevice> {
+        unsafe { self.raw.enumerate_physical_devices() }
             .unwrap()
             .into_iter()
-            .map(|physical_device: vk::PhysicalDevice| PhysicalDevice::new(physical_device, self))
+            .map(|physical_device: vk::PhysicalDevice| {
+                PhysicalDevice::new(physical_device, self.clone())
+            })
             .collect()
     }
 }
 
-impl Drop for Vulkan {
+impl Drop for VulkanInstance {
     fn drop(&mut self) {
-        unsafe { self.instance.destroy_instance(None) };
+        unsafe { self.raw.destroy_instance(None) };
     }
 }
