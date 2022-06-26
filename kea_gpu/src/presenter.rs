@@ -1,5 +1,5 @@
 use crate::core::{
-    command::{CommandBuffer, CommandBufferRecorder, CommandPool},
+    command::{CommandBufferRecorder, CommandPool},
     device::Device,
     surface::Surface,
     swapchain::{Swapchain, SwapchainImageView},
@@ -56,7 +56,7 @@ impl Presenter {
         unsafe {
             let wait_semaphores: Vec<vk::Semaphore> = vec![self.semaphores.image_available.vk()];
             let render_finished: Vec<vk::Semaphore> = vec![self.semaphores.render_finished.vk()];
-            let command_buffers: Vec<vk::CommandBuffer> = vec![cmd.raw()];
+            let command_buffers: Vec<vk::CommandBuffer> = vec![cmd.consume().raw()];
             let color_attachment_stage = vec![vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
 
             let submits = [vk::SubmitInfo::builder()

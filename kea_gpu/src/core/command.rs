@@ -120,10 +120,9 @@ pub struct RecordedCommandBuffer {
 }
 
 impl RecordedCommandBuffer {
-    pub fn submit(mut self) -> SubmittedCommandBuffer {
-        let buffer = unsafe { ManuallyDrop::take(&mut self.buffer).unwrap() };
+    pub fn submit(self) -> SubmittedCommandBuffer {
+        let buffer = unsafe { self.consume() };
         let fence = buffer.pool.queue.submit(&[&buffer]);
-        self.buffer = ManuallyDrop::new(None);
 
         SubmittedCommandBuffer {
             buffer: ManuallyDrop::new(buffer),
@@ -131,8 +130,11 @@ impl RecordedCommandBuffer {
         }
     }
 
-    pub unsafe fn raw(&self) -> vk::CommandBuffer {
-        self.buffer.as_ref().unwrap().raw()
+    pub unsafe fn consume(mut self) -> CommandBuffer {
+        let buffer = ManuallyDrop::take(&mut self.buffer).unwrap();
+        self.buffer = ManuallyDrop::new(None);
+
+        buffer
     }
 }
 

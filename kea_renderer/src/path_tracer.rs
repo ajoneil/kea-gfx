@@ -26,7 +26,7 @@ use kea_gpu::{
     },
     Kea,
 };
-use log::{debug, info};
+use log::info;
 use std::{
     mem::{self, ManuallyDrop},
     slice,
@@ -244,16 +244,11 @@ impl PathTracer {
             vk::AccelerationStructureTypeKHR::TOP_LEVEL,
         );
 
-        let cmd = cmd
-            .record(|cmd| {
-                cmd.build_acceleration_structure(
-                    &tlas,
-                    &tl_acceleration_structure,
-                    &scratch_buffer,
-                );
-            })
-            .submit()
-            .wait();
+        cmd.record(|cmd| {
+            cmd.build_acceleration_structure(&tlas, &tl_acceleration_structure, &scratch_buffer);
+        })
+        .submit()
+        .wait();
 
         (
             tl_acceleration_structure,
@@ -442,7 +437,7 @@ impl PathTracer {
 
         let image_view = unsafe { device.raw().create_image_view(&view_info, None) }.unwrap();
 
-        let cmd = command_pool
+        command_pool
             .allocate_buffer()
             .record(|cmd| {
                 cmd.transition_image_layout(
