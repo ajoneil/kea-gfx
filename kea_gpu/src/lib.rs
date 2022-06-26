@@ -1,4 +1,4 @@
-pub mod gpu;
+pub mod core;
 mod kea;
 mod presenter;
 mod window;

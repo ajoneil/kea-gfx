@@ -1,4 +1,4 @@
-use crate::gpu::{
+use crate::core::{
     command::{CommandBuffer, CommandBufferRecorder, CommandPool},
     device::Device,
     surface::Surface,

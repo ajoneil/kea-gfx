@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::gpu::{surface::Surface, vulkan::VulkanInstance};
+use crate::core::{surface::Surface, vulkan::VulkanInstance};
 
 use super::queue_family::QueueFamily;
 

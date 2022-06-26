@@ -1,4 +1,4 @@
-use crate::gpu::{buffer::AllocatedBuffer, device::Device};
+use crate::core::{buffer::AllocatedBuffer, device::Device};
 use ash::vk::{self};
 use glam::Vec3;
 use std::{marker::PhantomData, mem, sync::Arc};

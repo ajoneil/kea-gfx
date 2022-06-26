@@ -1,5 +1,5 @@
 use super::{queue_family::QueueFamily, PhysicalDevice};
-use crate::gpu::{command::CommandBuffer, sync::Fence};
+use crate::core::{command::CommandBuffer, sync::Fence};
 use ash::vk;
 use gpu_allocator::vulkan::{Allocator, AllocatorCreateDesc};
 use std::{

@@ -5,7 +5,7 @@ use gpu_allocator::{
     MemoryLocation,
 };
 use kea_gpu::{
-    gpu::{
+    core::{
         buffer::{AllocatedBuffer, Buffer},
         command::CommandPool,
         descriptor_set::{

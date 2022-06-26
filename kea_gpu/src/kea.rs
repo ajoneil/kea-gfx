@@ -1,5 +1,5 @@
 use crate::{
-    gpu::{
+    core::{
         device::Device,
         device::{PhysicalDevice, QueueFamily},
         surface::Surface,

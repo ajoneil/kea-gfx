@@ -1,5 +1,5 @@
 use super::PhysicalDevice;
-use crate::gpu::surface::Surface;
+use crate::core::surface::Surface;
 use ash::vk;
 use std::sync::Arc;
 
