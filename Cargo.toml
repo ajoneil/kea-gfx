@@ -1,17 +1,6 @@
-[package]
-name = "kea-gfx"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-ash = { version = "0.37.0+1.3.209", features=["linked"] }
-ash-window = "0.10.0"
-winit = "0.26.1"
-log = "0.4.17"
-env_logger = "0.9.0"
-gpu-allocator = "0.18.0"
-glam = "0.20.5"
-memoffset = "0.6.5"
-
-spirv-builder = { git = "https://github.com/EmbarkStudios/rust-gpu" }
-shaders = { path = "src/shaders" }
+[workspace]
+members = [
+    "kea_gpu",
+    "kea_renderer",
+    "kea_renderer_shaders"
+]

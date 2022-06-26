@@ -1,4 +1,10 @@
-use crate::{
+use ash::vk;
+use glam::{vec3, Vec3};
+use gpu_allocator::{
+    vulkan::{Allocation, AllocationCreateDesc},
+    MemoryLocation,
+};
+use kea_gpu::{
     gpu::{
         buffer::{AllocatedBuffer, Buffer},
         command::{CommandBufferRecorder, CommandPool},
@@ -20,12 +26,6 @@ use crate::{
         swapchain::SwapchainImageView,
     },
     Kea,
-};
-use ash::vk;
-use glam::{vec3, Vec3};
-use gpu_allocator::{
-    vulkan::{Allocation, AllocationCreateDesc},
-    MemoryLocation,
 };
 use log::info;
 use std::{
@@ -321,7 +321,7 @@ impl PathTracer {
         let pipeline_layout =
             PipelineLayout::new(device.clone(), slice::from_ref(&descriptor_set_layout));
 
-        let shader_module = ShaderModule::new(device.clone());
+        let shader_module = ShaderModule::new(device.clone(), "./kea_renderer_shaders");
         let shader_stages = [
             PipelineShaderStage::new(
                 vk::ShaderStageFlags::RAYGEN_KHR,

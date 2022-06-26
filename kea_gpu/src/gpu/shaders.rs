@@ -11,8 +11,8 @@ pub struct ShaderModule {
 }
 
 impl ShaderModule {
-    pub fn new(device: Arc<Device>) -> ShaderModule {
-        let (entry_points, compiled_shaders) = Self::compile_shaders();
+    pub fn new(device: Arc<Device>, shader_crate_path: &str) -> ShaderModule {
+        let (entry_points, compiled_shaders) = Self::compile_shaders(&shader_crate_path);
 
         let shader_create_info = vk::ShaderModuleCreateInfo::builder().code(&compiled_shaders);
 
@@ -25,8 +25,8 @@ impl ShaderModule {
         }
     }
 
-    fn compile_shaders() -> (Vec<String>, Vec<u32>) {
-        let compile_result = SpirvBuilder::new("src/shaders", "spirv-unknown-vulkan1.2")
+    fn compile_shaders(shader_crate_path: &str) -> (Vec<String>, Vec<u32>) {
+        let compile_result = SpirvBuilder::new(shader_crate_path, "spirv-unknown-vulkan1.2")
             .capability(spirv_builder::Capability::RayTracingKHR)
             .extension("SPV_KHR_ray_tracing")
             .print_metadata(MetadataPrintout::None)
