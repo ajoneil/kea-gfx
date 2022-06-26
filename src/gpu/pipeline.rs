@@ -13,7 +13,7 @@ impl PipelineLayout {
             set_layouts.iter().map(|dsl| unsafe { dsl.raw() }).collect();
         let create_info = vk::PipelineLayoutCreateInfo::builder().set_layouts(&layouts);
 
-        let raw = unsafe { device.vk().create_pipeline_layout(&create_info, None) }.unwrap();
+        let raw = unsafe { device.raw().create_pipeline_layout(&create_info, None) }.unwrap();
 
         PipelineLayout { device, raw }
     }
@@ -26,7 +26,7 @@ impl PipelineLayout {
 impl Drop for PipelineLayout {
     fn drop(&mut self) {
         unsafe {
-            self.device.vk().destroy_pipeline_layout(self.raw, None);
+            self.device.raw().destroy_pipeline_layout(self.raw, None);
         }
     }
 }
@@ -71,7 +71,7 @@ impl Pipeline {
         let raw = match pipeline_description {
             PipelineDescription::RayTracing(desc) => unsafe {
                 device
-                    .ext
+                    .ext()
                     .ray_tracing_pipeline
                     .create_ray_tracing_pipelines(
                         vk::DeferredOperationKHR::null(),
@@ -94,7 +94,7 @@ impl Pipeline {
 impl Drop for Pipeline {
     fn drop(&mut self) {
         unsafe {
-            self.device.vk().destroy_pipeline(self.raw, None);
+            self.device.raw().destroy_pipeline(self.raw, None);
         }
     }
 }

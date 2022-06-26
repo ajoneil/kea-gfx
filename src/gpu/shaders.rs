@@ -16,7 +16,7 @@ impl ShaderModule {
 
         let shader_create_info = vk::ShaderModuleCreateInfo::builder().code(&compiled_shaders);
 
-        let raw = unsafe { device.vk().create_shader_module(&shader_create_info, None) }.unwrap();
+        let raw = unsafe { device.raw().create_shader_module(&shader_create_info, None) }.unwrap();
 
         ShaderModule {
             raw,
@@ -63,7 +63,7 @@ impl ShaderModule {
 impl Drop for ShaderModule {
     fn drop(&mut self) {
         unsafe {
-            self.device.vk().destroy_shader_module(self.raw, None);
+            self.device.raw().destroy_shader_module(self.raw, None);
         }
     }
 }

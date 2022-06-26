@@ -79,17 +79,7 @@ impl Sphere {
 
 impl PathTracer {
     pub fn new(kea: &Kea) -> PathTracer {
-        //     device,
-        //     swapchain.format,
-        //     &device_selection
-        //         .physical_device
-        //         .ray_tracing_pipeline_properties(),
-        //     &device_selection
-        //         .physical_device
-        //         .acceleration_structure_properties(),
-        // );
-
-        let command_pool = Arc::new(CommandPool::new(kea.device().queues().graphics()));
+        let command_pool = Arc::new(CommandPool::new(kea.device().graphics_queue()));
         let (tl_acceleration_structure, bl_acceleration_structure, spheres_buffer) =
             Self::build_acceleration_structure(
                 kea.device(),
@@ -144,28 +134,10 @@ impl PathTracer {
         AccelerationStructure,
         AllocatedBuffer,
     ) {
-        let spheres = [
-            Sphere {
-                position: vec3(0.0, 0.0, 1.5),
-                radius: 0.5,
-            },
-            Sphere {
-                position: vec3(1.0, 1.0, 1.0),
-                radius: 0.5,
-            },
-            // Sphere {
-            //     position: vec3(-1.0, -1.0, 1.0),
-            //     radius: 0.5,
-            // },
-            // Sphere {
-            //     position: vec3(0.0, 0.0, 5.0),
-            //     radius: 0.5,
-            // },
-            // Sphere {
-            //     position: vec3(0.0, 0.0, -5.0),
-            //     radius: 0.5,
-            // },
-        ];
+        let spheres = [Sphere {
+            position: vec3(0.0, 0.0, 1.5),
+            radius: 0.5,
+        }];
 
         let (spheres_buffer, aabbs_buffer) = Self::create_buffers(device, &spheres);
         let geometries = [Geometry::aabbs(&aabbs_buffer)];
@@ -426,11 +398,11 @@ impl PathTracer {
             .usage(vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_SRC)
             .initial_layout(vk::ImageLayout::UNDEFINED);
 
-        let image = unsafe { device.vk().create_image(&image_create_info, None) }.unwrap();
-        let requirements = unsafe { device.vk().get_image_memory_requirements(image) };
+        let image = unsafe { device.raw().create_image(&image_create_info, None) }.unwrap();
+        let requirements = unsafe { device.raw().get_image_memory_requirements(image) };
 
         let allocation = device
-            .allocator
+            .allocator()
             .lock()
             .unwrap()
             .allocate(&AllocationCreateDesc {
@@ -443,7 +415,7 @@ impl PathTracer {
 
         unsafe {
             device
-                .vk()
+                .raw()
                 .bind_image_memory(image, allocation.memory(), allocation.offset())
         }
         .unwrap();
@@ -460,7 +432,7 @@ impl PathTracer {
             })
             .image(image);
 
-        let image_view = unsafe { device.vk().create_image_view(&view_info, None) }.unwrap();
+        let image_view = unsafe { device.raw().create_image_view(&view_info, None) }.unwrap();
 
         let cmd = command_pool.allocate_buffer();
         cmd.record(true, |cmd| {
@@ -541,7 +513,7 @@ impl PathTracer {
 
         let write_sets = [as_write_set, img_write_set, spheres_write_set];
 
-        unsafe { device.vk().update_descriptor_sets(&write_sets, &[]) };
+        unsafe { device.raw().update_descriptor_sets(&write_sets, &[]) };
         descriptor_set
     }
 
@@ -564,7 +536,7 @@ impl PathTracer {
 
         let group_handles = unsafe {
             device
-                .ext
+                .ext()
                 .ray_tracing_pipeline
                 .get_ray_tracing_shader_group_handles(
                     pipeline.raw(),
@@ -741,11 +713,11 @@ impl Drop for PathTracer {
     fn drop(&mut self) {
         unsafe {
             self.device
-                .vk()
+                .raw()
                 .destroy_image_view(self.storage_image_view, None);
-            self.device.vk().destroy_image(self.storage_image, None);
+            self.device.raw().destroy_image(self.storage_image, None);
             self.device
-                .allocator
+                .allocator()
                 .lock()
                 .unwrap()
                 .free(ManuallyDrop::take(&mut self.allocation))

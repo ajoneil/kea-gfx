@@ -27,13 +27,13 @@ impl Buffer {
             .size(size)
             .usage(usage)
             .sharing_mode(vk::SharingMode::EXCLUSIVE);
-        let raw = unsafe { device.vk().create_buffer(&buffer_info, None) }.unwrap();
+        let raw = unsafe { device.raw().create_buffer(&buffer_info, None) }.unwrap();
 
         Buffer { device, raw, size }
     }
 
     pub fn allocate(self, name: &str, location: MemoryLocation) -> AllocatedBuffer {
-        let requirements = unsafe { self.device.vk().get_buffer_memory_requirements(self.raw) };
+        let requirements = unsafe { self.device.raw().get_buffer_memory_requirements(self.raw) };
 
         self.allocate_with_mem_requirements(name, location, requirements)
     }
@@ -44,7 +44,8 @@ impl Buffer {
         location: MemoryLocation,
         alignment: vk::DeviceSize,
     ) -> AllocatedBuffer {
-        let mut requirements = unsafe { self.device.vk().get_buffer_memory_requirements(self.raw) };
+        let mut requirements =
+            unsafe { self.device.raw().get_buffer_memory_requirements(self.raw) };
         requirements.alignment = alignment;
 
         self.allocate_with_mem_requirements(name, location, requirements)
@@ -58,7 +59,7 @@ impl Buffer {
     ) -> AllocatedBuffer {
         let allocation = self
             .device
-            .allocator
+            .allocator()
             .lock()
             .unwrap()
             .allocate(&AllocationCreateDesc {
@@ -71,7 +72,7 @@ impl Buffer {
 
         unsafe {
             self.device
-                .vk()
+                .raw()
                 .bind_buffer_memory(self.raw, allocation.memory(), allocation.offset())
                 .unwrap()
         }
@@ -94,7 +95,7 @@ impl Buffer {
 impl Drop for Buffer {
     fn drop(&mut self) {
         unsafe {
-            self.device.vk().destroy_buffer(self.raw, None);
+            self.device.raw().destroy_buffer(self.raw, None);
         }
     }
 }
@@ -102,7 +103,7 @@ impl Drop for Buffer {
 impl AllocatedBuffer {
     pub fn device_address(&self) -> vk::DeviceAddress {
         unsafe {
-            self.buffer.device.vk().get_buffer_device_address(
+            self.buffer.device.raw().get_buffer_device_address(
                 &vk::BufferDeviceAddressInfo::builder().buffer(self.buffer.raw),
             )
         }
@@ -134,7 +135,7 @@ impl Drop for AllocatedBuffer {
         unsafe {
             self.buffer
                 .device
-                .allocator
+                .allocator()
                 .lock()
                 .unwrap()
                 .free(ManuallyDrop::take(&mut self.allocation))

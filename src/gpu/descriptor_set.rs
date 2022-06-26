@@ -15,7 +15,12 @@ impl DescriptorSetLayout {
         let bindings: Vec<vk::DescriptorSetLayoutBinding> =
             bindings.iter().map(|b| b.raw).collect();
         let create_info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&bindings);
-        let raw = unsafe { device.vk().create_descriptor_set_layout(&create_info, None) }.unwrap();
+        let raw = unsafe {
+            device
+                .raw()
+                .create_descriptor_set_layout(&create_info, None)
+        }
+        .unwrap();
 
         DescriptorSetLayout { device, raw }
     }
@@ -29,7 +34,7 @@ impl Drop for DescriptorSetLayout {
     fn drop(&mut self) {
         unsafe {
             self.device
-                .vk()
+                .raw()
                 .destroy_descriptor_set_layout(self.raw, None)
         }
     }
@@ -71,7 +76,7 @@ impl DescriptorPool {
             .max_sets(max_sets)
             .pool_sizes(pool_sizes)
             .build();
-        let raw = unsafe { device.vk().create_descriptor_pool(&create_info, None) }.unwrap();
+        let raw = unsafe { device.raw().create_descriptor_pool(&create_info, None) }.unwrap();
 
         Arc::new(DescriptorPool { device, raw })
     }
@@ -90,7 +95,7 @@ impl DescriptorPool {
             .build();
 
         let descriptor_sets =
-            unsafe { self.device.vk().allocate_descriptor_sets(&allocate_info) }.unwrap();
+            unsafe { self.device.raw().allocate_descriptor_sets(&allocate_info) }.unwrap();
 
         descriptor_sets
             .into_iter()
@@ -105,7 +110,7 @@ impl DescriptorPool {
 impl Drop for DescriptorPool {
     fn drop(&mut self) {
         unsafe {
-            self.device.vk().destroy_descriptor_pool(self.raw, None);
+            self.device.raw().destroy_descriptor_pool(self.raw, None);
         }
     }
 }

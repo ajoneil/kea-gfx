@@ -1,4 +1,8 @@
-use super::{device::Device, physical_device::PhysicalDevice, sync::Semaphore};
+use super::{
+    device::{Device, PhysicalDevice},
+    surface::Surface,
+    sync::Semaphore,
+};
 use ash::vk;
 use std::sync::Arc;
 
@@ -8,15 +12,20 @@ pub struct SwapchainImageView {
 }
 
 pub struct Swapchain {
-    pub swapchain: vk::SwapchainKHR,
+    device: Arc<Device>,
+    _surface: Surface,
+    raw: vk::SwapchainKHR,
     format: vk::Format,
-    pub image_views: Vec<SwapchainImageView>,
-    pub device: Arc<Device>,
+    image_views: Vec<SwapchainImageView>,
 }
 
 impl Swapchain {
-    pub fn new(device: &Arc<Device>, physical_device: &PhysicalDevice) -> Swapchain {
-        let surface_capabilities = physical_device.surface_capabilities(device.surface());
+    pub fn new(
+        device: &Arc<Device>,
+        physical_device: &PhysicalDevice,
+        surface: Surface,
+    ) -> Swapchain {
+        let surface_capabilities = physical_device.surface_capabilities(&surface);
 
         let image_count = surface_capabilities.min_image_count + 1;
         let image_count = if surface_capabilities.max_image_count > 0 {
@@ -25,17 +34,17 @@ impl Swapchain {
             image_count
         };
 
-        let surface_format = physical_device.surface_formats(device.surface())[0];
+        let surface_format = physical_device.surface_formats(&surface)[0];
 
         let present_mode = physical_device
-            .surface_present_modes(device.surface())
+            .surface_present_modes(&surface)
             .iter()
             .cloned()
             .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
             .unwrap_or(vk::PresentModeKHR::FIFO);
 
         let swapchain_create_info = vk::SwapchainCreateInfoKHR::builder()
-            .surface(device.surface().surface)
+            .surface(unsafe { surface.raw() })
             .min_image_count(image_count)
             .image_color_space(surface_format.color_space)
             .image_format(surface_format.format)
@@ -49,20 +58,21 @@ impl Swapchain {
             .image_array_layers(1)
             .present_mode(present_mode);
 
-        let swapchain = unsafe {
+        let raw = unsafe {
             device
-                .ext
+                .ext()
                 .swapchain
                 .create_swapchain(&swapchain_create_info, None)
         }
         .unwrap();
 
-        let images = unsafe { device.ext.swapchain.get_swapchain_images(swapchain) }.unwrap();
+        let images = unsafe { device.ext().swapchain.get_swapchain_images(raw) }.unwrap();
         let image_views =
             Self::create_swapchain_image_views(&images, surface_format.format, &device);
 
         Swapchain {
-            swapchain,
+            raw,
+            _surface: surface,
             format: surface_format.format,
             image_views,
 
@@ -86,8 +96,8 @@ impl Swapchain {
 
     pub fn acquire_next_image(&self, semaphore: &Semaphore) -> (u32, &SwapchainImageView) {
         let (image_index, _) = unsafe {
-            self.device.ext.swapchain.acquire_next_image(
-                self.swapchain,
+            self.device.ext().swapchain.acquire_next_image(
+                self.raw,
                 u64::MAX,
                 semaphore.vk(),
                 vk::Fence::null(),
@@ -101,15 +111,23 @@ impl Swapchain {
     pub fn format(&self) -> vk::Format {
         self.format
     }
+
+    pub fn device(&self) -> &Arc<Device> {
+        &self.device
+    }
+
+    pub unsafe fn raw(&self) -> vk::SwapchainKHR {
+        self.raw
+    }
 }
 
 impl Drop for Swapchain {
     fn drop(&mut self) {
         unsafe {
             self.device
-                .ext
+                .ext()
                 .swapchain
-                .destroy_swapchain(self.swapchain, None);
+                .destroy_swapchain(self.raw, None);
         }
     }
 }
@@ -139,7 +157,7 @@ impl ImageView {
                 layer_count: 1,
             });
 
-        let raw = unsafe { device.vk().create_image_view(&imageview_create_info, None) }.unwrap();
+        let raw = unsafe { device.raw().create_image_view(&imageview_create_info, None) }.unwrap();
 
         ImageView {
             raw,
@@ -155,7 +173,7 @@ impl ImageView {
 impl Drop for ImageView {
     fn drop(&mut self) {
         unsafe {
-            self.device.vk().destroy_image_view(self.raw(), None);
+            self.device.raw().destroy_image_view(self.raw(), None);
         }
     }
 }

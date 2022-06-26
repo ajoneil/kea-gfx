@@ -12,7 +12,7 @@ impl Semaphore {
     pub fn new(device: Arc<Device>) -> Semaphore {
         let vk = unsafe {
             device
-                .vk()
+                .raw()
                 .create_semaphore(&vk::SemaphoreCreateInfo::default(), None)
         }
         .unwrap();
@@ -32,7 +32,7 @@ impl Drop for Semaphore {
         debug!("destroying semaphore {:?}", self.vk);
 
         unsafe {
-            self.device.vk().destroy_semaphore(self.vk, None);
+            self.device.raw().destroy_semaphore(self.vk, None);
         }
     }
 }
@@ -45,7 +45,7 @@ pub struct Fence {
 impl Fence {
     pub fn new(device: Arc<Device>, signaled: bool) -> Fence {
         let fence = unsafe {
-            device.vk().create_fence(
+            device.raw().create_fence(
                 &vk::FenceCreateInfo::builder().flags(if signaled {
                     vk::FenceCreateFlags::SIGNALED
                 } else {
@@ -66,7 +66,7 @@ impl Fence {
     pub fn wait(&self) {
         unsafe {
             self.device
-                .vk()
+                .raw()
                 .wait_for_fences(&[self.vk], true, u64::MAX)
                 .unwrap();
         }
@@ -74,7 +74,7 @@ impl Fence {
 
     pub fn reset(&self) {
         unsafe {
-            self.device.vk().reset_fences(&[self.vk]).unwrap();
+            self.device.raw().reset_fences(&[self.vk]).unwrap();
         }
     }
 
@@ -87,7 +87,7 @@ impl Fence {
 impl Drop for Fence {
     fn drop(&mut self) {
         unsafe {
-            self.device.vk().destroy_fence(self.vk, None);
+            self.device.raw().destroy_fence(self.vk, None);
         }
     }
 }

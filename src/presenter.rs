@@ -22,11 +22,11 @@ impl Presenter {
     pub fn new(swapchain: Swapchain) -> Presenter {
         Presenter {
             semaphores: Semaphores {
-                image_available: Semaphore::new(swapchain.device.clone()),
-                render_finished: Semaphore::new(swapchain.device.clone()),
+                image_available: Semaphore::new(swapchain.device().clone()),
+                render_finished: Semaphore::new(swapchain.device().clone()),
             },
-            in_flight_fence: Fence::new(swapchain.device.clone(), true),
-            command_buffer: Arc::new(CommandPool::new(swapchain.device.queues().graphics()))
+            in_flight_fence: Fence::new(swapchain.device().clone(), true),
+            command_buffer: Arc::new(CommandPool::new(swapchain.device().graphics_queue()))
                 .allocate_buffer(),
             swapchain,
         }
@@ -64,16 +64,16 @@ impl Presenter {
                 .build()];
 
             self.swapchain
-                .device
-                .vk()
+                .device()
+                .raw()
                 .queue_submit(
-                    self.swapchain.device.queues().graphics().vk(),
+                    self.swapchain.device().graphics_queue().raw(),
                     &submits,
                     self.in_flight_fence.vk(),
                 )
                 .unwrap();
 
-            let swapchains: Vec<vk::SwapchainKHR> = vec![self.swapchain.swapchain];
+            let swapchains: Vec<vk::SwapchainKHR> = vec![self.swapchain.raw()];
             let image_indices = vec![image_index];
 
             let present = vk::PresentInfoKHR::builder()
@@ -83,10 +83,10 @@ impl Presenter {
                 .build();
 
             self.swapchain
-                .device
-                .ext
+                .device()
+                .ext()
                 .swapchain
-                .queue_present(self.swapchain.device.queues().graphics().vk(), &present)
+                .queue_present(self.swapchain.device().graphics_queue().raw(), &present)
                 .unwrap();
         }
     }

@@ -114,7 +114,7 @@ impl<'a> AccelerationStructureDescription<'a> {
             ..
         } = unsafe {
             device
-                .ext
+                .ext()
                 .acceleration_structure
                 .get_acceleration_structure_build_sizes(
                     vk::AccelerationStructureBuildTypeKHR::DEVICE,
@@ -191,7 +191,7 @@ impl AccelerationStructure {
                 .ty(ty);
 
             device
-                .ext
+                .ext()
                 .acceleration_structure
                 .create_acceleration_structure(&create_info, None)
         }
@@ -217,7 +217,7 @@ impl Drop for AccelerationStructure {
     fn drop(&mut self) {
         unsafe {
             self.device
-                .ext
+                .ext()
                 .acceleration_structure
                 .destroy_acceleration_structure(self.raw, None)
         }

@@ -23,7 +23,7 @@ impl CommandPool {
         let create_info = vk::CommandPoolCreateInfo::builder()
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
             .queue_family_index(queue.family().index());
-        let pool = unsafe { queue.device().vk().create_command_pool(&create_info, None) }.unwrap();
+        let pool = unsafe { queue.device().raw().create_command_pool(&create_info, None) }.unwrap();
 
         CommandPool { pool, queue }
     }
@@ -35,7 +35,7 @@ impl CommandPool {
             .command_buffer_count(1);
 
         let buffer =
-            unsafe { self.device().vk().allocate_command_buffers(&create_info) }.unwrap()[0];
+            unsafe { self.device().raw().allocate_command_buffers(&create_info) }.unwrap()[0];
 
         CommandBuffer {
             buffer,
@@ -51,8 +51,11 @@ impl CommandPool {
 impl Drop for CommandPool {
     fn drop(&mut self) {
         unsafe {
-            self.device().queue_wait_idle(&self.queue);
-            self.device().vk().destroy_command_pool(self.pool, None);
+            self.device()
+                .raw()
+                .queue_wait_idle(self.queue.raw())
+                .unwrap();
+            self.device().raw().destroy_command_pool(self.pool, None);
         }
     }
 }
@@ -79,7 +82,7 @@ impl CommandBuffer {
     pub fn reset(&self) {
         unsafe {
             self.device()
-                .vk()
+                .raw()
                 .reset_command_buffer(self.buffer, vk::CommandBufferResetFlags::empty())
         }
         .unwrap();
@@ -88,14 +91,14 @@ impl CommandBuffer {
     fn begin(&self) {
         unsafe {
             self.device()
-                .vk()
+                .raw()
                 .begin_command_buffer(self.buffer, &vk::CommandBufferBeginInfo::default())
         }
         .unwrap();
     }
 
     fn end(&self) {
-        unsafe { self.device().vk().end_command_buffer(self.buffer) }.unwrap()
+        unsafe { self.device().raw().end_command_buffer(self.buffer) }.unwrap()
     }
 
     pub fn device(&self) -> &Arc<Device> {
@@ -119,7 +122,7 @@ impl CommandBufferRecorder<'_> {
     pub fn bind_pipeline(&self, bind_point: vk::PipelineBindPoint, pipeline: &Pipeline) {
         unsafe {
             self.device()
-                .vk()
+                .raw()
                 .cmd_bind_pipeline(self.buffer.buffer, bind_point, pipeline.raw())
         }
     }
@@ -136,7 +139,7 @@ impl CommandBufferRecorder<'_> {
             .collect();
 
         unsafe {
-            self.device().vk().cmd_bind_descriptor_sets(
+            self.device().raw().cmd_bind_descriptor_sets(
                 self.buffer.buffer,
                 bind_point,
                 layout.raw(),
@@ -157,7 +160,7 @@ impl CommandBufferRecorder<'_> {
         image_memory_barriers: &[vk::ImageMemoryBarrier],
     ) {
         unsafe {
-            self.device().vk().cmd_pipeline_barrier(
+            self.device().raw().cmd_pipeline_barrier(
                 self.buffer.buffer,
                 src_stage_mask,
                 dst_stage_mask,
@@ -206,7 +209,7 @@ impl CommandBufferRecorder<'_> {
 
     pub fn copy_image(&self, from: vk::Image, to: vk::Image, region: &vk::ImageCopy) {
         unsafe {
-            self.device().vk().cmd_copy_image(
+            self.device().raw().cmd_copy_image(
                 self.buffer.buffer,
                 from,
                 vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
@@ -230,7 +233,7 @@ impl CommandBufferRecorder<'_> {
         info!("ranges: {:?}", description.ranges());
         unsafe {
             self.device()
-                .ext
+                .ext()
                 .acceleration_structure
                 .cmd_build_acceleration_structures(
                     self.buffer.buffer,
@@ -249,7 +252,7 @@ impl CommandBufferRecorder<'_> {
     ) {
         // info!("binding tables: {:?}", binding_tables);
         unsafe {
-            self.device().ext.ray_tracing_pipeline.cmd_trace_rays(
+            self.device().ext().ray_tracing_pipeline.cmd_trace_rays(
                 self.buffer.buffer,
                 binding_tables.raygen.raw(),
                 binding_tables.miss.raw(),

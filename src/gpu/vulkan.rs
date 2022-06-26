@@ -1,7 +1,7 @@
 use ash::vk;
 use std::{ffi::CStr, os::raw::c_char, sync::Arc};
 
-use super::physical_device::PhysicalDevice;
+use super::device::PhysicalDevice;
 
 pub struct VulkanInstance {
     entry: ash::Entry,
@@ -58,14 +58,17 @@ impl VulkanInstance {
         &self.ext
     }
 
-    pub fn physical_devices(self: &Arc<VulkanInstance>) -> Vec<PhysicalDevice> {
-        unsafe { self.raw.enumerate_physical_devices() }
-            .unwrap()
-            .into_iter()
-            .map(|physical_device: vk::PhysicalDevice| {
-                PhysicalDevice::new(physical_device, self.clone())
-            })
-            .collect()
+    pub fn physical_devices(self: &Arc<VulkanInstance>) -> Vec<Arc<PhysicalDevice>> {
+        unsafe {
+            self.raw
+                .enumerate_physical_devices()
+                .unwrap()
+                .into_iter()
+                .map(|physical_device: vk::PhysicalDevice| {
+                    Arc::new(PhysicalDevice::from_raw(physical_device, self.clone()))
+                })
+                .collect()
+        }
     }
 }
 
