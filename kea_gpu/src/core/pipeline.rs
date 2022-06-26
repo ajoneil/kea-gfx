@@ -1,6 +1,6 @@
 use super::{descriptor_set::DescriptorSetLayout, device::Device, shaders::ShaderEntryPoint};
 use ash::vk;
-use std::{ffi::CString, marker::PhantomData, sync::Arc};
+use std::{ffi::CString, marker::PhantomData, pin::Pin, slice, sync::Arc};
 
 pub struct PipelineLayout {
     device: Arc<Device>,
@@ -32,32 +32,31 @@ impl Drop for PipelineLayout {
 }
 
 pub struct PipelineShaderStage<'a> {
-    raw: vk::PipelineShaderStageCreateInfo,
-    _entry_point_name: CString,
-    marker: PhantomData<&'a ()>,
+    stage: vk::ShaderStageFlags,
+    entry_point: &'a ShaderEntryPoint<'a>,
+    entry_point_name: Pin<CString>,
 }
 
 impl<'a> PipelineShaderStage<'a> {
     pub fn new(
         stage: vk::ShaderStageFlags,
-        entry_point: &ShaderEntryPoint<'a>,
+        entry_point: &'a ShaderEntryPoint<'a>,
     ) -> PipelineShaderStage<'a> {
-        let entry_point_name = CString::new(entry_point.name().clone()).unwrap();
-        let raw = vk::PipelineShaderStageCreateInfo::builder()
-            .stage(stage)
-            .module(unsafe { entry_point.module().raw() })
-            .name(&entry_point_name)
-            .build();
+        let entry_point_name = Pin::new(CString::new(entry_point.name().clone()).unwrap());
 
         PipelineShaderStage {
-            raw,
-            _entry_point_name: entry_point_name,
-            marker: PhantomData,
+            stage,
+            entry_point,
+            entry_point_name,
         }
     }
 
     pub unsafe fn raw(&self) -> vk::PipelineShaderStageCreateInfo {
-        self.raw
+        vk::PipelineShaderStageCreateInfo::builder()
+            .stage(self.stage)
+            .module(self.entry_point.module().raw())
+            .name(&self.entry_point_name)
+            .build()
     }
 }
 
@@ -76,7 +75,7 @@ impl Pipeline {
                     .create_ray_tracing_pipelines(
                         vk::DeferredOperationKHR::null(),
                         vk::PipelineCache::null(),
-                        &[desc.raw()],
+                        slice::from_ref(&desc.raw()),
                         None,
                     )
             }

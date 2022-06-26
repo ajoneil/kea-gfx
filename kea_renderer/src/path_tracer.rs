@@ -329,23 +329,16 @@ impl PathTracer {
             PipelineLayout::new(device.clone(), slice::from_ref(&descriptor_set_layout));
 
         let shader_module = ShaderModule::new(device.clone(), "./kea_renderer_shaders");
+        let generate_rays = shader_module.entry_point("generate_rays");
+        let ray_miss = shader_module.entry_point("ray_miss");
+        let ray_hit = shader_module.entry_point("ray_hit");
+        let intersect_sphere = shader_module.entry_point("intersect_sphere");
+
         let shader_stages = [
-            PipelineShaderStage::new(
-                vk::ShaderStageFlags::RAYGEN_KHR,
-                &shader_module.entry_point("generate_rays"),
-            ),
-            PipelineShaderStage::new(
-                vk::ShaderStageFlags::MISS_KHR,
-                &shader_module.entry_point("ray_miss"),
-            ),
-            PipelineShaderStage::new(
-                vk::ShaderStageFlags::CLOSEST_HIT_KHR,
-                &shader_module.entry_point("ray_hit"),
-            ),
-            PipelineShaderStage::new(
-                vk::ShaderStageFlags::INTERSECTION_KHR,
-                &shader_module.entry_point("intersect_sphere"),
-            ),
+            PipelineShaderStage::new(vk::ShaderStageFlags::RAYGEN_KHR, &generate_rays),
+            PipelineShaderStage::new(vk::ShaderStageFlags::MISS_KHR, &ray_miss),
+            PipelineShaderStage::new(vk::ShaderStageFlags::CLOSEST_HIT_KHR, &ray_hit),
+            PipelineShaderStage::new(vk::ShaderStageFlags::INTERSECTION_KHR, &intersect_sphere),
         ];
 
         let shader_groups = [
