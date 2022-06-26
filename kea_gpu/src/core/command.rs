@@ -115,6 +115,7 @@ impl CommandBuffer {
     }
 }
 
+#[must_use]
 pub struct RecordedCommandBuffer {
     buffer: ManuallyDrop<Option<CommandBuffer>>,
 }
@@ -150,6 +151,7 @@ impl Drop for RecordedCommandBuffer {
     }
 }
 
+#[must_use]
 pub struct SubmittedCommandBuffer {
     buffer: ManuallyDrop<CommandBuffer>,
     fence: Option<Fence>,
