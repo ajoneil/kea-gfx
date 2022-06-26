@@ -268,7 +268,7 @@ impl PathTracer {
         let spheres_buffer = Buffer::new(
             device.clone(),
             (mem::size_of::<Sphere>() * spheres.len()) as u64,
-            vk::BufferUsageFlags::STORAGE_BUFFER,
+            vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
         );
 
         let spheres_buffer = spheres_buffer.allocate("spheres", MemoryLocation::CpuToGpu);

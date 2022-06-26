@@ -120,8 +120,13 @@ impl AllocatedBuffer {
         assert!(data.len() <= self.allocated_size());
 
         unsafe {
-            let pointer = self.allocation.mapped_ptr().unwrap().as_ptr() as *mut u8;
-            pointer.copy_from_nonoverlapping(data.as_ptr(), data.len());
+            let pointer = self.allocation.mapped_ptr().unwrap().as_ptr();
+            let mut align = ash::util::Align::new(
+                pointer,
+                mem::align_of::<T>() as _,
+                mem::size_of_val(data) as _,
+            );
+            align.copy_from_slice(data);
         }
     }
 
