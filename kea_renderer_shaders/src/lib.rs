@@ -89,7 +89,11 @@ pub fn intersect_sphere(
     #[spirv(ray_geometry_index)] sphere_id: usize,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] spheres: &mut [Sphere],
 ) {
-    let sphere = &spheres[sphere_id as usize];
+    let _sphere = &spheres[sphere_id as usize];
+    let sphere = Sphere {
+        position: vec3(0.0, 0.0, 1.5),
+        radius: 0.5,
+    };
 
     let oc = ray_origin - sphere.position;
     let a = ray_direction.dot(ray_direction);

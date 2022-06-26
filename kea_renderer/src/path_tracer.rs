@@ -42,6 +42,7 @@ pub struct PathTracer {
     pipeline_layout: PipelineLayout,
     _descriptor_set_layout: DescriptorSetLayout,
     descriptor_set: DescriptorSet,
+    _aabbs_buffer: AllocatedBuffer,
     _spheres_buffer: AllocatedBuffer,
     storage_image: vk::Image,
     storage_image_view: vk::ImageView,
@@ -79,7 +80,7 @@ impl Sphere {
 impl PathTracer {
     pub fn new(kea: Kea) -> PathTracer {
         let command_pool = CommandPool::new(kea.device().graphics_queue());
-        let (tl_acceleration_structure, bl_acceleration_structure, spheres_buffer) =
+        let (tl_acceleration_structure, bl_acceleration_structure, spheres_buffer, aabbs_buffer) =
             Self::build_acceleration_structure(&kea);
         let (pipeline, pipeline_layout, descriptor_set_layout) =
             Self::create_pipeline(kea.device());
@@ -116,6 +117,7 @@ impl PathTracer {
             _descriptor_set_layout: descriptor_set_layout,
             descriptor_set,
             _spheres_buffer: spheres_buffer,
+            _aabbs_buffer: aabbs_buffer,
             storage_image,
             storage_image_view,
             allocation: ManuallyDrop::new(allocation),
@@ -130,11 +132,34 @@ impl PathTracer {
         AccelerationStructure,
         AccelerationStructure,
         AllocatedBuffer,
+        AllocatedBuffer,
     ) {
-        let spheres = [Sphere {
-            position: vec3(0.0, 0.0, 1.5),
-            radius: 0.5,
-        }];
+        let spheres = [
+            Sphere {
+                position: vec3(0.0, 0.0, 1.5),
+                radius: 0.5,
+            },
+            Sphere {
+                position: vec3(0.0, 0.0, 1.5),
+                radius: 0.5,
+            },
+            Sphere {
+                position: vec3(0.0, 0.0, 1.5),
+                radius: 0.5,
+            },
+            Sphere {
+                position: vec3(0.0, 0.0, 1.5),
+                radius: 0.5,
+            },
+            Sphere {
+                position: vec3(0.0, 0.0, 1.5),
+                radius: 0.5,
+            },
+            Sphere {
+                position: vec3(0.0, 0.0, 1.5),
+                radius: 0.5,
+            },
+        ];
 
         let (spheres_buffer, aabbs_buffer) = Self::create_buffers(kea.device(), &spheres);
         let geometries = [Geometry::aabbs(&aabbs_buffer)];
@@ -149,13 +174,7 @@ impl PathTracer {
             build_sizes.build_scratch,
             vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
         )
-        .allocate_with_alignment(
-            "scratch",
-            MemoryLocation::GpuOnly,
-            kea.physical_device()
-                .acceleration_structure_properties()
-                .min_acceleration_structure_scratch_offset_alignment as _,
-        );
+        .allocate("scratch", MemoryLocation::GpuOnly);
 
         let bl_acceleration_structure_buffer = Buffer::new(
             kea.device().clone(),
@@ -226,13 +245,7 @@ impl PathTracer {
             build_sizes.build_scratch,
             vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
         )
-        .allocate_with_alignment(
-            "scratch",
-            MemoryLocation::GpuOnly,
-            kea.physical_device()
-                .acceleration_structure_properties()
-                .min_acceleration_structure_scratch_offset_alignment as _,
-        );
+        .allocate("build scratch", MemoryLocation::CpuToGpu);
 
         let tl_acceleration_structure_buffer = Buffer::new(
             kea.device().clone(),
@@ -258,6 +271,7 @@ impl PathTracer {
             tl_acceleration_structure,
             bl_acceleration_structure,
             spheres_buffer,
+            aabbs_buffer,
         )
     }
 
@@ -499,19 +513,19 @@ impl PathTracer {
             .descriptor_type(vk::DescriptorType::STORAGE_IMAGE)
             .dst_set(unsafe { descriptor_set.raw() })
             .dst_binding(1)
-            .image_info(std::slice::from_ref(&desc_img_info))
+            .image_info(slice::from_ref(&desc_img_info))
             .build();
 
         let sphere_buffer_info = vk::DescriptorBufferInfo {
             buffer: unsafe { spheres_buffer.buffer().raw() },
             offset: 0,
-            range: spheres_buffer.buffer().size() as vk::DeviceSize,
+            range: vk::WHOLE_SIZE,
         };
         let spheres_write_set = vk::WriteDescriptorSet::builder()
             .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
             .dst_set(unsafe { descriptor_set.raw() })
             .dst_binding(2)
-            .buffer_info(&[sphere_buffer_info])
+            .buffer_info(slice::from_ref(&sphere_buffer_info))
             .build();
 
         let write_sets = [as_write_set, img_write_set, spheres_write_set];

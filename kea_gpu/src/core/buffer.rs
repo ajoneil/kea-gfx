@@ -38,19 +38,6 @@ impl Buffer {
         self.allocate_with_mem_requirements(name, location, requirements)
     }
 
-    pub fn allocate_with_alignment(
-        self,
-        name: &str,
-        location: MemoryLocation,
-        alignment: vk::DeviceSize,
-    ) -> AllocatedBuffer {
-        let mut requirements =
-            unsafe { self.device.raw().get_buffer_memory_requirements(self.raw) };
-        requirements.alignment = alignment;
-
-        self.allocate_with_mem_requirements(name, location, requirements)
-    }
-
     fn allocate_with_mem_requirements(
         self,
         name: &str,
@@ -117,7 +104,7 @@ impl AllocatedBuffer {
         let data = unsafe {
             slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * mem::size_of::<T>())
         };
-        assert!(data.len() <= self.allocated_size());
+        assert!(data.len() == self.buffer.size());
 
         unsafe {
             let pointer = self.allocation.mapped_ptr().unwrap().as_ptr();
