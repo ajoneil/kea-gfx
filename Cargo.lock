@@ -507,7 +507,6 @@ version = "0.1.0"
 dependencies = [
  "ash",
  "ash-window",
- "env_logger",
  "glam",
  "gpu-allocator",
  "log",

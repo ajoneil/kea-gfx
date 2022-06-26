@@ -8,7 +8,6 @@ ash = { version = "0.37.0+1.3.209", features=["linked"] }
 ash-window = "0.10.0"
 winit = "0.26.1"
 log = "0.4.17"
-env_logger = "0.9.0"
 gpu-allocator = "0.18.0"
 glam = "0.20.5"
 memoffset = "0.6.5"

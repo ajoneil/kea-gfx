@@ -10,8 +10,8 @@ use super::{
     sync::Fence,
 };
 use ash::vk;
-use log::info;
-use std::sync::Arc;
+use log::{info, warn};
+use std::{mem::ManuallyDrop, sync::Arc};
 
 pub struct CommandPool {
     queue: Queue,
@@ -71,17 +71,17 @@ pub struct CommandBuffer {
 }
 
 impl CommandBuffer {
-    pub fn record<F>(&self, reset: bool, func: F)
+    pub fn record<F>(self, func: F) -> RecordedCommandBuffer
     where
         F: FnOnce(&CommandBufferRecorder),
     {
-        if reset {
-            self.reset()
-        }
-
         self.begin();
-        func(&CommandBufferRecorder { buffer: self });
+        func(&CommandBufferRecorder { buffer: &self });
         self.end();
+
+        RecordedCommandBuffer {
+            buffer: ManuallyDrop::new(Some(self)),
+        }
     }
 
     pub fn reset(&self) {
@@ -110,12 +110,79 @@ impl CommandBuffer {
         self.pool.device()
     }
 
-    pub fn submit(&self) -> Fence {
-        self.pool.queue.submit(&[self])
+    pub unsafe fn raw(&self) -> vk::CommandBuffer {
+        self.raw
+    }
+}
+
+pub struct RecordedCommandBuffer {
+    buffer: ManuallyDrop<Option<CommandBuffer>>,
+}
+
+impl RecordedCommandBuffer {
+    pub fn submit(mut self) -> SubmittedCommandBuffer {
+        let buffer = unsafe { ManuallyDrop::take(&mut self.buffer).unwrap() };
+        let fence = buffer.pool.queue.submit(&[&buffer]);
+        self.buffer = ManuallyDrop::new(None);
+
+        SubmittedCommandBuffer {
+            buffer: ManuallyDrop::new(buffer),
+            fence: Some(fence),
+        }
     }
 
     pub unsafe fn raw(&self) -> vk::CommandBuffer {
-        self.raw
+        self.buffer.as_ref().unwrap().raw()
+    }
+}
+
+impl Drop for RecordedCommandBuffer {
+    fn drop(&mut self) {
+        let buffer = unsafe { ManuallyDrop::take(&mut self.buffer) };
+        match buffer {
+            Some(_) => {
+                warn!("Command buffer was recorded but never submitted.");
+            }
+            None => {}
+        }
+    }
+}
+
+pub struct SubmittedCommandBuffer {
+    buffer: ManuallyDrop<CommandBuffer>,
+    fence: Option<Fence>,
+}
+
+impl SubmittedCommandBuffer {
+    pub fn wait(&mut self) {
+        match &self.fence {
+            Some(fence) => {
+                fence.wait();
+                self.fence = None;
+            }
+            None => warn!("Duplicate wait on command buffer"),
+        }
+    }
+
+    pub fn wait_and_reset(mut self) -> CommandBuffer {
+        self.wait();
+        let buffer = unsafe { ManuallyDrop::take(&mut self.buffer) };
+        buffer
+    }
+}
+
+impl Drop for SubmittedCommandBuffer {
+    fn drop(&mut self) {
+        match &self.fence {
+            Some(fence) => {
+                warn!("Submitted command buffer dropped before being waited upon - forcing wait");
+                fence.wait();
+                unsafe {
+                    ManuallyDrop::drop(&mut self.buffer);
+                }
+            }
+            None => (),
+        }
     }
 }
 

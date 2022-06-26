@@ -1,9 +1,5 @@
 use ash::vk;
-use std::{
-    ffi::CStr,
-    fmt::{self},
-    sync::Arc,
-};
+use std::{ffi::CStr, fmt, sync::Arc};
 
 use crate::core::{surface::Surface, vulkan::VulkanInstance};
 

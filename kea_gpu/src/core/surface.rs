@@ -9,7 +9,7 @@ pub struct Surface {
 }
 
 impl Surface {
-    pub fn from_window<'a>(vulkan: Arc<VulkanInstance>, window: &Window) -> Surface {
+    pub fn from_window(vulkan: Arc<VulkanInstance>, window: &Window) -> Surface {
         let raw = unsafe {
             ash_window::create_surface(&vulkan.entry(), &vulkan.raw(), window.window(), None)
         }

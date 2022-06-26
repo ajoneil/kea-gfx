@@ -26,7 +26,7 @@ use kea_gpu::{
     },
     Kea,
 };
-use log::info;
+use log::{debug, info};
 use std::{
     mem::{self, ManuallyDrop},
     slice,
@@ -80,11 +80,7 @@ impl PathTracer {
     pub fn new(kea: Kea) -> PathTracer {
         let command_pool = CommandPool::new(kea.device().graphics_queue());
         let (tl_acceleration_structure, bl_acceleration_structure, spheres_buffer) =
-            Self::build_acceleration_structure(
-                kea.device(),
-                &command_pool,
-                &kea.physical_device().acceleration_structure_properties(),
-            );
+            Self::build_acceleration_structure(&kea);
         let (pipeline, pipeline_layout, descriptor_set_layout) =
             Self::create_pipeline(kea.device());
 
@@ -125,9 +121,7 @@ impl PathTracer {
     }
 
     fn build_acceleration_structure(
-        device: &Arc<Device>,
-        command_pool: &Arc<CommandPool>,
-        accel_struct_props: &vk::PhysicalDeviceAccelerationStructurePropertiesKHR,
+        kea: &Kea,
     ) -> (
         AccelerationStructure,
         AccelerationStructure,
@@ -138,27 +132,29 @@ impl PathTracer {
             radius: 0.5,
         }];
 
-        let (spheres_buffer, aabbs_buffer) = Self::create_buffers(device, &spheres);
+        let (spheres_buffer, aabbs_buffer) = Self::create_buffers(kea.device(), &spheres);
         let geometries = [Geometry::aabbs(&aabbs_buffer)];
         let blas = AccelerationStructureDescription::new(
             vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL,
             &geometries,
         );
 
-        let build_sizes = blas.build_sizes(device);
+        let build_sizes = blas.build_sizes(kea.device());
         let scratch_buffer = Buffer::new(
-            device.clone(),
+            kea.device().clone(),
             build_sizes.build_scratch,
             vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
         )
         .allocate_with_alignment(
             "scratch",
             MemoryLocation::GpuOnly,
-            accel_struct_props.min_acceleration_structure_scratch_offset_alignment as _,
+            kea.physical_device()
+                .acceleration_structure_properties()
+                .min_acceleration_structure_scratch_offset_alignment as _,
         );
 
         let bl_acceleration_structure_buffer = Buffer::new(
-            device.clone(),
+            kea.device().clone(),
             build_sizes.acceleration_structure,
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
@@ -166,16 +162,22 @@ impl PathTracer {
         .allocate("bl acceleration structure", MemoryLocation::GpuOnly);
 
         let bl_acceleration_structure = AccelerationStructure::new(
-            device,
+            kea.device(),
             bl_acceleration_structure_buffer,
             vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL,
         );
 
-        let cmd = command_pool.allocate_buffer();
-        cmd.record(true, |cmd| {
-            cmd.build_acceleration_structure(&blas, &bl_acceleration_structure, &scratch_buffer);
-        });
-        cmd.submit().wait();
+        let cmd = CommandPool::new(kea.device().graphics_queue())
+            .allocate_buffer()
+            .record(|cmd| {
+                cmd.build_acceleration_structure(
+                    &blas,
+                    &bl_acceleration_structure,
+                    &scratch_buffer,
+                );
+            })
+            .submit()
+            .wait_and_reset();
 
         let identity_transform = vk::TransformMatrixKHR {
             matrix: [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
@@ -200,7 +202,7 @@ impl PathTracer {
             },
         };
         let tlas_buffer = Buffer::new(
-            device.clone(),
+            kea.device().clone(),
             mem::size_of_val(&tlas_instance) as u64,
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
@@ -214,20 +216,22 @@ impl PathTracer {
             &geometries,
         );
 
-        let build_sizes = tlas.build_sizes(device);
+        let build_sizes = tlas.build_sizes(kea.device());
         let scratch_buffer = Buffer::new(
-            device.clone(),
+            kea.device().clone(),
             build_sizes.build_scratch,
             vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
         )
         .allocate_with_alignment(
             "scratch",
             MemoryLocation::GpuOnly,
-            accel_struct_props.min_acceleration_structure_scratch_offset_alignment as _,
+            kea.physical_device()
+                .acceleration_structure_properties()
+                .min_acceleration_structure_scratch_offset_alignment as _,
         );
 
         let tl_acceleration_structure_buffer = Buffer::new(
-            device.clone(),
+            kea.device().clone(),
             build_sizes.acceleration_structure,
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
@@ -235,16 +239,21 @@ impl PathTracer {
         .allocate("tl acceleration structure", MemoryLocation::GpuOnly);
 
         let tl_acceleration_structure = AccelerationStructure::new(
-            device,
+            kea.device(),
             tl_acceleration_structure_buffer,
             vk::AccelerationStructureTypeKHR::TOP_LEVEL,
         );
 
-        let cmd = command_pool.allocate_buffer();
-        cmd.record(true, |cmd| {
-            cmd.build_acceleration_structure(&tlas, &tl_acceleration_structure, &scratch_buffer);
-        });
-        cmd.submit().wait();
+        let cmd = cmd
+            .record(|cmd| {
+                cmd.build_acceleration_structure(
+                    &tlas,
+                    &tl_acceleration_structure,
+                    &scratch_buffer,
+                );
+            })
+            .submit()
+            .wait();
 
         (
             tl_acceleration_structure,
@@ -433,19 +442,21 @@ impl PathTracer {
 
         let image_view = unsafe { device.raw().create_image_view(&view_info, None) }.unwrap();
 
-        let cmd = command_pool.allocate_buffer();
-        cmd.record(true, |cmd| {
-            cmd.transition_image_layout(
-                image,
-                vk::ImageLayout::UNDEFINED,
-                vk::ImageLayout::GENERAL,
-                vk::AccessFlags::empty(),
-                vk::AccessFlags::empty(),
-                vk::PipelineStageFlags::TOP_OF_PIPE,
-                vk::PipelineStageFlags::TOP_OF_PIPE,
-            )
-        });
-        cmd.submit().wait();
+        let cmd = command_pool
+            .allocate_buffer()
+            .record(|cmd| {
+                cmd.transition_image_layout(
+                    image,
+                    vk::ImageLayout::UNDEFINED,
+                    vk::ImageLayout::GENERAL,
+                    vk::AccessFlags::empty(),
+                    vk::AccessFlags::empty(),
+                    vk::PipelineStageFlags::TOP_OF_PIPE,
+                    vk::PipelineStageFlags::TOP_OF_PIPE,
+                )
+            })
+            .submit()
+            .wait();
 
         (image, image_view, allocation)
     }
