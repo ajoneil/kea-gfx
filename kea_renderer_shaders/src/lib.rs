@@ -11,7 +11,7 @@ use spirv_std::macros::spirv;
 
 use spirv_std::{
     arch::report_intersection,
-    glam::{vec2, vec3, vec4, UVec2, UVec3, Vec3},
+    glam::{vec2, vec3, vec4, UVec2, UVec3, Vec2, Vec3},
     ray_tracing::{AccelerationStructure, RayFlags},
     Image,
 };
@@ -28,11 +28,15 @@ pub struct RayPayload {
 #[spirv(ray_generation)]
 pub fn generate_rays(
     #[spirv(launch_id)] launch_id: UVec3,
+    #[spirv(launch_size)] launch_size: UVec3,
     #[spirv(ray_payload)] payload: &mut RayPayload,
     #[spirv(descriptor_set = 0, binding = 0)] accel_structure: &AccelerationStructure,
     #[spirv(descriptor_set = 0, binding = 1)] image: &mut Image!(2D, format=rgba32f, sampled=false),
 ) {
-    let ray_direction = ray_for_pixel(launch_id.x, launch_id.y);
+    let ray_direction = ray_for_pixel(
+        vec2(launch_id.x as f32 + 0.5, launch_id.y as f32 + 0.5),
+        vec2(launch_size.x as f32, launch_size.y as f32),
+    );
 
     unsafe {
         accel_structure.trace_ray(
@@ -55,9 +59,8 @@ pub fn generate_rays(
     }
 }
 
-pub fn ray_for_pixel(x: u32, y: u32) -> Vec3 {
-    let pixel_center = vec2(x as f32 + 0.5, y as f32 + 0.5);
-    let uv = pixel_center / vec2(1920.0, 1080.0);
+pub fn ray_for_pixel(pixel_position: Vec2, size: Vec2) -> Vec3 {
+    let uv = pixel_position / size;
     let direction = uv * 2.0 - 1.0;
     let target = vec3(direction.x, direction.y, 1.0);
     target.normalize()

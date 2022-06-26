@@ -11,12 +11,13 @@ pub struct Swapchain {
     device: Arc<Device>,
     _surface: Surface,
     raw: vk::SwapchainKHR,
+    extent: vk::Extent2D,
     format: vk::Format,
     image_views: Vec<SwapchainImageView>,
 }
 
 impl Swapchain {
-    pub fn new(device: &Arc<Device>, surface: Surface) -> Swapchain {
+    pub fn new(device: &Arc<Device>, surface: Surface, extent: vk::Extent2D) -> Swapchain {
         let surface_capabilities = device.physical_device().surface_capabilities(&surface);
 
         let image_count = surface_capabilities.min_image_count + 1;
@@ -41,10 +42,7 @@ impl Swapchain {
             .min_image_count(image_count)
             .image_color_space(surface_format.color_space)
             .image_format(surface_format.format)
-            .image_extent(vk::Extent2D {
-                width: 1920,
-                height: 1080,
-            })
+            .image_extent(extent)
             .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSFER_DST)
             .pre_transform(surface_capabilities.current_transform)
             .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
@@ -68,7 +66,7 @@ impl Swapchain {
             _surface: surface,
             format: surface_format.format,
             image_views,
-
+            extent,
             device: device.clone(),
         }
     }
@@ -103,6 +101,10 @@ impl Swapchain {
 
     pub fn format(&self) -> vk::Format {
         self.format
+    }
+
+    pub fn extent(&self) -> vk::Extent2D {
+        self.extent
     }
 
     pub fn device(&self) -> &Arc<Device> {

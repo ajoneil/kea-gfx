@@ -84,8 +84,12 @@ impl PathTracer {
         let (pipeline, pipeline_layout, descriptor_set_layout) =
             Self::create_pipeline(kea.device());
 
-        let (storage_image, storage_image_view, allocation) =
-            Self::create_storage_image(kea.device(), kea.presenter().format(), &command_pool);
+        let (storage_image, storage_image_view, allocation) = Self::create_storage_image(
+            kea.device(),
+            kea.presenter().format(),
+            kea.presenter().size(),
+            &command_pool,
+        );
 
         let descriptor_set = Self::create_descriptor_set(
             kea.device(),
@@ -384,14 +388,15 @@ impl PathTracer {
     fn create_storage_image(
         device: &Device,
         format: vk::Format,
+        size: (u32, u32),
         command_pool: &Arc<CommandPool>,
     ) -> (vk::Image, vk::ImageView, Allocation) {
         let image_create_info = vk::ImageCreateInfo::builder()
             .image_type(vk::ImageType::TYPE_2D)
             .format(format)
             .extent(vk::Extent3D {
-                width: 1920,
-                height: 1080,
+                width: size.0,
+                height: size.1,
                 depth: 1,
             })
             .mip_levels(1)
@@ -649,7 +654,14 @@ impl PathTracer {
                 slice::from_ref(&self.descriptor_set),
             );
 
-            cmd.trace_rays(&self.shader_binding_tables, 1920, 1080, 1);
+            cmd.trace_rays(
+                &self.shader_binding_tables,
+                (
+                    self.kea.presenter().size().0,
+                    self.kea.presenter().size().1,
+                    1,
+                ),
+            );
 
             cmd.transition_image_layout(
                 swapchain_image_view.image,
@@ -685,8 +697,8 @@ impl PathTracer {
                     layer_count: 1,
                 })
                 .extent(vk::Extent3D {
-                    width: 1920,
-                    height: 1080,
+                    width: self.kea.presenter().size().0,
+                    height: self.kea.presenter().size().1,
                     depth: 1,
                 })
                 .build();

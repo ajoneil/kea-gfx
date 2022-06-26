@@ -17,12 +17,12 @@ pub struct Kea {
 }
 
 impl Kea {
-    pub fn new(window: &Window) -> Kea {
+    pub fn new(window: &Window, size: (u32, u32)) -> Kea {
         let vulkan = VulkanInstance::new(window.required_extensions());
         let window_surface = Surface::from_window(vulkan.clone(), &window);
         let (physical_device, queue_family) = device_supporting_surface(&vulkan, &window_surface);
         let device = Device::new(physical_device.clone(), &[(queue_family, 1 as usize)]);
-        let presenter = Presenter::new(&device, window_surface);
+        let presenter = Presenter::new(&device, window_surface, size);
 
         Kea { device, presenter }
     }

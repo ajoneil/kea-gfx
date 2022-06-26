@@ -7,9 +7,9 @@ mod path_tracer;
 
 fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
-
-    let window = Window::new(1920, 1080);
-    let kea = Kea::new(&window);
+    let size = (1280, 720);
+    let window = Window::new(size.0, size.1);
+    let kea = Kea::new(&window, size);
     let path_tracer = PathTracer::new(kea);
 
     window.event_loop(move || path_tracer.draw())

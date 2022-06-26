@@ -324,9 +324,7 @@ impl CommandBufferRecorder<'_> {
     pub fn trace_rays(
         &self,
         binding_tables: &RayTracingShaderBindingTables,
-        width: u32,
-        height: u32,
-        depth: u32,
+        size: (u32, u32, u32),
     ) {
         // info!("binding tables: {:?}", binding_tables);
         unsafe {
@@ -336,9 +334,9 @@ impl CommandBufferRecorder<'_> {
                 binding_tables.miss.raw(),
                 binding_tables.hit.raw(),
                 binding_tables.callable.raw(),
-                width,
-                height,
-                depth,
+                size.0,
+                size.1,
+                size.2,
             )
         }
     }

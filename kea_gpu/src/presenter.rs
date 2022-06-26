@@ -21,8 +21,12 @@ struct Semaphores {
 }
 
 impl Presenter {
-    pub fn new(device: &Arc<Device>, surface: Surface) -> Presenter {
-        let swapchain = Swapchain::new(device, surface);
+    pub fn new(device: &Arc<Device>, surface: Surface, size: (u32, u32)) -> Presenter {
+        let extent = vk::Extent2D {
+            width: size.0,
+            height: size.1,
+        };
+        let swapchain = Swapchain::new(device, surface, extent);
 
         Presenter {
             semaphores: Semaphores {
@@ -37,6 +41,13 @@ impl Presenter {
 
     pub fn format(&self) -> vk::Format {
         self.swapchain.format()
+    }
+
+    pub fn size(&self) -> (u32, u32) {
+        (
+            self.swapchain.extent().width,
+            self.swapchain.extent().height,
+        )
     }
 
     pub fn draw<F>(&self, func: F)
