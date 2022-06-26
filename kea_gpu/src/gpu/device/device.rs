@@ -137,6 +137,12 @@ impl Device {
         ]
     }
 
+    pub fn wait_until_idle(&self) {
+        unsafe {
+            self.raw.device_wait_idle().unwrap();
+        }
+    }
+
     pub unsafe fn raw(&self) -> &ash::Device {
         &self.raw
     }

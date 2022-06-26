@@ -7,7 +7,7 @@ use gpu_allocator::{
 use kea_gpu::{
     gpu::{
         buffer::{AllocatedBuffer, Buffer},
-        command::{CommandBufferRecorder, CommandPool},
+        command::CommandPool,
         descriptor_set::{
             DescriptorPool, DescriptorSet, DescriptorSetLayout, DescriptorSetLayoutBinding,
         },
@@ -23,7 +23,6 @@ use kea_gpu::{
             shader_binding_table::{RayTracingShaderBindingTables, ShaderBindingTable},
         },
         shaders::ShaderModule,
-        swapchain::SwapchainImageView,
     },
     Kea,
 };
@@ -35,7 +34,7 @@ use std::{
 };
 
 pub struct PathTracer {
-    device: Arc<Device>,
+    kea: Kea,
     _command_pool: Arc<CommandPool>,
     _tl_acceleration_structure: AccelerationStructure,
     _bl_acceleration_structure: AccelerationStructure,
@@ -78,7 +77,7 @@ impl Sphere {
 }
 
 impl PathTracer {
-    pub fn new(kea: &Kea) -> PathTracer {
+    pub fn new(kea: Kea) -> PathTracer {
         let command_pool = Arc::new(CommandPool::new(kea.device().graphics_queue()));
         let (tl_acceleration_structure, bl_acceleration_structure, spheres_buffer) =
             Self::build_acceleration_structure(
@@ -108,7 +107,7 @@ impl PathTracer {
             );
 
         PathTracer {
-            device: kea.device().clone(),
+            kea,
             _command_pool: command_pool,
             _tl_acceleration_structure: tl_acceleration_structure,
             _bl_acceleration_structure: bl_acceleration_structure,
@@ -635,88 +634,96 @@ impl PathTracer {
         (size + (alignment - 1)) & !(alignment - 1)
     }
 
-    pub fn draw(&self, cmd: &CommandBufferRecorder, swapchain_image_view: &SwapchainImageView) {
-        cmd.bind_pipeline(vk::PipelineBindPoint::RAY_TRACING_KHR, &self.pipeline);
-        cmd.bind_descriptor_sets(
-            vk::PipelineBindPoint::RAY_TRACING_KHR,
-            &self.pipeline_layout,
-            slice::from_ref(&self.descriptor_set),
-        );
+    pub fn draw(&self) {
+        self.kea.presenter().draw(|cmd, swapchain_image_view| {
+            cmd.bind_pipeline(vk::PipelineBindPoint::RAY_TRACING_KHR, &self.pipeline);
+            cmd.bind_descriptor_sets(
+                vk::PipelineBindPoint::RAY_TRACING_KHR,
+                &self.pipeline_layout,
+                slice::from_ref(&self.descriptor_set),
+            );
 
-        cmd.trace_rays(&self.shader_binding_tables, 1920, 1080, 1);
+            cmd.trace_rays(&self.shader_binding_tables, 1920, 1080, 1);
 
-        cmd.transition_image_layout(
-            swapchain_image_view.image,
-            vk::ImageLayout::UNDEFINED,
-            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-            vk::AccessFlags::empty(),
-            vk::AccessFlags::TRANSFER_WRITE,
-            vk::PipelineStageFlags::TOP_OF_PIPE,
-            vk::PipelineStageFlags::TRANSFER,
-        );
+            cmd.transition_image_layout(
+                swapchain_image_view.image,
+                vk::ImageLayout::UNDEFINED,
+                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                vk::AccessFlags::empty(),
+                vk::AccessFlags::TRANSFER_WRITE,
+                vk::PipelineStageFlags::TOP_OF_PIPE,
+                vk::PipelineStageFlags::TRANSFER,
+            );
 
-        cmd.transition_image_layout(
-            self.storage_image,
-            vk::ImageLayout::GENERAL,
-            vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
-            vk::AccessFlags::empty(),
-            vk::AccessFlags::TRANSFER_READ,
-            vk::PipelineStageFlags::TOP_OF_PIPE,
-            vk::PipelineStageFlags::TRANSFER,
-        );
+            cmd.transition_image_layout(
+                self.storage_image,
+                vk::ImageLayout::GENERAL,
+                vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+                vk::AccessFlags::empty(),
+                vk::AccessFlags::TRANSFER_READ,
+                vk::PipelineStageFlags::TOP_OF_PIPE,
+                vk::PipelineStageFlags::TRANSFER,
+            );
 
-        let copy_region = vk::ImageCopy::builder()
-            .src_subresource(vk::ImageSubresourceLayers {
-                aspect_mask: vk::ImageAspectFlags::COLOR,
-                base_array_layer: 0,
-                mip_level: 0,
-                layer_count: 1,
-            })
-            .dst_subresource(vk::ImageSubresourceLayers {
-                aspect_mask: vk::ImageAspectFlags::COLOR,
-                base_array_layer: 0,
-                mip_level: 0,
-                layer_count: 1,
-            })
-            .extent(vk::Extent3D {
-                width: 1920,
-                height: 1080,
-                depth: 1,
-            })
-            .build();
+            let copy_region = vk::ImageCopy::builder()
+                .src_subresource(vk::ImageSubresourceLayers {
+                    aspect_mask: vk::ImageAspectFlags::COLOR,
+                    base_array_layer: 0,
+                    mip_level: 0,
+                    layer_count: 1,
+                })
+                .dst_subresource(vk::ImageSubresourceLayers {
+                    aspect_mask: vk::ImageAspectFlags::COLOR,
+                    base_array_layer: 0,
+                    mip_level: 0,
+                    layer_count: 1,
+                })
+                .extent(vk::Extent3D {
+                    width: 1920,
+                    height: 1080,
+                    depth: 1,
+                })
+                .build();
 
-        cmd.copy_image(self.storage_image, swapchain_image_view.image, &copy_region);
+            cmd.copy_image(self.storage_image, swapchain_image_view.image, &copy_region);
 
-        cmd.transition_image_layout(
-            swapchain_image_view.image,
-            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-            vk::ImageLayout::PRESENT_SRC_KHR,
-            vk::AccessFlags::TRANSFER_WRITE,
-            vk::AccessFlags::COLOR_ATTACHMENT_READ,
-            vk::PipelineStageFlags::TRANSFER,
-            vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-        );
+            cmd.transition_image_layout(
+                swapchain_image_view.image,
+                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                vk::ImageLayout::PRESENT_SRC_KHR,
+                vk::AccessFlags::TRANSFER_WRITE,
+                vk::AccessFlags::COLOR_ATTACHMENT_READ,
+                vk::PipelineStageFlags::TRANSFER,
+                vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+            );
 
-        cmd.transition_image_layout(
-            self.storage_image,
-            vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
-            vk::ImageLayout::GENERAL,
-            vk::AccessFlags::TRANSFER_READ,
-            vk::AccessFlags::empty(),
-            vk::PipelineStageFlags::TRANSFER,
-            vk::PipelineStageFlags::TOP_OF_PIPE,
-        );
+            cmd.transition_image_layout(
+                self.storage_image,
+                vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+                vk::ImageLayout::GENERAL,
+                vk::AccessFlags::TRANSFER_READ,
+                vk::AccessFlags::empty(),
+                vk::PipelineStageFlags::TRANSFER,
+                vk::PipelineStageFlags::TOP_OF_PIPE,
+            );
+        })
     }
 }
 
 impl Drop for PathTracer {
     fn drop(&mut self) {
         unsafe {
-            self.device
+            self.kea.device().wait_until_idle();
+            self.kea
+                .device()
                 .raw()
                 .destroy_image_view(self.storage_image_view, None);
-            self.device.raw().destroy_image(self.storage_image, None);
-            self.device
+            self.kea
+                .device()
+                .raw()
+                .destroy_image(self.storage_image, None);
+            self.kea
+                .device()
                 .allocator()
                 .lock()
                 .unwrap()

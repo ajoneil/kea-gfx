@@ -5,31 +5,12 @@ use path_tracer::PathTracer;
 
 mod path_tracer;
 
-struct KeaRendererApp {
-    kea: Kea,
-    path_tracer: PathTracer,
-}
-
-impl KeaRendererApp {
-    pub fn new(window: &Window) -> KeaRendererApp {
-        let kea = Kea::new(window);
-        let path_tracer = PathTracer::new(&kea);
-
-        KeaRendererApp { kea, path_tracer }
-    }
-
-    pub fn draw(&self) {
-        self.kea.presenter().draw(|cmd, image_view| {
-            self.path_tracer.draw(cmd, image_view);
-        });
-    }
-}
-
 fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
     let window = Window::new(1920, 1080);
-    let app = KeaRendererApp::new(&window);
+    let kea = Kea::new(&window);
+    let path_tracer = PathTracer::new(kea);
 
-    window.event_loop(move || app.draw())
+    window.event_loop(move || path_tracer.draw())
 }
