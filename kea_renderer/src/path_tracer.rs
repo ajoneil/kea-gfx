@@ -245,7 +245,7 @@ impl PathTracer {
             build_sizes.build_scratch,
             vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
         )
-        .allocate("build scratch", MemoryLocation::CpuToGpu);
+        .allocate("build scratch", MemoryLocation::GpuOnly);
 
         let tl_acceleration_structure_buffer = Buffer::new(
             kea.device().clone(),
@@ -310,7 +310,7 @@ impl PathTracer {
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
         );
 
-        let aabbs_buffer = aabbs_buffer.allocate("vertices", MemoryLocation::CpuToGpu);
+        let aabbs_buffer = aabbs_buffer.allocate("aabbs", MemoryLocation::CpuToGpu);
         aabbs_buffer.fill(&aabbs);
 
         (spheres_buffer, aabbs_buffer)
