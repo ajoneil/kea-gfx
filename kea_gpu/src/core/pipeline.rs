@@ -1,6 +1,6 @@
 use super::{descriptor_set::DescriptorSetLayout, device::Device, shaders::ShaderEntryPoint};
 use ash::vk;
-use std::{ffi::CString, marker::PhantomData, pin::Pin, slice, sync::Arc};
+use std::{ffi::CString, pin::Pin, slice, sync::Arc};
 
 pub struct PipelineLayout {
     device: Arc<Device>,
@@ -103,9 +103,9 @@ pub enum PipelineDescription<'a> {
 }
 
 pub struct RayTracingPipelineDescription<'a> {
-    raw: vk::RayTracingPipelineCreateInfoKHR,
-    _raw_stages: Vec<vk::PipelineShaderStageCreateInfo>,
-    marker: PhantomData<&'a ()>,
+    raw_stages: Pin<Vec<vk::PipelineShaderStageCreateInfo>>,
+    groups: &'a [vk::RayTracingShaderGroupCreateInfoKHR],
+    layout: &'a PipelineLayout,
 }
 
 impl<'a> RayTracingPipelineDescription<'a> {
@@ -114,24 +114,22 @@ impl<'a> RayTracingPipelineDescription<'a> {
         groups: &'a [vk::RayTracingShaderGroupCreateInfoKHR],
         layout: &'a PipelineLayout,
     ) -> RayTracingPipelineDescription<'a> {
-        let raw_stages: Vec<vk::PipelineShaderStageCreateInfo> =
-            stages.iter().map(|ss| unsafe { ss.raw() }).collect();
-
-        let raw = vk::RayTracingPipelineCreateInfoKHR::builder()
-            .stages(&raw_stages)
-            .groups(groups)
-            .max_pipeline_ray_recursion_depth(1)
-            .layout(unsafe { layout.raw() })
-            .build();
+        let raw_stages: Pin<Vec<vk::PipelineShaderStageCreateInfo>> =
+            Pin::new(stages.iter().map(|ss| unsafe { ss.raw() }).collect());
 
         RayTracingPipelineDescription {
-            raw,
-            _raw_stages: raw_stages,
-            marker: PhantomData,
+            raw_stages,
+            groups,
+            layout,
         }
     }
 
     pub unsafe fn raw(&self) -> vk::RayTracingPipelineCreateInfoKHR {
-        self.raw
+        vk::RayTracingPipelineCreateInfoKHR::builder()
+            .stages(&self.raw_stages)
+            .groups(self.groups)
+            .max_pipeline_ray_recursion_depth(1)
+            .layout(self.layout.raw())
+            .build()
     }
 }
