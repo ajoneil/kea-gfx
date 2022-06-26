@@ -30,8 +30,7 @@ impl Presenter {
                 render_finished: Semaphore::new(swapchain.device().clone()),
             },
             in_flight_fence: Fence::new(swapchain.device().clone(), true),
-            command_buffer: Arc::new(CommandPool::new(swapchain.device().graphics_queue()))
-                .allocate_buffer(),
+            command_buffer: CommandPool::new(swapchain.device().graphics_queue()).allocate_buffer(),
             swapchain,
         }
     }
@@ -57,7 +56,7 @@ impl Presenter {
         unsafe {
             let wait_semaphores: Vec<vk::Semaphore> = vec![self.semaphores.image_available.vk()];
             let render_finished: Vec<vk::Semaphore> = vec![self.semaphores.render_finished.vk()];
-            let command_buffers: Vec<vk::CommandBuffer> = vec![self.command_buffer.buffer];
+            let command_buffers: Vec<vk::CommandBuffer> = vec![self.command_buffer.raw()];
             let color_attachment_stage = vec![vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
 
             let submits = [vk::SubmitInfo::builder()

@@ -14,33 +14,38 @@ use log::info;
 use std::sync::Arc;
 
 pub struct CommandPool {
-    pool: vk::CommandPool,
     queue: Queue,
+    raw: vk::CommandPool,
 }
 
 impl CommandPool {
-    pub fn new(queue: Queue) -> CommandPool {
+    pub fn new(queue: Queue) -> Arc<CommandPool> {
         let create_info = vk::CommandPoolCreateInfo::builder()
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
             .queue_family_index(queue.family().index());
-        let pool = unsafe { queue.device().raw().create_command_pool(&create_info, None) }.unwrap();
+        let raw = unsafe { queue.device().raw().create_command_pool(&create_info, None) }.unwrap();
 
-        CommandPool { pool, queue }
+        Arc::new(CommandPool { queue, raw })
+    }
+
+    pub fn allocate_buffers(self: &Arc<Self>, count: u32) -> Vec<CommandBuffer> {
+        let create_info = vk::CommandBufferAllocateInfo::builder()
+            .command_pool(self.raw)
+            .level(vk::CommandBufferLevel::PRIMARY)
+            .command_buffer_count(count);
+
+        let raws = unsafe { self.device().raw().allocate_command_buffers(&create_info) }.unwrap();
+
+        raws.into_iter()
+            .map(|raw| CommandBuffer {
+                pool: self.clone(),
+                raw,
+            })
+            .collect()
     }
 
     pub fn allocate_buffer(self: &Arc<Self>) -> CommandBuffer {
-        let create_info = vk::CommandBufferAllocateInfo::builder()
-            .command_pool(self.pool)
-            .level(vk::CommandBufferLevel::PRIMARY)
-            .command_buffer_count(1);
-
-        let buffer =
-            unsafe { self.device().raw().allocate_command_buffers(&create_info) }.unwrap()[0];
-
-        CommandBuffer {
-            buffer,
-            pool: self.clone(),
-        }
+        self.allocate_buffers(1).into_iter().nth(0).unwrap()
     }
 
     fn device(&self) -> &Arc<Device> {
@@ -55,13 +60,13 @@ impl Drop for CommandPool {
                 .raw()
                 .queue_wait_idle(self.queue.raw())
                 .unwrap();
-            self.device().raw().destroy_command_pool(self.pool, None);
+            self.device().raw().destroy_command_pool(self.raw, None);
         }
     }
 }
 
 pub struct CommandBuffer {
-    pub buffer: vk::CommandBuffer,
+    raw: vk::CommandBuffer,
     pool: Arc<CommandPool>,
 }
 
@@ -83,7 +88,7 @@ impl CommandBuffer {
         unsafe {
             self.device()
                 .raw()
-                .reset_command_buffer(self.buffer, vk::CommandBufferResetFlags::empty())
+                .reset_command_buffer(self.raw, vk::CommandBufferResetFlags::empty())
         }
         .unwrap();
     }
@@ -92,13 +97,13 @@ impl CommandBuffer {
         unsafe {
             self.device()
                 .raw()
-                .begin_command_buffer(self.buffer, &vk::CommandBufferBeginInfo::default())
+                .begin_command_buffer(self.raw, &vk::CommandBufferBeginInfo::default())
         }
         .unwrap();
     }
 
     fn end(&self) {
-        unsafe { self.device().raw().end_command_buffer(self.buffer) }.unwrap()
+        unsafe { self.device().raw().end_command_buffer(self.raw) }.unwrap()
     }
 
     pub fn device(&self) -> &Arc<Device> {
@@ -107,6 +112,10 @@ impl CommandBuffer {
 
     pub fn submit(&self) -> Fence {
         self.pool.queue.submit(&[self])
+    }
+
+    pub unsafe fn raw(&self) -> vk::CommandBuffer {
+        self.raw
     }
 }
 
@@ -123,7 +132,7 @@ impl CommandBufferRecorder<'_> {
         unsafe {
             self.device()
                 .raw()
-                .cmd_bind_pipeline(self.buffer.buffer, bind_point, pipeline.raw())
+                .cmd_bind_pipeline(self.buffer.raw, bind_point, pipeline.raw())
         }
     }
 
@@ -140,7 +149,7 @@ impl CommandBufferRecorder<'_> {
 
         unsafe {
             self.device().raw().cmd_bind_descriptor_sets(
-                self.buffer.buffer,
+                self.buffer.raw,
                 bind_point,
                 layout.raw(),
                 0,
@@ -161,7 +170,7 @@ impl CommandBufferRecorder<'_> {
     ) {
         unsafe {
             self.device().raw().cmd_pipeline_barrier(
-                self.buffer.buffer,
+                self.buffer.raw,
                 src_stage_mask,
                 dst_stage_mask,
                 dependency_flags,
@@ -210,7 +219,7 @@ impl CommandBufferRecorder<'_> {
     pub fn copy_image(&self, from: vk::Image, to: vk::Image, region: &vk::ImageCopy) {
         unsafe {
             self.device().raw().cmd_copy_image(
-                self.buffer.buffer,
+                self.buffer.raw,
                 from,
                 vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
                 to,
@@ -236,7 +245,7 @@ impl CommandBufferRecorder<'_> {
                 .ext()
                 .acceleration_structure
                 .cmd_build_acceleration_structures(
-                    self.buffer.buffer,
+                    self.buffer.raw,
                     &[description.geometry_info()],
                     &[description.ranges()],
                 );
@@ -253,7 +262,7 @@ impl CommandBufferRecorder<'_> {
         // info!("binding tables: {:?}", binding_tables);
         unsafe {
             self.device().ext().ray_tracing_pipeline.cmd_trace_rays(
-                self.buffer.buffer,
+                self.buffer.raw,
                 binding_tables.raygen.raw(),
                 binding_tables.miss.raw(),
                 binding_tables.hit.raw(),

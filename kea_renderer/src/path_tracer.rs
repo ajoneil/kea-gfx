@@ -78,7 +78,7 @@ impl Sphere {
 
 impl PathTracer {
     pub fn new(kea: Kea) -> PathTracer {
-        let command_pool = Arc::new(CommandPool::new(kea.device().graphics_queue()));
+        let command_pool = CommandPool::new(kea.device().graphics_queue());
         let (tl_acceleration_structure, bl_acceleration_structure, spheres_buffer) =
             Self::build_acceleration_structure(
                 kea.device(),

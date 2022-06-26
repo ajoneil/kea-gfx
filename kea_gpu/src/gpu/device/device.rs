@@ -29,8 +29,10 @@ impl Queue {
 
     pub fn submit(&self, command_buffers: &[&CommandBuffer]) -> Fence {
         let fence = Fence::new(self.device.clone(), false);
-        let buffers: Vec<vk::CommandBuffer> =
-            command_buffers.into_iter().map(|cmd| cmd.buffer).collect();
+        let buffers: Vec<vk::CommandBuffer> = command_buffers
+            .into_iter()
+            .map(|cmd| unsafe { cmd.raw() })
+            .collect();
         let submits = [vk::SubmitInfo::builder().command_buffers(&buffers).build()];
         unsafe {
             self.device
