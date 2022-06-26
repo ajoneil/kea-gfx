@@ -1,8 +1,4 @@
-use super::{
-    device::{Device, PhysicalDevice},
-    surface::Surface,
-    sync::Semaphore,
-};
+use super::{device::Device, surface::Surface, sync::Semaphore};
 use ash::vk;
 use std::sync::Arc;
 
@@ -20,12 +16,8 @@ pub struct Swapchain {
 }
 
 impl Swapchain {
-    pub fn new(
-        device: &Arc<Device>,
-        physical_device: &PhysicalDevice,
-        surface: Surface,
-    ) -> Swapchain {
-        let surface_capabilities = physical_device.surface_capabilities(&surface);
+    pub fn new(device: &Arc<Device>, surface: Surface) -> Swapchain {
+        let surface_capabilities = device.physical_device().surface_capabilities(&surface);
 
         let image_count = surface_capabilities.min_image_count + 1;
         let image_count = if surface_capabilities.max_image_count > 0 {
@@ -34,9 +26,10 @@ impl Swapchain {
             image_count
         };
 
-        let surface_format = physical_device.surface_formats(&surface)[0];
+        let surface_format = device.physical_device().surface_formats(&surface)[0];
 
-        let present_mode = physical_device
+        let present_mode = device
+            .physical_device()
             .surface_present_modes(&surface)
             .iter()
             .cloned()

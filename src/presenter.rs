@@ -1,5 +1,7 @@
 use crate::gpu::{
     command::{CommandBuffer, CommandBufferRecorder, CommandPool},
+    device::Device,
+    surface::Surface,
     swapchain::{Swapchain, SwapchainImageView},
     sync::{Fence, Semaphore},
 };
@@ -19,7 +21,9 @@ struct Semaphores {
 }
 
 impl Presenter {
-    pub fn new(swapchain: Swapchain) -> Presenter {
+    pub fn new(device: &Arc<Device>, surface: Surface) -> Presenter {
+        let swapchain = Swapchain::new(device, surface);
+
         Presenter {
             semaphores: Semaphores {
                 image_available: Semaphore::new(swapchain.device().clone()),

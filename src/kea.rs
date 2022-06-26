@@ -3,7 +3,6 @@ use crate::{
         device::Device,
         device::{PhysicalDevice, QueueFamily},
         surface::Surface,
-        swapchain::Swapchain,
         vulkan::VulkanInstance,
     },
     presenter::Presenter,
@@ -23,8 +22,7 @@ impl Kea {
         let window_surface = Surface::from_window(vulkan.clone(), &window);
         let (physical_device, queue_family) = device_supporting_surface(&vulkan, &window_surface);
         let device = Device::new(physical_device.clone(), &[(queue_family, 1 as usize)]);
-        let swapchain = Swapchain::new(&device, &physical_device, window_surface);
-        let presenter = Presenter::new(swapchain);
+        let presenter = Presenter::new(&device, window_surface);
 
         Kea { device, presenter }
     }
