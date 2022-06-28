@@ -9,7 +9,7 @@ ash-window = "0.10.0"
 winit = "0.26.1"
 log = "0.4.17"
 gpu-allocator = "0.18.0"
-glam = "0.20.5"
+glam = "0.21.2"
 memoffset = "0.6.5"
 
 spirv-builder = { git = "https://github.com/EmbarkStudios/rust-gpu" }

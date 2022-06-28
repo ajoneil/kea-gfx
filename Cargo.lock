@@ -401,6 +401,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "glam"
+version = "0.21.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "781aa11be58ef14b0cd7326618afcbd9cdb5ba686bdab7193d87cdc322cd7033"
+
+[[package]]
 name = "gpu-allocator"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -507,7 +513,7 @@ version = "0.1.0"
 dependencies = [
  "ash",
  "ash-window",
- "glam",
+ "glam 0.21.2",
  "gpu-allocator",
  "log",
  "memoffset",
@@ -522,7 +528,7 @@ dependencies = [
  "ash",
  "ash-window",
  "env_logger",
- "glam",
+ "glam 0.21.2",
  "gpu-allocator",
  "kea_gpu",
  "kea_renderer_shaders",
@@ -1065,7 +1071,7 @@ version = "0.4.0-alpha.12"
 source = "git+https://github.com/EmbarkStudios/rust-gpu#0866cf591a7fdbbd15bdb3468e192bb9b6189fd0"
 dependencies = [
  "bitflags",
- "glam",
+ "glam 0.20.5",
  "num-traits",
  "spirv-std-macros",
  "spirv-types",
