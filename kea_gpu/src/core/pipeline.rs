@@ -1,4 +1,5 @@
-use super::{descriptor_set::DescriptorSetLayout, device::Device, shaders::ShaderEntryPoint};
+use super::{descriptor_set::DescriptorSetLayout, shaders::ShaderEntryPoint};
+use crate::device::Device;
 use ash::vk;
 use std::{ffi::CString, pin::Pin, slice, sync::Arc};
 
@@ -72,6 +73,8 @@ impl Pipeline {
                 device
                     .ext()
                     .ray_tracing_pipeline
+                    .as_ref()
+                    .unwrap()
                     .create_ray_tracing_pipelines(
                         vk::DeferredOperationKHR::null(),
                         vk::PipelineCache::null(),

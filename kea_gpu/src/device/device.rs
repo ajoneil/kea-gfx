@@ -1,10 +1,19 @@
-use super::{queue_family::QueueFamily, PhysicalDevice};
-use crate::core::{command::CommandBuffer, sync::Fence};
+use super::{
+    extensions::{DeviceExtensions, Ext},
+    physical_device::PhysicalDevice,
+    QueueFamily,
+};
+use crate::{
+    core::{command::CommandBuffer, sync::Fence},
+    features::Feature,
+};
 use ash::vk;
 use gpu_allocator::vulkan::{Allocator, AllocatorCreateDesc};
+use log::info;
 use std::{
     iter,
     mem::ManuallyDrop,
+    os::raw::c_char,
     sync::{Arc, Mutex},
 };
 
@@ -53,43 +62,20 @@ pub struct QueueHandle {
 pub struct Device {
     physical_device: Arc<PhysicalDevice>,
     raw: ash::Device,
-    ext: Extensions,
+    ext: DeviceExtensions,
     allocator: ManuallyDrop<Mutex<Allocator>>,
     queues: Vec<QueueHandle>,
-}
-
-pub struct Extensions {
-    pub swapchain: ash::extensions::khr::Swapchain,
-    pub acceleration_structure: ash::extensions::khr::AccelerationStructure,
-    pub deferred_host_operations: ash::extensions::khr::DeferredHostOperations,
-    pub ray_tracing_pipeline: ash::extensions::khr::RayTracingPipeline,
 }
 
 impl Device {
     pub fn new(
         physical_device: Arc<PhysicalDevice>,
         queues: &[(QueueFamily, usize)],
+        features: &[Box<dyn Feature + '_>],
     ) -> Arc<Device> {
-        let raw = create_device(&physical_device, queues);
+        let (raw, extensions) = create_device(&physical_device, queues, features);
         let vulkan = physical_device.vulkan();
-
-        let ext = unsafe {
-            Extensions {
-                swapchain: ash::extensions::khr::Swapchain::new(&vulkan.raw(), &raw),
-                acceleration_structure: ash::extensions::khr::AccelerationStructure::new(
-                    &vulkan.raw(),
-                    &raw,
-                ),
-                deferred_host_operations: ash::extensions::khr::DeferredHostOperations::new(
-                    &vulkan.raw(),
-                    &raw,
-                ),
-                ray_tracing_pipeline: ash::extensions::khr::RayTracingPipeline::new(
-                    &vulkan.raw(),
-                    &raw,
-                ),
-            }
-        };
+        let ext = DeviceExtensions::new(&raw, unsafe { vulkan.raw() }, &extensions);
 
         let allocator = unsafe {
             Allocator::new(&AllocatorCreateDesc {
@@ -130,15 +116,6 @@ impl Device {
         &self.allocator
     }
 
-    fn device_extension_names() -> Vec<*const i8> {
-        vec![
-            ash::extensions::khr::Swapchain::name().as_ptr(),
-            ash::extensions::khr::AccelerationStructure::name().as_ptr(),
-            ash::extensions::khr::DeferredHostOperations::name().as_ptr(),
-            ash::extensions::khr::RayTracingPipeline::name().as_ptr(),
-        ]
-    }
-
     pub fn wait_until_idle(&self) {
         unsafe {
             self.raw.device_wait_idle().unwrap();
@@ -149,7 +126,7 @@ impl Device {
         &self.raw
     }
 
-    pub unsafe fn ext(&self) -> &Extensions {
+    pub unsafe fn ext(&self) -> &DeviceExtensions {
         &self.ext
     }
 
@@ -192,7 +169,11 @@ impl Drop for Device {
     }
 }
 
-fn create_device(physical_device: &PhysicalDevice, queues: &[(QueueFamily, usize)]) -> ash::Device {
+fn create_device(
+    physical_device: &PhysicalDevice,
+    queues: &[(QueueFamily, usize)],
+    features: &[Box<dyn Feature + '_>],
+) -> (ash::Device, Vec<Ext>) {
     // Priorities vec needs to exist on the stack to prevent the optimiser deleting
     // it before we use it (.build() throws away lifetimes)
     let queues_with_priorities: Vec<(u32, Vec<f32>)> = queues
@@ -212,7 +193,15 @@ fn create_device(physical_device: &PhysicalDevice, queues: &[(QueueFamily, usize
                 .build()
         })
         .collect();
-    let extension_names = Device::device_extension_names();
+
+    let mut extensions: Vec<Ext> = vec![];
+    for feature in features {
+        for ext in feature.device_extensions() {
+            extensions.push(ext);
+        }
+    }
+    let extension_names: Vec<*const c_char> = extensions.iter().map(|ext| ext.name()).collect();
+    info!("Requested device extensions: {:?}", extensions);
 
     let mut features_12 = vk::PhysicalDeviceVulkan12Features::builder()
         .buffer_device_address(true)
@@ -241,5 +230,5 @@ fn create_device(physical_device: &PhysicalDevice, queues: &[(QueueFamily, usize
     }
     .unwrap();
 
-    device
+    (device, extensions)
 }

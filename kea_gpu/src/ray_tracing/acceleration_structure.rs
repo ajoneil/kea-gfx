@@ -1,4 +1,4 @@
-use crate::core::{buffer::AllocatedBuffer, device::Device};
+use crate::{core::buffer::AllocatedBuffer, device::Device};
 use ash::vk::{self};
 use glam::Vec3;
 use std::{marker::PhantomData, mem, sync::Arc};
@@ -115,7 +115,7 @@ impl<'a> AccelerationStructureDescription<'a> {
         } = unsafe {
             device
                 .ext()
-                .acceleration_structure
+                .acceleration_structure()
                 .get_acceleration_structure_build_sizes(
                     vk::AccelerationStructureBuildTypeKHR::DEVICE,
                     &self.geometry_info(),
@@ -192,7 +192,7 @@ impl AccelerationStructure {
 
             device
                 .ext()
-                .acceleration_structure
+                .acceleration_structure()
                 .create_acceleration_structure(&create_info, None)
         }
         .unwrap();
@@ -218,7 +218,7 @@ impl Drop for AccelerationStructure {
         unsafe {
             self.device
                 .ext()
-                .acceleration_structure
+                .acceleration_structure()
                 .destroy_acceleration_structure(self.raw, None)
         }
     }

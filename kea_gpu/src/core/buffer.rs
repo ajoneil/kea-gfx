@@ -1,4 +1,4 @@
-use super::device::Device;
+use crate::device::Device;
 use ash::vk::{self, MemoryRequirements};
 use gpu_allocator::{
     vulkan::{Allocation, AllocationCreateDesc},

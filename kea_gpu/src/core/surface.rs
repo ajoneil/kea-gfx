@@ -1,5 +1,4 @@
-use super::vulkan::VulkanInstance;
-use crate::window::Window;
+use crate::{instance::vulkan_instance::VulkanInstance, window::Window};
 use ash::vk;
 use std::sync::Arc;
 
@@ -28,6 +27,6 @@ impl Surface {
 
 impl Drop for Surface {
     fn drop(&mut self) {
-        unsafe { self.vulkan.ext().surface.destroy_surface(self.raw, None) };
+        unsafe { self.vulkan.ext().surface().destroy_surface(self.raw, None) };
     }
 }

@@ -1,9 +1,11 @@
-use crate::core::{
-    command::{CommandBufferRecorder, CommandPool},
+use crate::{
+    core::{
+        command::{CommandBufferRecorder, CommandPool},
+        surface::Surface,
+        swapchain::{Swapchain, SwapchainImageView},
+        sync::{Fence, Semaphore},
+    },
     device::Device,
-    surface::Surface,
-    swapchain::{Swapchain, SwapchainImageView},
-    sync::{Fence, Semaphore},
 };
 use ash::vk;
 use std::sync::Arc;
@@ -99,7 +101,7 @@ impl Presenter {
             self.swapchain
                 .device()
                 .ext()
-                .swapchain
+                .swapchain()
                 .queue_present(self.swapchain.device().graphics_queue().raw(), &present)
                 .unwrap();
         }

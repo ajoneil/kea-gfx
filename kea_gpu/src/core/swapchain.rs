@@ -1,4 +1,5 @@
-use super::{device::Device, surface::Surface, sync::Semaphore};
+use super::{surface::Surface, sync::Semaphore};
+use crate::device::Device;
 use ash::vk;
 use std::sync::Arc;
 
@@ -52,12 +53,12 @@ impl Swapchain {
         let raw = unsafe {
             device
                 .ext()
-                .swapchain
+                .swapchain()
                 .create_swapchain(&swapchain_create_info, None)
         }
         .unwrap();
 
-        let images = unsafe { device.ext().swapchain.get_swapchain_images(raw) }.unwrap();
+        let images = unsafe { device.ext().swapchain().get_swapchain_images(raw) }.unwrap();
         let image_views =
             Self::create_swapchain_image_views(&images, surface_format.format, &device);
 
@@ -87,7 +88,7 @@ impl Swapchain {
 
     pub fn acquire_next_image(&self, semaphore: &Semaphore) -> (u32, &SwapchainImageView) {
         let (image_index, _) = unsafe {
-            self.device.ext().swapchain.acquire_next_image(
+            self.device.ext().swapchain().acquire_next_image(
                 self.raw,
                 u64::MAX,
                 semaphore.vk(),
@@ -121,7 +122,7 @@ impl Drop for Swapchain {
         unsafe {
             self.device
                 .ext()
-                .swapchain
+                .swapchain()
                 .destroy_swapchain(self.raw, None);
         }
     }

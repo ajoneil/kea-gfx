@@ -1,9 +1,7 @@
+use super::queue_family::QueueFamily;
+use crate::{core::surface::Surface, instance::vulkan_instance::VulkanInstance};
 use ash::vk;
 use std::{ffi::CStr, fmt, sync::Arc};
-
-use crate::core::{surface::Surface, vulkan::VulkanInstance};
-
-use super::queue_family::QueueFamily;
 
 pub struct PhysicalDevice {
     vulkan: Arc<VulkanInstance>,
@@ -46,7 +44,7 @@ impl PhysicalDevice {
         unsafe {
             self.vulkan
                 .ext()
-                .surface
+                .surface()
                 .get_physical_device_surface_capabilities(self.raw, surface.raw())
         }
         .unwrap()
@@ -56,7 +54,7 @@ impl PhysicalDevice {
         unsafe {
             self.vulkan
                 .ext()
-                .surface
+                .surface()
                 .get_physical_device_surface_formats(self.raw, surface.raw())
         }
         .unwrap()
@@ -66,7 +64,7 @@ impl PhysicalDevice {
         unsafe {
             self.vulkan
                 .ext()
-                .surface
+                .surface()
                 .get_physical_device_surface_present_modes(self.raw, surface.raw())
         }
         .unwrap()

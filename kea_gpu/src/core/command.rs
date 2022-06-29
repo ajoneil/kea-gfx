@@ -1,16 +1,11 @@
 use super::{
-    buffer::AllocatedBuffer,
     descriptor_set::DescriptorSet,
-    device::{Device, Queue},
     pipeline::{Pipeline, PipelineLayout},
-    rt::{
-        acceleration_structure::{AccelerationStructure, AccelerationStructureDescription},
-        shader_binding_table::RayTracingShaderBindingTables,
-    },
     sync::Fence,
 };
+use crate::device::{Device, Queue};
 use ash::vk;
-use log::{info, warn};
+use log::warn;
 use std::{mem::ManuallyDrop, sync::Arc};
 
 pub struct CommandPool {
@@ -300,46 +295,7 @@ impl CommandBufferRecorder<'_> {
         };
     }
 
-    pub fn build_acceleration_structure(
-        &self,
-        description: &AccelerationStructureDescription,
-        destination: &AccelerationStructure,
-        scratch: &AllocatedBuffer,
-    ) {
-        let description = description.bind_for_build(destination, scratch);
-        info!("geo: {:?}", unsafe {
-            *description.geometry_info().p_geometries
-        });
-        info!("ranges: {:?}", description.ranges());
-        unsafe {
-            self.device()
-                .ext()
-                .acceleration_structure
-                .cmd_build_acceleration_structures(
-                    self.buffer.raw,
-                    &[description.geometry_info()],
-                    &[description.ranges()],
-                );
-        }
-    }
-
-    pub fn trace_rays(
-        &self,
-        binding_tables: &RayTracingShaderBindingTables,
-        size: (u32, u32, u32),
-    ) {
-        // info!("binding tables: {:?}", binding_tables);
-        unsafe {
-            self.device().ext().ray_tracing_pipeline.cmd_trace_rays(
-                self.buffer.raw,
-                binding_tables.raygen.raw(),
-                binding_tables.miss.raw(),
-                binding_tables.hit.raw(),
-                binding_tables.callable.raw(),
-                size.0,
-                size.1,
-                size.2,
-            )
-        }
+    pub unsafe fn buffer(&self) -> &CommandBuffer {
+        &self.buffer
     }
 }

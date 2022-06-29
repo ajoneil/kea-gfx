@@ -1,4 +1,4 @@
-use super::device::Device;
+use crate::device::Device;
 use ash::{util::read_spv, vk};
 use log::info;
 use spirv_builder::{MetadataPrintout, SpirvBuilder};

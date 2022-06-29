@@ -11,18 +11,18 @@ use kea_gpu::{
         descriptor_set::{
             DescriptorPool, DescriptorSet, DescriptorSetLayout, DescriptorSetLayoutBinding,
         },
-        device::Device,
         pipeline::{
             Pipeline, PipelineDescription, PipelineLayout, PipelineShaderStage,
             RayTracingPipelineDescription,
         },
-        rt::{
-            acceleration_structure::{
-                Aabb, AccelerationStructure, AccelerationStructureDescription, Geometry,
-            },
-            shader_binding_table::{RayTracingShaderBindingTables, ShaderBindingTable},
-        },
         shaders::ShaderModule,
+    },
+    device::Device,
+    ray_tracing::{
+        acceleration_structure::{
+            Aabb, AccelerationStructure, AccelerationStructureDescription, Geometry,
+        },
+        shader_binding_table::{RayTracingShaderBindingTables, ShaderBindingTable},
     },
     Kea,
 };
@@ -554,7 +554,7 @@ impl PathTracer {
         let group_handles = unsafe {
             device
                 .ext()
-                .ray_tracing_pipeline
+                .ray_tracing_pipeline()
                 .get_ray_tracing_shader_group_handles(
                     pipeline.raw(),
                     0,

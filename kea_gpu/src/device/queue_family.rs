@@ -1,4 +1,4 @@
-use super::PhysicalDevice;
+use super::physical_device::PhysicalDevice;
 use crate::core::surface::Surface;
 use ash::vk;
 use std::sync::Arc;
@@ -57,7 +57,7 @@ impl QueueFamily {
             self.physical_device
                 .vulkan()
                 .ext()
-                .surface
+                .surface()
                 .get_physical_device_surface_support(
                     self.physical_device.raw(),
                     self.index(),

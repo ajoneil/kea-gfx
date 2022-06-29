@@ -1,4 +1,4 @@
-use super::device::Device;
+use crate::device::Device;
 use ash::vk;
 use log::debug;
 use std::sync::Arc;

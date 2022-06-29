@@ -1,11 +1,11 @@
 use crate::{
-    core::{
-        device::Device,
-        device::{PhysicalDevice, QueueFamily},
-        surface::Surface,
-        vulkan::VulkanInstance,
-    },
+    core::surface::Surface,
+    device::{Device, PhysicalDevice, QueueFamily},
+    features::Feature,
+    instance::vulkan_instance::VulkanInstance,
     presenter::Presenter,
+    surfaces::feature::SurfaceFeature,
+    swapchain::feature::SwapchainFeature,
     window::Window,
 };
 use log::{debug, info};
@@ -17,11 +17,21 @@ pub struct Kea {
 }
 
 impl Kea {
-    pub fn new(window: &Window, size: (u32, u32)) -> Kea {
-        let vulkan = VulkanInstance::new(window.required_extensions());
+    pub fn new(window: &Window, size: (u32, u32), mut features: Vec<Box<dyn Feature + '_>>) -> Kea {
+        let mut required_features: Vec<Box<dyn Feature + '_>> = vec![
+            Box::new(SurfaceFeature::new()),
+            Box::new(SwapchainFeature::new()),
+        ];
+        required_features.append(&mut features);
+
+        let vulkan = VulkanInstance::new(&required_features);
         let window_surface = Surface::from_window(vulkan.clone(), &window);
         let (physical_device, queue_family) = device_supporting_surface(&vulkan, &window_surface);
-        let device = Device::new(physical_device.clone(), &[(queue_family, 1 as usize)]);
+        let device = Device::new(
+            physical_device.clone(),
+            &[(queue_family, 1 as usize)],
+            &required_features,
+        );
         let presenter = Presenter::new(&device, window_surface, size);
 
         Kea { device, presenter }
