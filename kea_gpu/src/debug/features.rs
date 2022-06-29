@@ -28,7 +28,7 @@ impl Feature for VulkanValidationFeature {
                 vk::ValidationFeatureEnableEXT::GPU_ASSISTED,
                 vk::ValidationFeatureEnableEXT::GPU_ASSISTED_RESERVE_BINDING_SLOT,
                 vk::ValidationFeatureEnableEXT::BEST_PRACTICES,
-                vk::ValidationFeatureEnableEXT::DEBUG_PRINTF,
+                // vk::ValidationFeatureEnableEXT::DEBUG_PRINTF,
                 vk::ValidationFeatureEnableEXT::SYNCHRONIZATION_VALIDATION,
             ],
             disable: vec![],

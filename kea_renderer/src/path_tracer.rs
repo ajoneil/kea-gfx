@@ -342,11 +342,13 @@ impl PathTracer {
         let pipeline_layout =
             PipelineLayout::new(device.clone(), slice::from_ref(&descriptor_set_layout));
 
-        let shader_module = ShaderModule::new(device.clone(), "./kea_renderer_shaders");
-        let generate_rays = shader_module.entry_point("generate_rays");
-        let ray_miss = shader_module.entry_point("ray_miss");
-        let ray_hit = shader_module.entry_point("ray_hit");
-        let intersect_sphere = shader_module.entry_point("intersect_sphere");
+        let shader_modules =
+            ShaderModule::new_multimodule(&device.clone(), "./kea_renderer_shaders");
+        // let shader_module = ShaderModule::new(device.clone(), "./kea_renderer_shaders");
+        let generate_rays = shader_modules["generate_rays"].entry_point("generate_rays");
+        let ray_miss = shader_modules["ray_miss"].entry_point("ray_miss");
+        let ray_hit = shader_modules["ray_hit"].entry_point("ray_hit");
+        let intersect_sphere = shader_modules["intersect_sphere"].entry_point("intersect_sphere");
 
         let shader_stages = [
             PipelineShaderStage::new(vk::ShaderStageFlags::RAYGEN_KHR, &generate_rays),

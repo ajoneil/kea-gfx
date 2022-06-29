@@ -2,7 +2,7 @@ use crate::device::Device;
 use ash::{util::read_spv, vk};
 use log::info;
 use spirv_builder::{MetadataPrintout, SpirvBuilder};
-use std::{fs::File, sync::Arc};
+use std::{collections::HashMap, fs::File, sync::Arc};
 
 pub struct ShaderModule {
     device: Arc<Device>,
@@ -23,6 +23,56 @@ impl ShaderModule {
             device,
             entry_points,
         }
+    }
+
+    pub fn new_multimodule(
+        device: &Arc<Device>,
+        shader_crate_path: &str,
+    ) -> HashMap<String, ShaderModule> {
+        let compiled_shaders = Self::compile_shaders_multimodule(&shader_crate_path);
+
+        compiled_shaders
+            .into_iter()
+            .map(|(entry_point, compiled_shader)| {
+                let shader_create_info =
+                    vk::ShaderModuleCreateInfo::builder().code(&compiled_shader);
+                let raw = unsafe { device.raw().create_shader_module(&shader_create_info, None) }
+                    .unwrap();
+
+                (
+                    entry_point.clone(),
+                    ShaderModule {
+                        raw,
+                        device: device.clone(),
+                        entry_points: vec![entry_point],
+                    },
+                )
+            })
+            .collect()
+    }
+
+    fn compile_shaders_multimodule(shader_crate_path: &str) -> HashMap<String, Vec<u32>> {
+        let compile_result = SpirvBuilder::new(shader_crate_path, "spirv-unknown-vulkan1.2")
+            .capability(spirv_builder::Capability::RayTracingKHR)
+            .extension("SPV_KHR_ray_tracing")
+            .print_metadata(MetadataPrintout::None)
+            .multimodule(true)
+            .build()
+            .unwrap();
+
+        info!("Shader entry points: {:?}", compile_result.entry_points);
+
+        compile_result
+            .module
+            .unwrap_multi()
+            .into_iter()
+            .map(|(entry_point, path)| {
+                (
+                    entry_point.clone(),
+                    read_spv(&mut File::open(path.to_path_buf()).unwrap()).unwrap(),
+                )
+            })
+            .collect()
     }
 
     fn compile_shaders(shader_crate_path: &str) -> (Vec<String>, Vec<u32>) {
