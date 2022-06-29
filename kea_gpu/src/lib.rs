@@ -1,4 +1,5 @@
 pub mod core;
+pub mod debug;
 pub mod device;
 pub mod features;
 mod instance;

@@ -1,8 +1,8 @@
 use ash::vk;
 use log::info;
-use std::{ffi::CStr, os::raw::c_char, sync::Arc};
+use std::{ffi::CString, os::raw::c_char, sync::Arc};
 
-use crate::{device::PhysicalDevice, features::Feature};
+use crate::{device::PhysicalDevice, features::Feature, instance::config::InstanceConfig};
 
 use super::{extensions::InstanceExtensions, Ext};
 
@@ -26,30 +26,56 @@ impl VulkanInstance {
     ) -> (ash::Instance, Vec<Ext>) {
         let app_info = vk::ApplicationInfo::builder().api_version(vk::API_VERSION_1_3);
 
-        let layer_names = unsafe {
-            [CStr::from_bytes_with_nul_unchecked(
-                b"VK_LAYER_KHRONOS_validation\0",
-            )]
-        };
-
+        let mut instance_config = InstanceConfig::default();
         let mut extensions: Vec<Ext> = vec![];
+        let mut layers: Vec<CString> = vec![];
+
         for feature in features {
             for ext in feature.instance_extensions() {
                 extensions.push(ext);
             }
+
+            for layer in feature.layers() {
+                layers.push(CString::new(layer).unwrap());
+            }
+
+            feature.configure_instance(&mut instance_config);
         }
         let extension_names: Vec<*const c_char> = extensions.iter().map(|ext| ext.name()).collect();
+        info!("Instance config: {:?}", instance_config);
         info!("Requested instance extensions: {:?}", extensions);
+        info!("Requested layers: {:?}", layers);
 
-        let layers_names_raw: Vec<*const c_char> = layer_names
-            .iter()
-            .map(|raw_name| raw_name.as_ptr())
-            .collect();
+        let layers_names_raw: Vec<*const c_char> =
+            layers.iter().map(|raw_name| raw_name.as_ptr()).collect();
 
         let create_info = vk::InstanceCreateInfo::builder()
             .application_info(&app_info)
             .enabled_extension_names(&extension_names)
             .enabled_layer_names(&layers_names_raw);
+
+        let mut features_validation = vk::ValidationFeaturesEXT {
+            ..Default::default()
+        };
+        let create_info = if let Some(_) = instance_config.validation_features {
+            let enable = &instance_config.validation_features.as_ref().unwrap().enable;
+            let disable = &instance_config
+                .validation_features
+                .as_ref()
+                .unwrap()
+                .disable;
+            features_validation = vk::ValidationFeaturesEXT::builder()
+                .enabled_validation_features(enable)
+                .disabled_validation_features(disable)
+                .build();
+
+            create_info.push_next(&mut features_validation)
+        } else {
+            create_info
+        };
+        let create_info = create_info.build();
+
+        log::debug!("{:?}", create_info);
 
         let raw = unsafe { entry.create_instance(&create_info, None).unwrap() };
 

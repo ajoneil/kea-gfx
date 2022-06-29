@@ -1,11 +1,12 @@
 use std::os::raw::c_char;
 
-use ash::extensions::khr;
+use ash::{extensions::khr, vk};
 
 #[derive(Debug)]
 pub enum Ext {
     Surface,
     WaylandSurface,
+    ValidationFeatures,
 }
 
 impl Ext {
@@ -13,6 +14,7 @@ impl Ext {
         match self {
             Ext::Surface => khr::Surface::name().as_ptr(),
             Ext::WaylandSurface => khr::WaylandSurface::name().as_ptr(),
+            Ext::ValidationFeatures => vk::ExtValidationFeaturesFn::name().as_ptr(),
         }
     }
 }
@@ -47,6 +49,7 @@ impl InstanceExtensions {
                 Ext::WaylandSurface => {
                     ext.wayland_surface = Some(khr::WaylandSurface::new(entry, instance))
                 }
+                Ext::ValidationFeatures => (),
             }
         }
 
