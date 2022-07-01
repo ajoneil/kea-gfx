@@ -17,6 +17,7 @@ pub struct Buffer {
 }
 
 pub struct AllocatedBuffer {
+    name: String,
     buffer: Buffer,
     allocation: ManuallyDrop<Allocation>,
 }
@@ -65,6 +66,7 @@ impl Buffer {
         }
 
         AllocatedBuffer {
+            name: name.to_string(),
             buffer: self,
             allocation: ManuallyDrop::new(allocation),
         }
@@ -124,6 +126,7 @@ impl AllocatedBuffer {
 
 impl Drop for AllocatedBuffer {
     fn drop(&mut self) {
+        log::debug!("Freeing {:?}", self.name);
         unsafe {
             self.buffer
                 .device
