@@ -76,6 +76,10 @@ impl Buffer {
         self.size as usize
     }
 
+    pub fn device(&self) -> &Device {
+        &self.device
+    }
+
     pub unsafe fn raw(&self) -> vk::Buffer {
         self.raw
     }
@@ -110,17 +114,22 @@ impl AllocatedBuffer {
 
         unsafe {
             let pointer = self.allocation.mapped_ptr().unwrap().as_ptr();
-            let mut align = ash::util::Align::new(
-                pointer,
-                mem::align_of::<T>() as _,
-                mem::size_of_val(data) as _,
-            );
-            align.copy_from_slice(data);
+            pointer.copy_from_nonoverlapping(data.as_ptr() as _, data.len());
+            // let mut align = ash::util::Align::new(
+            //     pointer,
+            //     mem::align_of::<T>() as _,
+            //     mem::size_of_val(data) as _,
+            // );
+            // align.copy_from_slice(data);
         }
     }
 
     pub fn buffer(&self) -> &Buffer {
         &self.buffer
+    }
+
+    pub fn device(&self) -> &Device {
+        self.buffer.device()
     }
 }
 
