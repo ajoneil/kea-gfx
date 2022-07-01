@@ -1,12 +1,10 @@
 use super::{
-    acceleration_structure::{AccelerationStructure, AccelerationStructureDescription},
+    acceleration_structures::{
+        AccelerationStructure, AccelerationStructureDescription, ScratchBuffer,
+    },
     shader_binding_table::RayTracingShaderBindingTables,
 };
-use crate::{
-    core::{buffer::AllocatedBuffer, command::CommandBufferRecorder},
-    device,
-    features::Feature,
-};
+use crate::{core::command::CommandBufferRecorder, device, features::Feature};
 use log::debug;
 
 pub struct RayTracingFeature {}
@@ -52,7 +50,7 @@ impl CommandBufferRecorder<'_> {
         &self,
         description: &AccelerationStructureDescription,
         destination: &AccelerationStructure,
-        scratch: &AllocatedBuffer,
+        scratch: &ScratchBuffer,
     ) {
         let description = description.bind_for_build(destination, scratch);
         debug!("geo: {:?}", unsafe {

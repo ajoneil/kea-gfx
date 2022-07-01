@@ -1,7 +1,11 @@
+mod build;
+
 use crate::{core::buffer::AllocatedBuffer, device::Device};
 use ash::vk::{self};
 use glam::Vec3;
 use std::{marker::PhantomData, mem, sync::Arc};
+
+pub use self::build::ScratchBuffer;
 
 #[repr(C)]
 pub struct Aabb {
@@ -138,7 +142,7 @@ impl<'a> AccelerationStructureDescription<'a> {
     pub fn bind_for_build(
         &'a self,
         destination: &'a AccelerationStructure,
-        scratch: &'a AllocatedBuffer,
+        scratch: &'a ScratchBuffer,
     ) -> BoundAccelerationStructureDescription<'a> {
         BoundAccelerationStructureDescription {
             acceleration_structure_description: self,
@@ -151,7 +155,7 @@ impl<'a> AccelerationStructureDescription<'a> {
 pub struct BoundAccelerationStructureDescription<'a> {
     acceleration_structure_description: &'a AccelerationStructureDescription<'a>,
     destination: &'a AccelerationStructure,
-    scratch: &'a AllocatedBuffer,
+    scratch: &'a ScratchBuffer,
 }
 
 impl<'a> BoundAccelerationStructureDescription<'a> {

@@ -19,11 +19,12 @@ use kea_gpu::{
     },
     device::Device,
     ray_tracing::{
-        acceleration_structure::{
-            Aabb, AccelerationStructure, AccelerationStructureDescription, Geometry,
+        acceleration_structures::{
+            Aabb, AccelerationStructure, AccelerationStructureDescription, Geometry, ScratchBuffer,
         },
         shader_binding_table::{RayTracingShaderBindingTables, ShaderBindingTable},
     },
+    storage::memory,
     Kea,
 };
 use log::info;
@@ -169,12 +170,7 @@ impl PathTracer {
         );
 
         let build_sizes = blas.build_sizes(kea.device());
-        let scratch_buffer = Buffer::new(
-            kea.device().clone(),
-            build_sizes.build_scratch,
-            vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
-        )
-        .allocate("scratch", MemoryLocation::GpuOnly);
+        let scratch_buffer = ScratchBuffer::new(kea.device().clone(), build_sizes.build_scratch);
 
         let bl_acceleration_structure_buffer = Buffer::new(
             kea.device().clone(),
@@ -240,12 +236,7 @@ impl PathTracer {
         );
 
         let build_sizes = tlas.build_sizes(kea.device());
-        let scratch_buffer = Buffer::new(
-            kea.device().clone(),
-            build_sizes.build_scratch,
-            vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
-        )
-        .allocate("build scratch", MemoryLocation::GpuOnly);
+        let scratch_buffer = ScratchBuffer::new(kea.device().clone(), build_sizes.build_scratch);
 
         let tl_acceleration_structure_buffer = Buffer::new(
             kea.device().clone(),
@@ -543,8 +534,8 @@ impl PathTracer {
     ) -> (AllocatedBuffer, RayTracingShaderBindingTables) {
         let handle_size = rt_pipeline_props.shader_group_handle_size;
         let handle_alignment =
-            Self::aligned_size(handle_size, rt_pipeline_props.shader_group_handle_alignment);
-        let aligned_handle_size = Self::aligned_size(handle_size, handle_alignment);
+            memory::align(handle_size, rt_pipeline_props.shader_group_handle_alignment);
+        let aligned_handle_size = memory::align(handle_size, handle_alignment);
         let handle_pad = aligned_handle_size - handle_size;
 
         let group_alignment = rt_pipeline_props.shader_group_base_alignment;
@@ -567,15 +558,13 @@ impl PathTracer {
         .unwrap();
 
         let raygen_count = 1;
-        let raygen_region_size =
-            Self::aligned_size(raygen_count * aligned_handle_size, group_alignment);
+        let raygen_region_size = memory::align(raygen_count * aligned_handle_size, group_alignment);
 
         let miss_count = 1;
-        let miss_region_size =
-            Self::aligned_size(miss_count * aligned_handle_size, group_alignment);
+        let miss_region_size = memory::align(miss_count * aligned_handle_size, group_alignment);
 
         let hit_count = 1;
-        let hit_region_size = Self::aligned_size(hit_count * aligned_handle_size, group_alignment);
+        let hit_region_size = memory::align(hit_count * aligned_handle_size, group_alignment);
 
         let buffer_size = raygen_region_size + miss_region_size + hit_region_size;
         let mut aligned_handles = Vec::<u8>::with_capacity(buffer_size as _);
@@ -586,7 +575,7 @@ impl PathTracer {
         for group_shader_count in groups_shader_count {
             let group_size = group_shader_count * aligned_handle_size;
             let aligned_group_size =
-                Self::aligned_size(group_size, rt_pipeline_props.shader_group_base_alignment);
+                memory::align(group_size, rt_pipeline_props.shader_group_base_alignment);
             let group_pad = aligned_group_size - group_size;
 
             // for each handle
@@ -647,11 +636,6 @@ impl PathTracer {
         };
 
         (binding_table_buffer, tables)
-    }
-
-    fn aligned_size(size: u32, alignment: u32) -> u32 {
-        // from nvh::align_up
-        (size + (alignment - 1)) & !(alignment - 1)
     }
 
     pub fn draw(&self) {

@@ -517,6 +517,7 @@ dependencies = [
  "gpu-allocator",
  "log",
  "memoffset",
+ "num-traits",
  "spirv-builder",
  "winit",
 ]

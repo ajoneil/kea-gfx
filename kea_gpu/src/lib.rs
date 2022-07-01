@@ -6,6 +6,7 @@ mod instance;
 mod kea;
 mod presenter;
 pub mod ray_tracing;
+pub mod storage;
 mod surfaces;
 mod swapchain;
 mod window;
