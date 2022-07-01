@@ -1,9 +1,6 @@
 use crate::{
     device::Device,
-    storage::{
-        buffers::{Buffer, UnallocatedBuffer},
-        memory,
-    },
+    storage::{buffers::Buffer, memory},
 };
 use ash::vk;
 use gpu_allocator::MemoryLocation;
@@ -27,13 +24,11 @@ impl ScratchBuffer {
         // appropriately aligned address.
         let max_size = size + alignment as u64;
 
-        let buffer = UnallocatedBuffer::new(
+        let buffer = Buffer::new(
             device,
             max_size,
             vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
-        )
-        .allocate(
-            "acceleration structure build scratch",
+            "acceleration structure build scratch".to_string(),
             MemoryLocation::GpuOnly,
         );
 

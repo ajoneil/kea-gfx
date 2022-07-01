@@ -21,7 +21,7 @@ impl UnallocatedBuffer {
         UnallocatedBuffer { device, raw, size }
     }
 
-    pub fn allocate(self, name: &str, location: MemoryLocation) -> Buffer {
+    pub fn allocate(self, name: String, location: MemoryLocation) -> Buffer {
         let requirements = unsafe { self.device().raw().get_buffer_memory_requirements(self.raw) };
 
         self.allocate_with_mem_requirements(name, location, requirements)
@@ -29,7 +29,7 @@ impl UnallocatedBuffer {
 
     fn allocate_with_mem_requirements(
         self,
-        name: &str,
+        name: String,
         location: MemoryLocation,
         requirements: vk::MemoryRequirements,
     ) -> Buffer {
@@ -39,7 +39,7 @@ impl UnallocatedBuffer {
             .lock()
             .unwrap()
             .allocate(&AllocationCreateDesc {
-                name,
+                name: &name,
                 requirements,
                 location,
                 linear: true,
@@ -50,10 +50,10 @@ impl UnallocatedBuffer {
             self.device
                 .raw()
                 .bind_buffer_memory(self.raw, allocation.memory(), allocation.offset())
-                .unwrap()
-        }
+                .unwrap();
 
-        Buffer::new(name.to_string(), self, allocation)
+            Buffer::from_bound_allocation(name, self, allocation)
+        }
     }
 
     pub fn size(&self) -> usize {

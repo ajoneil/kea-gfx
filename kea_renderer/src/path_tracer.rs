@@ -21,10 +21,7 @@ use kea_gpu::{
         AccelerationStructure, AccelerationStructureDescription, Geometry,
         RayTracingShaderBindingTables, ScratchBuffer, ShaderBindingTable,
     },
-    storage::{
-        buffers::{Buffer, UnallocatedBuffer},
-        memory,
-    },
+    storage::{buffers::Buffer, memory},
     Kea,
 };
 use kea_gpu_shaderlib::Aabb;
@@ -156,13 +153,14 @@ impl PathTracer {
         let build_sizes = blas.build_sizes(kea.device());
         let scratch_buffer = ScratchBuffer::new(kea.device().clone(), build_sizes.build_scratch);
 
-        let bl_acceleration_structure_buffer = UnallocatedBuffer::new(
+        let bl_acceleration_structure_buffer = Buffer::new(
             kea.device().clone(),
             build_sizes.acceleration_structure,
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
-        )
-        .allocate("bl acceleration structure", MemoryLocation::GpuOnly);
+            "bl acceleration structure".to_string(),
+            MemoryLocation::GpuOnly,
+        );
 
         let bl_acceleration_structure = AccelerationStructure::new(
             kea.device(),
@@ -205,13 +203,14 @@ impl PathTracer {
                 host_handle: unsafe { bl_acceleration_structure.raw() },
             },
         };
-        let tlas_buffer = UnallocatedBuffer::new(
+        let tlas_buffer = Buffer::new(
             kea.device().clone(),
             mem::size_of_val(&tlas_instance) as u64,
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
-        )
-        .allocate("tlas build", MemoryLocation::CpuToGpu);
+            "tlas build".to_string(),
+            MemoryLocation::CpuToGpu,
+        );
         tlas_buffer.fill(&[tlas_instance]);
 
         let geometries = [Geometry::instances(&tlas_buffer)];
@@ -223,13 +222,14 @@ impl PathTracer {
         let build_sizes = tlas.build_sizes(kea.device());
         let scratch_buffer = ScratchBuffer::new(kea.device().clone(), build_sizes.build_scratch);
 
-        let tl_acceleration_structure_buffer = UnallocatedBuffer::new(
+        let tl_acceleration_structure_buffer = Buffer::new(
             kea.device().clone(),
             build_sizes.acceleration_structure,
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
-        )
-        .allocate("tl acceleration structure", MemoryLocation::GpuOnly);
+            "tl acceleration structure".to_string(),
+            MemoryLocation::GpuOnly,
+        );
 
         let tl_acceleration_structure = AccelerationStructure::new(
             kea.device(),
@@ -253,25 +253,25 @@ impl PathTracer {
     }
 
     fn create_buffers(device: &Arc<Device>, spheres: &[Sphere]) -> (Buffer, Buffer) {
-        let spheres_buffer = UnallocatedBuffer::new(
+        let spheres_buffer = Buffer::new(
             device.clone(),
             (mem::size_of::<Sphere>() * spheres.len()) as u64,
             vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+            "spheres".to_string(),
+            MemoryLocation::CpuToGpu,
         );
-
-        let spheres_buffer = spheres_buffer.allocate("spheres", MemoryLocation::CpuToGpu);
         info!("spheres data {:?}", spheres);
         spheres_buffer.fill(spheres);
 
         let aabbs: Vec<Aabb> = spheres.iter().map(|s: &Sphere| s.aabb()).collect();
-        let aabbs_buffer = UnallocatedBuffer::new(
+        let aabbs_buffer = Buffer::new(
             device.clone(),
             (mem::size_of::<Aabb>() * aabbs.len()) as u64,
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+            "aabbs".to_string(),
+            MemoryLocation::CpuToGpu,
         );
-
-        let aabbs_buffer = aabbs_buffer.allocate("aabbs", MemoryLocation::CpuToGpu);
         aabbs_buffer.fill(&aabbs);
 
         (spheres_buffer, aabbs_buffer)
@@ -568,13 +568,14 @@ impl PathTracer {
             }
         }
 
-        let binding_table_buffer = UnallocatedBuffer::new(
+        let binding_table_buffer = Buffer::new(
             device.clone(),
             buffer_size as _,
             vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
-        )
-        .allocate("rt shader binding table", MemoryLocation::CpuToGpu);
+            "rt shader binding table".to_string(),
+            MemoryLocation::CpuToGpu,
+        );
 
         info!("unaligned shader handles {:?}", group_handles);
         info!("aligned shader handles {:?}", aligned_handles);

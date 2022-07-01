@@ -1,10 +1,11 @@
 use super::UnallocatedBuffer;
 use crate::device::Device;
 use ash::vk;
-use gpu_allocator::vulkan::Allocation;
+use gpu_allocator::{vulkan::Allocation, MemoryLocation};
 use std::{
     mem::{self, ManuallyDrop},
     slice,
+    sync::Arc,
 };
 
 pub struct Buffer {
@@ -14,7 +15,21 @@ pub struct Buffer {
 }
 
 impl Buffer {
-    pub fn new(name: String, buffer: UnallocatedBuffer, allocation: Allocation) -> Self {
+    pub fn new(
+        device: Arc<Device>,
+        size: u64,
+        usage: vk::BufferUsageFlags,
+        name: String,
+        location: MemoryLocation,
+    ) -> Buffer {
+        UnallocatedBuffer::new(device, size, usage).allocate(name, location)
+    }
+
+    pub unsafe fn from_bound_allocation(
+        name: String,
+        buffer: UnallocatedBuffer,
+        allocation: Allocation,
+    ) -> Self {
         Self {
             name,
             buffer,
