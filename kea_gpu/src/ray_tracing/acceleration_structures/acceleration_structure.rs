@@ -1,17 +1,17 @@
-use crate::{device::Device, storage::buffers::AllocatedBuffer};
+use crate::{device::Device, storage::buffers::Buffer};
 use ash::vk;
 use std::sync::Arc;
 
 pub struct AccelerationStructure {
     device: Arc<Device>,
-    buffer: AllocatedBuffer,
+    buffer: Buffer,
     raw: vk::AccelerationStructureKHR,
 }
 
 impl AccelerationStructure {
     pub fn new(
         device: &Arc<Device>,
-        buffer: AllocatedBuffer,
+        buffer: Buffer,
         ty: vk::AccelerationStructureTypeKHR,
     ) -> AccelerationStructure {
         let raw = unsafe {
@@ -34,7 +34,7 @@ impl AccelerationStructure {
         }
     }
 
-    pub fn buffer(&self) -> &AllocatedBuffer {
+    pub fn buffer(&self) -> &Buffer {
         &self.buffer
     }
 

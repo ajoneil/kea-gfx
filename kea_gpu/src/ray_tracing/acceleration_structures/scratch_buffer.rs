@@ -1,7 +1,7 @@
 use crate::{
     device::Device,
     storage::{
-        buffers::{AllocatedBuffer, Buffer},
+        buffers::{Buffer, UnallocatedBuffer},
         memory,
     },
 };
@@ -10,7 +10,7 @@ use gpu_allocator::MemoryLocation;
 use std::sync::Arc;
 
 pub struct ScratchBuffer {
-    buffer: AllocatedBuffer,
+    buffer: Buffer,
     size: u64,
     alignment: u32,
 }
@@ -27,7 +27,7 @@ impl ScratchBuffer {
         // appropriately aligned address.
         let max_size = size + alignment as u64;
 
-        let buffer = Buffer::new(
+        let buffer = UnallocatedBuffer::new(
             device,
             max_size,
             vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,

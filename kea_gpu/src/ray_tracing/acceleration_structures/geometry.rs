@@ -1,4 +1,4 @@
-use crate::storage::buffers::AllocatedBuffer;
+use crate::storage::buffers::Buffer;
 use ash::vk;
 use std::{marker::PhantomData, mem};
 
@@ -11,7 +11,7 @@ pub struct Geometry<'a> {
 }
 
 impl<'a> Geometry<'a> {
-    pub fn aabbs(buffer: &'a AllocatedBuffer) -> Geometry<'a> {
+    pub fn aabbs(buffer: &'a Buffer) -> Geometry<'a> {
         let geometry_data = vk::AccelerationStructureGeometryDataKHR {
             aabbs: vk::AccelerationStructureGeometryAabbsDataKHR::builder()
                 .data(vk::DeviceOrHostAddressConstKHR {
@@ -40,7 +40,7 @@ impl<'a> Geometry<'a> {
         }
     }
 
-    pub fn instances(buffer: &'a AllocatedBuffer) -> Geometry<'a> {
+    pub fn instances(buffer: &'a Buffer) -> Geometry<'a> {
         let geometry_data = vk::AccelerationStructureGeometryDataKHR {
             instances: vk::AccelerationStructureGeometryInstancesDataKHR::builder()
                 .data(vk::DeviceOrHostAddressConstKHR {

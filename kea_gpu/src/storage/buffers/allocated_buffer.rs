@@ -1,4 +1,4 @@
-use super::Buffer;
+use super::UnallocatedBuffer;
 use crate::device::Device;
 use ash::vk;
 use gpu_allocator::vulkan::Allocation;
@@ -7,14 +7,14 @@ use std::{
     slice,
 };
 
-pub struct AllocatedBuffer {
+pub struct Buffer {
     name: String,
-    buffer: Buffer,
+    buffer: UnallocatedBuffer,
     allocation: ManuallyDrop<Allocation>,
 }
 
-impl AllocatedBuffer {
-    pub fn new(name: String, buffer: Buffer, allocation: Allocation) -> Self {
+impl Buffer {
+    pub fn new(name: String, buffer: UnallocatedBuffer, allocation: Allocation) -> Self {
         Self {
             name,
             buffer,
@@ -52,7 +52,7 @@ impl AllocatedBuffer {
         }
     }
 
-    pub fn buffer(&self) -> &Buffer {
+    pub fn buffer(&self) -> &UnallocatedBuffer {
         &self.buffer
     }
 
@@ -61,7 +61,7 @@ impl AllocatedBuffer {
     }
 }
 
-impl Drop for AllocatedBuffer {
+impl Drop for Buffer {
     fn drop(&mut self) {
         log::debug!("Freeing {:?}", self.name);
         unsafe {
