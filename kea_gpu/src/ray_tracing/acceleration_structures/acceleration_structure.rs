@@ -1,7 +1,6 @@
-use std::sync::Arc;
+use crate::{device::Device, storage::buffers::AllocatedBuffer};
 use ash::vk;
-use crate::{device::Device, core::buffer::AllocatedBuffer};
-
+use std::sync::Arc;
 
 pub struct AccelerationStructure {
     device: Arc<Device>,

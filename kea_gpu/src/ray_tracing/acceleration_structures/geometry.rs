@@ -1,6 +1,6 @@
-use std::{marker::PhantomData, mem};
+use crate::storage::buffers::AllocatedBuffer;
 use ash::vk;
-use crate::core::buffer::AllocatedBuffer;
+use std::{marker::PhantomData, mem};
 
 pub struct Geometry<'a> {
     pub geometry: vk::AccelerationStructureGeometryKHR,

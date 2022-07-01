@@ -1,7 +1,9 @@
 use crate::{
-    core::buffer::{AllocatedBuffer, Buffer},
     device::Device,
-    storage::memory,
+    storage::{
+        buffers::{AllocatedBuffer, Buffer},
+        memory,
+    },
 };
 use ash::vk;
 use gpu_allocator::MemoryLocation;

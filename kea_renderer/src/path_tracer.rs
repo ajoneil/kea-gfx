@@ -6,7 +6,6 @@ use gpu_allocator::{
 };
 use kea_gpu::{
     core::{
-        buffer::{AllocatedBuffer, Buffer},
         command::CommandPool,
         descriptor_set::{
             DescriptorPool, DescriptorSet, DescriptorSetLayout, DescriptorSetLayoutBinding,
@@ -18,8 +17,15 @@ use kea_gpu::{
         shaders::ShaderModule,
     },
     device::Device,
-    storage::memory,
-    Kea, ray_tracing::{AccelerationStructure, RayTracingShaderBindingTables, Geometry, AccelerationStructureDescription, ScratchBuffer, ShaderBindingTable},
+    ray_tracing::{
+        AccelerationStructure, AccelerationStructureDescription, Geometry,
+        RayTracingShaderBindingTables, ScratchBuffer, ShaderBindingTable,
+    },
+    storage::{
+        buffers::{AllocatedBuffer, Buffer},
+        memory,
+    },
+    Kea,
 };
 use kea_gpu_shaderlib::Aabb;
 use kea_renderer_shaders::Sphere;
