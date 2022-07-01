@@ -4,13 +4,8 @@ pub mod device;
 pub mod features;
 mod instance;
 mod kea;
-mod presenter;
+pub mod presentation;
 pub mod ray_tracing;
 pub mod storage;
-mod surfaces;
-mod swapchain;
-mod window;
 
 pub use kea::Kea;
-pub use presenter::Presenter;
-pub use window::Window;

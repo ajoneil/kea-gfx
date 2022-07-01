@@ -35,7 +35,7 @@ impl ScratchBuffer {
         ScratchBuffer { buffer, alignment }
     }
 
-    pub fn device_address(&self) -> u64 {
+    pub fn device_address(&self) -> vk::DeviceAddress {
         memory::align(self.buffer.device_address(), self.alignment as _)
     }
 }

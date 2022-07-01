@@ -1,5 +1,3 @@
-use std::os::raw::c_char;
-
 use winit::{
     dpi::PhysicalSize,
     event::{Event, WindowEvent},
@@ -27,10 +25,6 @@ impl Window {
 
     pub fn window(&self) -> &winit::window::Window {
         &self.window
-    }
-
-    pub fn required_extensions(&self) -> &'static [*const c_char] {
-        ash_window::enumerate_required_extensions(&self.window).unwrap()
     }
 
     pub fn event_loop<F: 'static + Fn() -> ()>(self, draw: F) {

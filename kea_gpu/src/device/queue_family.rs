@@ -1,5 +1,6 @@
+use crate::presentation::Surface;
+
 use super::physical_device::PhysicalDevice;
-use crate::core::surface::Surface;
 use ash::vk;
 use std::sync::Arc;
 

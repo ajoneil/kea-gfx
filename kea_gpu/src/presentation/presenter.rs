@@ -1,14 +1,17 @@
 use crate::{
     core::{
         command::{CommandBufferRecorder, CommandPool},
-        surface::Surface,
-        swapchain::{Swapchain, SwapchainImageView},
         sync::{Fence, Semaphore},
     },
     device::Device,
 };
 use ash::vk;
 use std::sync::Arc;
+
+use super::{
+    swapchain::{Swapchain, SwapchainImageView},
+    Surface,
+};
 
 pub struct Presenter {
     command_pool: Arc<CommandPool>,

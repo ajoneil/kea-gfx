@@ -1,5 +1,5 @@
-use super::{surface::Surface, sync::Semaphore};
-use crate::device::Device;
+use super::Surface;
+use crate::{core::sync::Semaphore, device::Device};
 use ash::vk;
 use std::sync::Arc;
 

@@ -1,12 +1,8 @@
 use crate::{
-    core::surface::Surface,
     device::{Device, PhysicalDevice, QueueFamily},
     features::Feature,
     instance::vulkan_instance::VulkanInstance,
-    presenter::Presenter,
-    surfaces::feature::SurfaceFeature,
-    swapchain::feature::SwapchainFeature,
-    window::Window,
+    presentation::{PresentationFeature, Presenter, Surface, Window},
 };
 use log::{debug, info};
 use std::sync::Arc;
@@ -18,10 +14,8 @@ pub struct Kea {
 
 impl Kea {
     pub fn new(window: &Window, size: (u32, u32), mut features: Vec<Box<dyn Feature + '_>>) -> Kea {
-        let mut required_features: Vec<Box<dyn Feature + '_>> = vec![
-            Box::new(SurfaceFeature::new()),
-            Box::new(SwapchainFeature::new()),
-        ];
+        let mut required_features: Vec<Box<dyn Feature + '_>> =
+            vec![Box::new(PresentationFeature::new())];
         required_features.append(&mut features);
 
         let vulkan = VulkanInstance::new(&required_features);

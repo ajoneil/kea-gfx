@@ -1,5 +1,5 @@
 use super::queue_family::QueueFamily;
-use crate::{core::surface::Surface, instance::vulkan_instance::VulkanInstance};
+use crate::instance::vulkan_instance::VulkanInstance;
 use ash::vk;
 use std::{ffi::CStr, fmt, sync::Arc};
 
@@ -38,36 +38,6 @@ impl PhysicalDevice {
 
     pub fn vulkan(&self) -> &Arc<VulkanInstance> {
         &self.vulkan
-    }
-
-    pub fn surface_capabilities(&self, surface: &Surface) -> vk::SurfaceCapabilitiesKHR {
-        unsafe {
-            self.vulkan
-                .ext()
-                .surface()
-                .get_physical_device_surface_capabilities(self.raw, surface.raw())
-        }
-        .unwrap()
-    }
-
-    pub fn surface_formats(&self, surface: &Surface) -> Vec<vk::SurfaceFormatKHR> {
-        unsafe {
-            self.vulkan
-                .ext()
-                .surface()
-                .get_physical_device_surface_formats(self.raw, surface.raw())
-        }
-        .unwrap()
-    }
-
-    pub fn surface_present_modes(&self, surface: &Surface) -> Vec<vk::PresentModeKHR> {
-        unsafe {
-            self.vulkan
-                .ext()
-                .surface()
-                .get_physical_device_surface_present_modes(self.raw, surface.raw())
-        }
-        .unwrap()
     }
 
     pub fn ray_tracing_pipeline_properties(

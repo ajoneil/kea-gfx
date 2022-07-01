@@ -54,6 +54,7 @@ impl VulkanInstance {
             .enabled_extension_names(&extension_names)
             .enabled_layer_names(&layers_names_raw);
 
+        #[allow(unused_assignments)]
         let mut features_validation = vk::ValidationFeaturesEXT {
             ..Default::default()
         };

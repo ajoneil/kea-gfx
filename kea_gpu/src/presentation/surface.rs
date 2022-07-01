@@ -1,4 +1,5 @@
-use crate::{instance::vulkan_instance::VulkanInstance, window::Window};
+use super::Window;
+use crate::instance::vulkan_instance::VulkanInstance;
 use ash::vk;
 use std::sync::Arc;
 
