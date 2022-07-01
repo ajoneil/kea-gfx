@@ -208,6 +208,17 @@ impl AccelerationStructure {
     pub unsafe fn raw(&self) -> vk::AccelerationStructureKHR {
         self.raw
     }
+
+    pub fn device_address(&self) -> vk::DeviceAddress {
+        let info = vk::AccelerationStructureDeviceAddressInfoKHR::builder()
+            .acceleration_structure(self.raw);
+        unsafe {
+            self.device
+                .ext()
+                .acceleration_structure()
+                .get_acceleration_structure_device_address(&info)
+        }
+    }
 }
 
 impl Drop for AccelerationStructure {

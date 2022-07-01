@@ -44,6 +44,7 @@ pub struct PathTracer {
     pipeline_layout: PipelineLayout,
     _descriptor_set_layout: DescriptorSetLayout,
     descriptor_set: DescriptorSet,
+    _tlas_buffer: AllocatedBuffer,
     _aabbs_buffer: AllocatedBuffer,
     _spheres_buffer: AllocatedBuffer,
     storage_image: vk::Image,
@@ -56,8 +57,13 @@ pub struct PathTracer {
 impl PathTracer {
     pub fn new(kea: Kea) -> PathTracer {
         let command_pool = CommandPool::new(kea.device().graphics_queue());
-        let (tl_acceleration_structure, bl_acceleration_structure, spheres_buffer, aabbs_buffer) =
-            Self::build_acceleration_structure(&kea);
+        let (
+            tl_acceleration_structure,
+            bl_acceleration_structure,
+            tlas_buffer,
+            spheres_buffer,
+            aabbs_buffer,
+        ) = Self::build_acceleration_structure(&kea);
         let (pipeline, pipeline_layout, descriptor_set_layout) =
             Self::create_pipeline(kea.device());
 
@@ -92,6 +98,7 @@ impl PathTracer {
             pipeline_layout,
             _descriptor_set_layout: descriptor_set_layout,
             descriptor_set,
+            _tlas_buffer: tlas_buffer,
             _spheres_buffer: spheres_buffer,
             _aabbs_buffer: aabbs_buffer,
             storage_image,
@@ -107,6 +114,7 @@ impl PathTracer {
     ) -> (
         AccelerationStructure,
         AccelerationStructure,
+        AllocatedBuffer,
         AllocatedBuffer,
         AllocatedBuffer,
     ) {
@@ -192,7 +200,8 @@ impl PathTracer {
                 flags,
             ),
             acceleration_structure_reference: vk::AccelerationStructureReferenceKHR {
-                device_handle: bl_acceleration_structure.buffer().device_address(),
+                // device_handle: bl_acceleration_structure.device_address(),
+                host_handle: unsafe { bl_acceleration_structure.raw() },
             },
         };
         let tlas_buffer = Buffer::new(
@@ -236,6 +245,7 @@ impl PathTracer {
         (
             tl_acceleration_structure,
             bl_acceleration_structure,
+            tlas_buffer,
             spheres_buffer,
             aabbs_buffer,
         )
