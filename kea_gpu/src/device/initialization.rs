@@ -1,10 +1,7 @@
 use std::{iter, os::raw::c_char};
-
 use ash::vk;
 use log::info;
-
 use crate::features::Feature;
-
 use super::{Ext, PhysicalDevice, QueueFamily};
 
 #[derive(Default, Debug)]

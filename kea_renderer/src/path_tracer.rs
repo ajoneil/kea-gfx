@@ -18,14 +18,8 @@ use kea_gpu::{
         shaders::ShaderModule,
     },
     device::Device,
-    ray_tracing::{
-        acceleration_structures::{
-            AccelerationStructure, AccelerationStructureDescription, Geometry, ScratchBuffer,
-        },
-        shader_binding_table::{RayTracingShaderBindingTables, ShaderBindingTable},
-    },
     storage::memory,
-    Kea,
+    Kea, ray_tracing::{AccelerationStructure, RayTracingShaderBindingTables, Geometry, AccelerationStructureDescription, ScratchBuffer, ShaderBindingTable},
 };
 use kea_gpu_shaderlib::Aabb;
 use kea_renderer_shaders::Sphere;

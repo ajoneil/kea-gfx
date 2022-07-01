@@ -1,7 +1,7 @@
 use env_logger::Env;
 use kea_gpu::debug::features::VulkanValidationFeature;
 use kea_gpu::presentation::Window;
-use kea_gpu::ray_tracing::feature::RayTracingFeature;
+use kea_gpu::ray_tracing::RayTracingFeature;
 use kea_gpu::Kea;
 use path_tracer::PathTracer;
 
