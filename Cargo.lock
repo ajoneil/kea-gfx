@@ -533,6 +533,7 @@ dependencies = [
  "glam",
  "gpu-allocator",
  "kea_gpu",
+ "kea_gpu_shaderlib",
  "kea_renderer_shaders",
  "log",
  "memoffset",

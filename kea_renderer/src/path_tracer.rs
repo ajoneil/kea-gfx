@@ -27,6 +27,7 @@ use kea_gpu::{
     storage::memory,
     Kea,
 };
+use kea_gpu_shaderlib::Aabb;
 use kea_renderer_shaders::Sphere;
 use log::info;
 use std::{
@@ -265,23 +266,10 @@ impl PathTracer {
         info!("spheres data {:?}", spheres);
         spheres_buffer.fill(spheres);
 
-        let aabbs: Vec<vk::AabbPositionsKHR> = spheres
-            .iter()
-            .map(|s: &Sphere| {
-                let aabb = s.aabb();
-                vk::AabbPositionsKHR {
-                    min_x: aabb.min.x,
-                    min_y: aabb.min.y,
-                    min_z: aabb.min.z,
-                    max_x: aabb.max.x,
-                    max_y: aabb.max.y,
-                    max_z: aabb.max.z,
-                }
-            })
-            .collect();
+        let aabbs: Vec<Aabb> = spheres.iter().map(|s: &Sphere| s.aabb()).collect();
         let aabbs_buffer = Buffer::new(
             device.clone(),
-            (mem::size_of::<vk::AabbPositionsKHR>() * aabbs.len()) as u64,
+            (mem::size_of::<Aabb>() * aabbs.len()) as u64,
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
         );

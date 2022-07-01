@@ -14,4 +14,5 @@ glam = "0.20.5"
 memoffset = "0.6.5"
 
 kea_gpu = { path = "../kea_gpu" }
+kea_gpu_shaderlib = { path = "../kea_gpu_shaderlib" }
 kea_renderer_shaders = { path = "../kea_renderer_shaders" }
