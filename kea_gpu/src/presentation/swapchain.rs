@@ -28,7 +28,14 @@ impl Swapchain {
             image_count
         };
 
-        let surface_format = device.physical_device().surface_formats(&surface)[0];
+        let available_formats = device.physical_device().surface_formats(&surface);
+        let surface_format = available_formats
+            .iter()
+            .find(|format| {
+                format.format == vk::Format::B8G8R8A8_UNORM
+                    && format.color_space == vk::ColorSpaceKHR::SRGB_NONLINEAR
+            })
+            .unwrap_or(&available_formats[0]);
 
         let present_mode = device
             .physical_device()
