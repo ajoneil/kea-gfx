@@ -1,5 +1,5 @@
 [package]
-name = "kea_renderer_shaders"
+name = "kea_gpu_shaderlib"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,7 +7,6 @@ edition = "2021"
 crate-type = ["dylib", "lib"]
 
 [dependencies]
-kea_gpu_shaderlib = { path = "../kea_gpu_shaderlib" }
 spirv-std = { git = "https://github.com/EmbarkStudios/rust-gpu", features = [
     "glam",
 ] }

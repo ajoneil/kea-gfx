@@ -401,12 +401,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "glam"
-version = "0.21.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "781aa11be58ef14b0cd7326618afcbd9cdb5ba686bdab7193d87cdc322cd7033"
-
-[[package]]
 name = "gpu-allocator"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -513,7 +507,7 @@ version = "0.1.0"
 dependencies = [
  "ash",
  "ash-window",
- "glam 0.21.2",
+ "glam",
  "gpu-allocator",
  "log",
  "memoffset",
@@ -523,13 +517,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "kea_gpu_shaderlib"
+version = "0.1.0"
+dependencies = [
+ "spirv-std",
+]
+
+[[package]]
 name = "kea_renderer"
 version = "0.1.0"
 dependencies = [
  "ash",
  "ash-window",
  "env_logger",
- "glam 0.21.2",
+ "glam",
  "gpu-allocator",
  "kea_gpu",
  "kea_renderer_shaders",
@@ -542,6 +543,7 @@ dependencies = [
 name = "kea_renderer_shaders"
 version = "0.1.0"
 dependencies = [
+ "kea_gpu_shaderlib",
  "spirv-std",
 ]
 
@@ -1009,9 +1011,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.81"
+version = "1.0.82"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b7ce2b32a1aed03c558dc61a5cd328f15aff2dbc17daad8fb8af04d2100e15c"
+checksum = "82c2c1fdcd807d1098552c5b9a36e425e42e9fbd7c6a37a8425f390f781f7fa7"
 dependencies = [
  "itoa",
  "ryu",
@@ -1020,9 +1022,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.8.1"
+version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc88c725d61fc6c3132893370cac4a0200e3fedf5da8331c570664b1987f5ca2"
+checksum = "2fd0db749597d91ff862fd1d55ea87f7855a744a8425a64695b6fca237d1dad1"
 
 [[package]]
 name = "smithay-client-toolkit"
@@ -1072,7 +1074,7 @@ version = "0.4.0-alpha.12"
 source = "git+https://github.com/EmbarkStudios/rust-gpu#0866cf591a7fdbbd15bdb3468e192bb9b6189fd0"
 dependencies = [
  "bitflags",
- "glam 0.20.5",
+ "glam",
  "num-traits",
  "spirv-std-macros",
  "spirv-types",

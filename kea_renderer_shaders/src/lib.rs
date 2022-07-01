@@ -20,6 +20,9 @@ use spirv_std::{
 #[allow(unused_imports)]
 use spirv_std::num_traits::Float;
 
+pub mod sphere;
+pub use sphere::Sphere;
+
 #[repr(C)]
 pub struct RayPayload {
     color: Vec3,
@@ -74,12 +77,6 @@ pub fn ray_miss(#[spirv(incoming_ray_payload)] ray_payload: &mut RayPayload) {
 #[spirv(closest_hit)]
 pub fn ray_hit(#[spirv(incoming_ray_payload)] ray_payload: &mut RayPayload) {
     ray_payload.color = vec3(1.0, 0.0, 0.0);
-}
-
-#[repr(C)]
-pub struct Sphere {
-    position: Vec3,
-    radius: f32,
 }
 
 #[spirv(intersection)]

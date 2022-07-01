@@ -1,5 +1,5 @@
 use ash::vk;
-use glam::{vec3, Vec3};
+use glam::vec3;
 use gpu_allocator::{
     vulkan::{Allocation, AllocationCreateDesc},
     MemoryLocation,
@@ -20,13 +20,14 @@ use kea_gpu::{
     device::Device,
     ray_tracing::{
         acceleration_structures::{
-            Aabb, AccelerationStructure, AccelerationStructureDescription, Geometry, ScratchBuffer,
+            AccelerationStructure, AccelerationStructureDescription, Geometry, ScratchBuffer,
         },
         shader_binding_table::{RayTracingShaderBindingTables, ShaderBindingTable},
     },
     storage::memory,
     Kea,
 };
+use kea_renderer_shaders::Sphere;
 use log::info;
 use std::{
     mem::{self, ManuallyDrop},
@@ -50,32 +51,6 @@ pub struct PathTracer {
     allocation: ManuallyDrop<Allocation>,
     _shader_binding_tables_buffer: AllocatedBuffer,
     shader_binding_tables: RayTracingShaderBindingTables,
-}
-
-#[derive(Debug)]
-#[repr(C)]
-struct Sphere {
-    position: Vec3,
-    radius: f32,
-}
-
-impl Sphere {
-    pub fn aabb(&self) -> Aabb {
-        let Sphere { position, radius } = self;
-
-        Aabb {
-            min: vec3(
-                position.x - radius,
-                position.y - radius,
-                position.z - radius,
-            ),
-            max: vec3(
-                position.x + radius,
-                position.y + radius,
-                position.z + radius,
-            ),
-        }
-    }
 }
 
 impl PathTracer {

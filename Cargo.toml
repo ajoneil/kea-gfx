@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "kea_gpu",
+    "kea_gpu_shaderlib",
     "kea_renderer",
-    "kea_renderer_shaders"
+    "kea_renderer_shaders",
 ]

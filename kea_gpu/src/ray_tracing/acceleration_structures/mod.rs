@@ -2,16 +2,9 @@ mod build;
 
 use crate::{core::buffer::AllocatedBuffer, device::Device};
 use ash::vk::{self};
-use glam::Vec3;
 use std::{marker::PhantomData, mem, sync::Arc};
 
 pub use self::build::ScratchBuffer;
-
-#[repr(C)]
-pub struct Aabb {
-    pub min: Vec3,
-    pub max: Vec3,
-}
 
 pub struct Geometry<'a> {
     geometry: vk::AccelerationStructureGeometryKHR,
