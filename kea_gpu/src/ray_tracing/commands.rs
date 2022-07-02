@@ -1,8 +1,9 @@
+use crate::commands::CommandBufferRecorder;
+
 use super::{
     AccelerationStructure, AccelerationStructureDescription, RayTracingShaderBindingTables,
     ScratchBuffer,
 };
-use crate::core::command::CommandBufferRecorder;
 
 impl CommandBufferRecorder<'_> {
     pub fn trace_rays(

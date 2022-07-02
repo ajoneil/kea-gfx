@@ -1,8 +1,6 @@
 use crate::{
-    core::{
-        command::{CommandBufferRecorder, CommandPool},
-        sync::{Fence, Semaphore},
-    },
+    commands::{CommandBufferRecorder, CommandPool},
+    core::sync::{Fence, Semaphore},
     device::Device,
 };
 use ash::vk;

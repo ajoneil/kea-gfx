@@ -1,3 +1,4 @@
+pub mod commands;
 pub mod core;
 pub mod debug;
 pub mod device;

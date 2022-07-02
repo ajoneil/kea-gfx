@@ -5,8 +5,8 @@ use gpu_allocator::{
     MemoryLocation,
 };
 use kea_gpu::{
+    commands::CommandBuffer,
     core::{
-        command::CommandPool,
         descriptor_set::{
             DescriptorPool, DescriptorSet, DescriptorSetLayout, DescriptorSetLayoutBinding,
         },
@@ -34,7 +34,6 @@ use std::{mem::ManuallyDrop, slice, sync::Arc};
 
 pub struct PathTracer {
     kea: Kea,
-    _command_pool: Arc<CommandPool>,
     _tl_acceleration_structure: AccelerationStructure,
     _bl_acceleration_structure: AccelerationStructure,
     pipeline: Pipeline,
@@ -53,7 +52,6 @@ pub struct PathTracer {
 
 impl PathTracer {
     pub fn new(kea: Kea) -> PathTracer {
-        let command_pool = CommandPool::new(kea.device().graphics_queue());
         let (
             tl_acceleration_structure,
             bl_acceleration_structure,
@@ -68,7 +66,6 @@ impl PathTracer {
             kea.device(),
             kea.presenter().format(),
             kea.presenter().size(),
-            &command_pool,
         );
 
         let descriptor_set = Self::create_descriptor_set(
@@ -88,7 +85,6 @@ impl PathTracer {
 
         PathTracer {
             kea,
-            _command_pool: command_pool,
             _tl_acceleration_structure: tl_acceleration_structure,
             _bl_acceleration_structure: bl_acceleration_structure,
             pipeline,
@@ -166,17 +162,9 @@ impl PathTracer {
             vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL,
         );
 
-        let cmd = CommandPool::new(kea.device().graphics_queue())
-            .allocate_buffer()
-            .record(|cmd| {
-                cmd.build_acceleration_structure(
-                    &blas,
-                    &bl_acceleration_structure,
-                    &scratch_buffer,
-                );
-            })
-            .submit()
-            .wait_and_reset();
+        CommandBuffer::now(kea.device(), |cmd| {
+            cmd.build_acceleration_structure(&blas, &bl_acceleration_structure, &scratch_buffer);
+        });
 
         let identity_transform = vk::TransformMatrixKHR {
             matrix: [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
@@ -232,11 +220,9 @@ impl PathTracer {
             vk::AccelerationStructureTypeKHR::TOP_LEVEL,
         );
 
-        cmd.record(|cmd| {
+        CommandBuffer::now(kea.device(), |cmd| {
             cmd.build_acceleration_structure(&tlas, &tl_acceleration_structure, &scratch_buffer);
-        })
-        .submit()
-        .wait();
+        });
 
         (
             tl_acceleration_structure,
@@ -348,10 +334,9 @@ impl PathTracer {
     }
 
     fn create_storage_image(
-        device: &Device,
+        device: &Arc<Device>,
         format: vk::Format,
         size: (u32, u32),
-        command_pool: &Arc<CommandPool>,
     ) -> (vk::Image, vk::ImageView, Allocation) {
         let image_create_info = vk::ImageCreateInfo::builder()
             .image_type(vk::ImageType::TYPE_2D)
@@ -404,21 +389,17 @@ impl PathTracer {
 
         let image_view = unsafe { device.raw().create_image_view(&view_info, None) }.unwrap();
 
-        command_pool
-            .allocate_buffer()
-            .record(|cmd| {
-                cmd.transition_image_layout(
-                    image,
-                    vk::ImageLayout::UNDEFINED,
-                    vk::ImageLayout::GENERAL,
-                    vk::AccessFlags::empty(),
-                    vk::AccessFlags::empty(),
-                    vk::PipelineStageFlags::TOP_OF_PIPE,
-                    vk::PipelineStageFlags::TOP_OF_PIPE,
-                )
-            })
-            .submit()
-            .wait();
+        CommandBuffer::now(device, |cmd| {
+            cmd.transition_image_layout(
+                image,
+                vk::ImageLayout::UNDEFINED,
+                vk::ImageLayout::GENERAL,
+                vk::AccessFlags::empty(),
+                vk::AccessFlags::empty(),
+                vk::PipelineStageFlags::TOP_OF_PIPE,
+                vk::PipelineStageFlags::TOP_OF_PIPE,
+            )
+        });
 
         (image, image_view, allocation)
     }

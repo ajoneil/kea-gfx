@@ -1,5 +1,5 @@
 use super::{AlignedBuffer, Buffer};
-use crate::{core::command::CommandPool, device::Device};
+use crate::{commands::CommandBuffer, device::Device};
 use ash::vk;
 use gpu_allocator::MemoryLocation;
 use std::sync::Arc;
@@ -48,10 +48,9 @@ impl TransferBuffer {
             MemoryLocation::GpuOnly,
         );
 
-        let cmd = CommandPool::new(self.device.graphics_queue()).allocate_buffer();
-        cmd.record(|cmd| cmd.copy_buffer(&self.cpu_buffer, &gpu_buffer))
-            .submit()
-            .wait();
+        CommandBuffer::now(&self.device, |cmd| {
+            cmd.copy_buffer(&self.cpu_buffer, &gpu_buffer)
+        });
 
         gpu_buffer
     }
@@ -66,10 +65,9 @@ impl TransferBuffer {
             self.name.clone(),
         );
 
-        let cmd = CommandPool::new(self.device.graphics_queue()).allocate_buffer();
-        cmd.record(|cmd| cmd.copy_buffer_aligned(&self.cpu_buffer, &gpu_buffer))
-            .submit()
-            .wait();
+        CommandBuffer::now(&self.device, |cmd| {
+            cmd.copy_buffer_aligned(&self.cpu_buffer, &gpu_buffer)
+        });
 
         gpu_buffer
     }
