@@ -12,6 +12,7 @@ pub struct UnallocatedBuffer {
 
 impl UnallocatedBuffer {
     pub fn new(device: Arc<Device>, size: u64, usage: vk::BufferUsageFlags) -> UnallocatedBuffer {
+        let usage = usage | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS;
         let buffer_info = vk::BufferCreateInfo::builder()
             .size(size)
             .usage(usage)

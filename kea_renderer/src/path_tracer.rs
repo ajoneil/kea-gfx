@@ -159,8 +159,7 @@ impl PathTracer {
         let bl_acceleration_structure_buffer = Buffer::new(
             kea.device().clone(),
             build_sizes.acceleration_structure,
-            vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR
-                | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+            vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR,
             "bl acceleration structure".to_string(),
             MemoryLocation::GpuOnly,
         );
@@ -209,8 +208,7 @@ impl PathTracer {
         let tlas_buffer = TransferBuffer::new(
             kea.device().clone(),
             mem::size_of_val(&tlas_instance) as u64,
-            vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
-                | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+            vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
             "tlas build".to_string(),
         );
         tlas_buffer
@@ -230,8 +228,7 @@ impl PathTracer {
         let tl_acceleration_structure_buffer = Buffer::new(
             kea.device().clone(),
             build_sizes.acceleration_structure,
-            vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR
-                | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+            vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR,
             "tl acceleration structure".to_string(),
             MemoryLocation::GpuOnly,
         );
@@ -261,7 +258,7 @@ impl PathTracer {
         let spheres_buffer = TransferBuffer::new(
             device.clone(),
             (mem::size_of::<Sphere>() * spheres.len()) as u64,
-            vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+            vk::BufferUsageFlags::STORAGE_BUFFER,
             "spheres".to_string(),
         );
         info!("spheres data {:?}", spheres);
@@ -272,8 +269,7 @@ impl PathTracer {
         let aabbs_buffer = TransferBuffer::new(
             device.clone(),
             (mem::size_of::<Aabb>() * aabbs.len()) as u64,
-            vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
-                | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+            vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
             "aabbs".to_string(),
         );
         aabbs_buffer.cpu_buffer().fill(&aabbs);
@@ -576,8 +572,7 @@ impl PathTracer {
         let binding_table_buffer = TransferBuffer::new(
             device.clone(),
             buffer_size as _,
-            vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR
-                | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+            vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR,
             "rt shader binding table".to_string(),
         );
 
