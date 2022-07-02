@@ -1,4 +1,4 @@
-use super::UnallocatedBuffer;
+use super::{TransferBuffer, UnallocatedBuffer};
 use crate::device::Device;
 use ash::vk;
 use gpu_allocator::{vulkan::Allocation, MemoryLocation};
@@ -24,6 +24,30 @@ impl Buffer {
         location: MemoryLocation,
     ) -> Buffer {
         UnallocatedBuffer::new(device, size, usage).allocate(name, location)
+    }
+
+    pub fn new_from_data<T>(
+        device: Arc<Device>,
+        data: &[T],
+        usage: vk::BufferUsageFlags,
+        name: String,
+        location: MemoryLocation,
+    ) -> Buffer {
+        let size = data.len() * mem::size_of::<T>();
+        if location == MemoryLocation::CpuToGpu {
+            let buffer = Buffer::new(device, size as _, usage, name, MemoryLocation::CpuToGpu);
+
+            buffer.fill(data);
+
+            buffer
+        } else if location == MemoryLocation::GpuOnly {
+            let buffer = TransferBuffer::new(device, size as _, usage, name);
+            buffer.cpu_buffer().fill(data);
+
+            buffer.transfer_to_gpu()
+        } else {
+            panic!("Dont't know how to handle memory location");
+        }
     }
 
     pub unsafe fn from_bound_allocation(
