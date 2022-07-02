@@ -18,8 +18,8 @@ use kea_gpu::{
     },
     device::Device,
     ray_tracing::{
-        AccelerationStructure, AccelerationStructureDescription, Geometry,
-        RayTracingShaderBindingTables, ScratchBuffer, ShaderBindingTable,
+        scenes::{Geometry, GeometryInstance, Scene},
+        RayTracingShaderBindingTables, ShaderBindingTable,
     },
     storage::{
         buffers::{Buffer, TransferBuffer},
@@ -34,15 +34,11 @@ use std::{mem::ManuallyDrop, slice, sync::Arc};
 
 pub struct PathTracer {
     kea: Kea,
-    _tl_acceleration_structure: AccelerationStructure,
-    _bl_acceleration_structure: AccelerationStructure,
+    _scene: Scene,
     pipeline: Pipeline,
     pipeline_layout: PipelineLayout,
     _descriptor_set_layout: DescriptorSetLayout,
     descriptor_set: DescriptorSet,
-    _tlas_buffer: Buffer,
-    _aabbs_buffer: Buffer,
-    _spheres_buffer: Buffer,
     storage_image: vk::Image,
     storage_image_view: vk::ImageView,
     allocation: ManuallyDrop<Allocation>,
@@ -52,13 +48,7 @@ pub struct PathTracer {
 
 impl PathTracer {
     pub fn new(kea: Kea) -> PathTracer {
-        let (
-            tl_acceleration_structure,
-            bl_acceleration_structure,
-            tlas_buffer,
-            spheres_buffer,
-            aabbs_buffer,
-        ) = Self::build_acceleration_structure(&kea);
+        let scene = Self::build_scene(&kea);
         let (pipeline, pipeline_layout, descriptor_set_layout) =
             Self::create_pipeline(kea.device());
 
@@ -71,9 +61,15 @@ impl PathTracer {
         let descriptor_set = Self::create_descriptor_set(
             kea.device(),
             &descriptor_set_layout,
-            &tl_acceleration_structure,
+            &scene,
             storage_image_view,
-            &spheres_buffer,
+            &scene
+                .instances()
+                .iter()
+                .nth(0)
+                .unwrap()
+                .geometry()
+                .additional_data(),
         );
 
         let (shader_binding_tables_buffer, shader_binding_tables) =
@@ -85,15 +81,11 @@ impl PathTracer {
 
         PathTracer {
             kea,
-            _tl_acceleration_structure: tl_acceleration_structure,
-            _bl_acceleration_structure: bl_acceleration_structure,
+            _scene: scene,
             pipeline,
             pipeline_layout,
             _descriptor_set_layout: descriptor_set_layout,
             descriptor_set,
-            _tlas_buffer: tlas_buffer,
-            _spheres_buffer: spheres_buffer,
-            _aabbs_buffer: aabbs_buffer,
             storage_image,
             storage_image_view,
             allocation: ManuallyDrop::new(allocation),
@@ -102,15 +94,7 @@ impl PathTracer {
         }
     }
 
-    fn build_acceleration_structure(
-        kea: &Kea,
-    ) -> (
-        AccelerationStructure,
-        AccelerationStructure,
-        Buffer,
-        Buffer,
-        Buffer,
-    ) {
+    fn build_scene(kea: &Kea) -> Scene {
         let spheres = [
             Sphere {
                 position: vec3(0.0, 0.0, 1.5),
@@ -139,98 +123,19 @@ impl PathTracer {
         ];
 
         let (spheres_buffer, aabbs_buffer) = Self::create_buffers(kea.device(), &spheres);
-        let geometries = [Geometry::aabbs(&aabbs_buffer)];
-        let blas = AccelerationStructureDescription::new(
-            vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL,
-            &geometries,
-        );
-
-        let build_sizes = blas.build_sizes(kea.device());
-        let scratch_buffer = ScratchBuffer::new(kea.device().clone(), build_sizes.build_scratch);
-
-        let bl_acceleration_structure_buffer = Buffer::new(
-            kea.device().clone(),
-            build_sizes.acceleration_structure,
-            vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR,
-            "bl acceleration structure".to_string(),
-            MemoryLocation::GpuOnly,
-        );
-
-        let bl_acceleration_structure = AccelerationStructure::new(
-            kea.device(),
-            bl_acceleration_structure_buffer,
-            vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL,
-        );
-
-        CommandBuffer::now(kea.device(), |cmd| {
-            cmd.build_acceleration_structure(&blas, &bl_acceleration_structure, &scratch_buffer);
-        });
-
-        let identity_transform = vk::TransformMatrixKHR {
-            matrix: [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
-        };
-
-        let custom_index = 0;
-        let mask = 0xff;
-        let shader_binding_table_record_offset = 0;
-        let flags = vk::GeometryInstanceFlagsKHR::TRIANGLE_FACING_CULL_DISABLE
-            .as_raw()
-            .try_into()
-            .unwrap();
-        let tlas_instance = vk::AccelerationStructureInstanceKHR {
-            transform: identity_transform,
-            instance_custom_index_and_mask: vk::Packed24_8::new(custom_index, mask),
-            instance_shader_binding_table_record_offset_and_flags: vk::Packed24_8::new(
-                shader_binding_table_record_offset,
-                flags,
-            ),
-            acceleration_structure_reference: vk::AccelerationStructureReferenceKHR {
-                // device_handle: bl_acceleration_structure.device_address(),
-                host_handle: unsafe { bl_acceleration_structure.raw() },
-            },
-        };
-        let tlas_buffer = Buffer::new_from_data(
-            kea.device().clone(),
-            slice::from_ref(&tlas_instance),
-            vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
-            "tlas build".to_string(),
-            MemoryLocation::GpuOnly,
-        );
-
-        let geometries = [Geometry::instances(&tlas_buffer)];
-        let tlas = AccelerationStructureDescription::new(
-            vk::AccelerationStructureTypeKHR::TOP_LEVEL,
-            &geometries,
-        );
-
-        let build_sizes = tlas.build_sizes(kea.device());
-        let scratch_buffer = ScratchBuffer::new(kea.device().clone(), build_sizes.build_scratch);
-
-        let tl_acceleration_structure_buffer = Buffer::new(
-            kea.device().clone(),
-            build_sizes.acceleration_structure,
-            vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR,
-            "tl acceleration structure".to_string(),
-            MemoryLocation::GpuOnly,
-        );
-
-        let tl_acceleration_structure = AccelerationStructure::new(
-            kea.device(),
-            tl_acceleration_structure_buffer,
-            vk::AccelerationStructureTypeKHR::TOP_LEVEL,
-        );
-
-        CommandBuffer::now(kea.device(), |cmd| {
-            cmd.build_acceleration_structure(&tlas, &tl_acceleration_structure, &scratch_buffer);
-        });
-
-        (
-            tl_acceleration_structure,
-            bl_acceleration_structure,
-            tlas_buffer,
-            spheres_buffer,
+        let mut geometry = Geometry::new(
+            "spheres".to_string(),
             aabbs_buffer,
-        )
+            Arc::new(spheres_buffer),
+        );
+        geometry.build();
+        let geometry_instance = GeometryInstance::new(Arc::new(geometry));
+
+        let mut scene = Scene::new(kea.device().clone(), "test scene".to_string());
+        scene.add_instance(geometry_instance);
+        scene.build();
+
+        scene
     }
 
     fn create_buffers(device: &Arc<Device>, spheres: &[Sphere]) -> (Buffer, Buffer) {
@@ -407,7 +312,7 @@ impl PathTracer {
     fn create_descriptor_set(
         device: &Arc<Device>,
         layout: &DescriptorSetLayout,
-        tl_acceleration_structure: &AccelerationStructure,
+        scene: &Scene,
         storage_image_view: vk::ImageView,
         spheres_buffer: &Buffer,
     ) -> DescriptorSet {
@@ -429,7 +334,7 @@ impl PathTracer {
         let descriptor_sets = descriptor_pool.allocate_descriptor_sets(slice::from_ref(layout));
         let descriptor_set = descriptor_sets.into_iter().nth(0).unwrap();
 
-        let raw_as = unsafe { tl_acceleration_structure.raw() };
+        let raw_as = unsafe { scene.acceleration_structure().raw() };
         let accel_slice = std::slice::from_ref(&raw_as);
         let mut write_set_as = vk::WriteDescriptorSetAccelerationStructureKHR::builder()
             .acceleration_structures(accel_slice);

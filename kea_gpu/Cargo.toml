@@ -14,3 +14,4 @@ memoffset = "0.6.5"
 num-traits = "0.2.15"
 
 spirv-builder = { git = "https://github.com/EmbarkStudios/rust-gpu" }
+kea_gpu_shaderlib = { path = "../kea_gpu_shaderlib" }

@@ -509,6 +509,7 @@ dependencies = [
  "ash-window",
  "glam",
  "gpu-allocator",
+ "kea_gpu_shaderlib",
  "log",
  "memoffset",
  "num-traits",

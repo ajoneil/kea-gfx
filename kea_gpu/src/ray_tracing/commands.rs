@@ -1,9 +1,10 @@
+use std::slice;
+
+use ash::vk;
+
 use crate::commands::CommandBufferRecorder;
 
-use super::{
-    AccelerationStructure, AccelerationStructureDescription, RayTracingShaderBindingTables,
-    ScratchBuffer,
-};
+use super::RayTracingShaderBindingTables;
 
 impl CommandBufferRecorder<'_> {
     pub fn trace_rays(
@@ -28,23 +29,17 @@ impl CommandBufferRecorder<'_> {
 
     pub fn build_acceleration_structure(
         &self,
-        description: &AccelerationStructureDescription,
-        destination: &AccelerationStructure,
-        scratch: &ScratchBuffer,
+        geometry_info: vk::AccelerationStructureBuildGeometryInfoKHR,
+        range: vk::AccelerationStructureBuildRangeInfoKHR,
     ) {
-        let description = description.bind_for_build(destination, scratch);
-        log::debug!("geo: {:?}", unsafe {
-            *description.geometry_info().p_geometries
-        });
-        log::debug!("ranges: {:?}", description.ranges());
         unsafe {
             self.device()
                 .ext()
                 .acceleration_structure()
                 .cmd_build_acceleration_structures(
                     self.buffer().raw(),
-                    &[description.geometry_info()],
-                    &[description.ranges()],
+                    slice::from_ref(&geometry_info),
+                    slice::from_ref(&slice::from_ref(&range)),
                 );
         }
     }

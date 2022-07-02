@@ -52,7 +52,7 @@ impl UnallocatedBuffer {
         self.size as usize
     }
 
-    pub fn device(&self) -> &Device {
+    pub fn device(&self) -> &Arc<Device> {
         &self.device
     }
 

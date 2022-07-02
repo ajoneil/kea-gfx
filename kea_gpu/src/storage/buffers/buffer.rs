@@ -102,7 +102,7 @@ impl Buffer {
         &self.buffer
     }
 
-    pub fn device(&self) -> &Device {
+    pub fn device(&self) -> &Arc<Device> {
         self.buffer.device()
     }
 
