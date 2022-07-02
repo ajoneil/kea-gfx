@@ -21,7 +21,10 @@ use kea_gpu::{
         AccelerationStructure, AccelerationStructureDescription, Geometry,
         RayTracingShaderBindingTables, ScratchBuffer, ShaderBindingTable,
     },
-    storage::{buffers::Buffer, memory},
+    storage::{
+        buffers::{Buffer, TransferBuffer},
+        memory,
+    },
     Kea,
 };
 use kea_gpu_shaderlib::Aabb;
@@ -203,15 +206,17 @@ impl PathTracer {
                 host_handle: unsafe { bl_acceleration_structure.raw() },
             },
         };
-        let tlas_buffer = Buffer::new(
+        let tlas_buffer = TransferBuffer::new(
             kea.device().clone(),
             mem::size_of_val(&tlas_instance) as u64,
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
             "tlas build".to_string(),
-            MemoryLocation::CpuToGpu,
         );
-        tlas_buffer.fill(&[tlas_instance]);
+        tlas_buffer
+            .cpu_buffer()
+            .fill(slice::from_ref(&tlas_instance));
+        let tlas_buffer = tlas_buffer.transfer_to_gpu();
 
         let geometries = [Geometry::instances(&tlas_buffer)];
         let tlas = AccelerationStructureDescription::new(
@@ -253,26 +258,26 @@ impl PathTracer {
     }
 
     fn create_buffers(device: &Arc<Device>, spheres: &[Sphere]) -> (Buffer, Buffer) {
-        let spheres_buffer = Buffer::new(
+        let spheres_buffer = TransferBuffer::new(
             device.clone(),
             (mem::size_of::<Sphere>() * spheres.len()) as u64,
             vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
             "spheres".to_string(),
-            MemoryLocation::CpuToGpu,
         );
         info!("spheres data {:?}", spheres);
-        spheres_buffer.fill(spheres);
+        spheres_buffer.cpu_buffer().fill(spheres);
+        let spheres_buffer = spheres_buffer.transfer_to_gpu();
 
         let aabbs: Vec<Aabb> = spheres.iter().map(|s: &Sphere| s.aabb()).collect();
-        let aabbs_buffer = Buffer::new(
+        let aabbs_buffer = TransferBuffer::new(
             device.clone(),
             (mem::size_of::<Aabb>() * aabbs.len()) as u64,
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
             "aabbs".to_string(),
-            MemoryLocation::CpuToGpu,
         );
-        aabbs_buffer.fill(&aabbs);
+        aabbs_buffer.cpu_buffer().fill(&aabbs);
+        let aabbs_buffer = aabbs_buffer.transfer_to_gpu();
 
         (spheres_buffer, aabbs_buffer)
     }
@@ -568,19 +573,19 @@ impl PathTracer {
             }
         }
 
-        let binding_table_buffer = Buffer::new(
+        let binding_table_buffer = TransferBuffer::new(
             device.clone(),
             buffer_size as _,
             vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
             "rt shader binding table".to_string(),
-            MemoryLocation::CpuToGpu,
         );
 
         info!("unaligned shader handles {:?}", group_handles);
         info!("aligned shader handles {:?}", aligned_handles);
 
-        binding_table_buffer.fill(&aligned_handles);
+        binding_table_buffer.cpu_buffer().fill(&aligned_handles);
+        let binding_table_buffer = binding_table_buffer.transfer_to_gpu();
 
         let buffer_address = binding_table_buffer.device_address();
 

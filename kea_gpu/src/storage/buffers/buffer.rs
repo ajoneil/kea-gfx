@@ -12,6 +12,7 @@ pub struct Buffer {
     name: String,
     buffer: UnallocatedBuffer,
     allocation: ManuallyDrop<Allocation>,
+    location: MemoryLocation,
 }
 
 impl Buffer {
@@ -29,11 +30,13 @@ impl Buffer {
         name: String,
         buffer: UnallocatedBuffer,
         allocation: Allocation,
+        location: MemoryLocation,
     ) -> Self {
         Self {
             name,
             buffer,
             allocation: ManuallyDrop::new(allocation),
+            location,
         }
     }
 
@@ -43,6 +46,10 @@ impl Buffer {
                 &vk::BufferDeviceAddressInfo::builder().buffer(self.buffer.raw()),
             )
         }
+    }
+
+    pub fn size(&self) -> usize {
+        self.buffer.size()
     }
 
     pub fn allocated_size(&self) -> usize {
@@ -73,6 +80,18 @@ impl Buffer {
 
     pub fn device(&self) -> &Device {
         self.buffer.device()
+    }
+
+    pub fn location(&self) -> MemoryLocation {
+        self.location
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub unsafe fn raw(&self) -> vk::Buffer {
+        self.buffer.raw()
     }
 }
 

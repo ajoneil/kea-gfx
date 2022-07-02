@@ -1,5 +1,6 @@
 use crate::storage::buffers::Buffer;
 use ash::vk;
+use gpu_allocator::MemoryLocation;
 use std::{marker::PhantomData, mem};
 
 pub struct Geometry<'a> {
@@ -12,6 +13,15 @@ pub struct Geometry<'a> {
 
 impl<'a> Geometry<'a> {
     pub fn aabbs(buffer: &'a Buffer) -> Geometry<'a> {
+        if buffer.location() != MemoryLocation::GpuOnly {
+            log::warn!(
+                "Buffer {} is used for AABBs but it's not in exclusive GPU memory - \
+                 unless you're debugging use a TransferBuffer to move the data to \
+                 the GPU first",
+                buffer.name()
+            )
+        }
+
         let geometry_data = vk::AccelerationStructureGeometryDataKHR {
             aabbs: vk::AccelerationStructureGeometryAabbsDataKHR::builder()
                 .data(vk::DeviceOrHostAddressConstKHR {
@@ -41,6 +51,15 @@ impl<'a> Geometry<'a> {
     }
 
     pub fn instances(buffer: &'a Buffer) -> Geometry<'a> {
+        if buffer.location() != MemoryLocation::GpuOnly {
+            log::warn!(
+                "Buffer {} is used for accel struct instances but it's not in exclusive \
+                 GPU memory - unless you're debugging use a TransferBuffer to move the \
+                 data to the GPU first",
+                buffer.name()
+            )
+        }
+
         let geometry_data = vk::AccelerationStructureGeometryDataKHR {
             instances: vk::AccelerationStructureGeometryInstancesDataKHR::builder()
                 .data(vk::DeviceOrHostAddressConstKHR {
