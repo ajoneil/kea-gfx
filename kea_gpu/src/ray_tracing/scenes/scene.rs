@@ -11,6 +11,7 @@ pub struct Scene {
     name: String,
     instances: Vec<GeometryInstance>,
     acceleration_structure: Option<Arc<AccelerationStructure>>,
+    instances_buffer: Option<Buffer>,
 }
 
 impl Scene {
@@ -20,6 +21,7 @@ impl Scene {
             name,
             instances: vec![],
             acceleration_structure: None,
+            instances_buffer: None,
         }
     }
 
@@ -112,6 +114,7 @@ impl Scene {
             cmd.build_acceleration_structure(geometry_info, range);
         });
 
+        self.instances_buffer = Some(instances_buffer);
         self.acceleration_structure = Some(Arc::new(acceleration_structure));
     }
 }
