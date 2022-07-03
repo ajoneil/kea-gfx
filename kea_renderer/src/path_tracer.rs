@@ -1,9 +1,6 @@
 use ash::vk;
 use glam::vec3;
-use gpu_allocator::{
-    vulkan::{Allocation, AllocationCreateDesc},
-    MemoryLocation,
-};
+use gpu_allocator::MemoryLocation;
 use kea_gpu::{
     commands::CommandBuffer,
     core::{
@@ -23,6 +20,7 @@ use kea_gpu::{
     },
     storage::{
         buffers::{Buffer, TransferBuffer},
+        images::Image,
         memory,
     },
     Kea,
@@ -30,7 +28,7 @@ use kea_gpu::{
 use kea_gpu_shaderlib::Aabb;
 use kea_renderer_shaders::Sphere;
 use log::info;
-use std::{mem::ManuallyDrop, slice, sync::Arc};
+use std::{slice, sync::Arc};
 
 pub struct PathTracer {
     kea: Kea,
@@ -39,9 +37,8 @@ pub struct PathTracer {
     pipeline_layout: PipelineLayout,
     _descriptor_set_layout: DescriptorSetLayout,
     descriptor_set: DescriptorSet,
-    storage_image: vk::Image,
+    storage_image: Image,
     storage_image_view: vk::ImageView,
-    allocation: ManuallyDrop<Allocation>,
     _shader_binding_tables_buffer: Buffer,
     shader_binding_tables: RayTracingShaderBindingTables,
 }
@@ -49,14 +46,15 @@ pub struct PathTracer {
 impl PathTracer {
     pub fn new(kea: Kea) -> PathTracer {
         let scene = Self::build_scene(&kea);
-        let (pipeline, pipeline_layout, descriptor_set_layout) =
-            Self::create_pipeline(kea.device());
 
-        let (storage_image, storage_image_view, allocation) = Self::create_storage_image(
+        let (storage_image, storage_image_view) = Self::create_storage_image(
             kea.device(),
             kea.presenter().format(),
             kea.presenter().size(),
         );
+
+        let (pipeline, pipeline_layout, descriptor_set_layout) =
+            Self::create_pipeline(kea.device());
 
         let descriptor_set = Self::create_descriptor_set(
             kea.device(),
@@ -88,7 +86,6 @@ impl PathTracer {
             descriptor_set,
             storage_image,
             storage_image_view,
-            allocation: ManuallyDrop::new(allocation),
             _shader_binding_tables_buffer: shader_binding_tables_buffer,
             shader_binding_tables,
         }
@@ -242,43 +239,15 @@ impl PathTracer {
         device: &Arc<Device>,
         format: vk::Format,
         size: (u32, u32),
-    ) -> (vk::Image, vk::ImageView, Allocation) {
-        let image_create_info = vk::ImageCreateInfo::builder()
-            .image_type(vk::ImageType::TYPE_2D)
-            .format(format)
-            .extent(vk::Extent3D {
-                width: size.0,
-                height: size.1,
-                depth: 1,
-            })
-            .mip_levels(1)
-            .array_layers(1)
-            .samples(vk::SampleCountFlags::TYPE_1)
-            .tiling(vk::ImageTiling::OPTIMAL)
-            .usage(vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_SRC)
-            .initial_layout(vk::ImageLayout::UNDEFINED);
-
-        let image = unsafe { device.raw().create_image(&image_create_info, None) }.unwrap();
-        let requirements = unsafe { device.raw().get_image_memory_requirements(image) };
-
-        let allocation = device
-            .allocator()
-            .lock()
-            .unwrap()
-            .allocate(&AllocationCreateDesc {
-                name: "rt image output",
-                requirements,
-                location: MemoryLocation::GpuOnly,
-                linear: true,
-            })
-            .unwrap();
-
-        unsafe {
-            device
-                .raw()
-                .bind_image_memory(image, allocation.memory(), allocation.offset())
-        }
-        .unwrap();
+    ) -> (Image, vk::ImageView) {
+        let image = Image::new(
+            device.clone(),
+            size,
+            format,
+            vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_SRC,
+            "rt image output".to_string(),
+            MemoryLocation::GpuOnly,
+        );
 
         let view_info = vk::ImageViewCreateInfo::builder()
             .view_type(vk::ImageViewType::TYPE_2D)
@@ -290,13 +259,13 @@ impl PathTracer {
                 base_array_layer: 0,
                 layer_count: 1,
             })
-            .image(image);
+            .image(unsafe { image.raw() });
 
         let image_view = unsafe { device.raw().create_image_view(&view_info, None) }.unwrap();
 
         CommandBuffer::now(device, |cmd| {
             cmd.transition_image_layout(
-                image,
+                unsafe { image.raw() },
                 vk::ImageLayout::UNDEFINED,
                 vk::ImageLayout::GENERAL,
                 vk::AccessFlags::empty(),
@@ -306,7 +275,7 @@ impl PathTracer {
             )
         });
 
-        (image, image_view, allocation)
+        (image, image_view)
     }
 
     fn create_descriptor_set(
@@ -515,7 +484,7 @@ impl PathTracer {
             );
 
             cmd.transition_image_layout(
-                self.storage_image,
+                unsafe { self.storage_image.raw() },
                 vk::ImageLayout::GENERAL,
                 vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
                 vk::AccessFlags::empty(),
@@ -544,7 +513,11 @@ impl PathTracer {
                 })
                 .build();
 
-            cmd.copy_image(self.storage_image, swapchain_image_view.image, &copy_region);
+            cmd.copy_image(
+                unsafe { self.storage_image.raw() },
+                swapchain_image_view.image,
+                &copy_region,
+            );
 
             cmd.transition_image_layout(
                 swapchain_image_view.image,
@@ -557,7 +530,7 @@ impl PathTracer {
             );
 
             cmd.transition_image_layout(
-                self.storage_image,
+                unsafe { self.storage_image.raw() },
                 vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
                 vk::ImageLayout::GENERAL,
                 vk::AccessFlags::TRANSFER_READ,
@@ -577,17 +550,6 @@ impl Drop for PathTracer {
                 .device()
                 .raw()
                 .destroy_image_view(self.storage_image_view, None);
-            self.kea
-                .device()
-                .raw()
-                .destroy_image(self.storage_image, None);
-            self.kea
-                .device()
-                .allocator()
-                .lock()
-                .unwrap()
-                .free(ManuallyDrop::take(&mut self.allocation))
-                .unwrap();
         }
     }
 }
