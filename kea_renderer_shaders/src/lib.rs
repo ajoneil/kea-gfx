@@ -5,14 +5,16 @@
     register_attr(spirv)
 )]
 // #![deny(warnings)]
+#![feature(const_type_id)]
 
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
 
+use core::any::TypeId;
+use kea_gpu_shaderlib::slots::{ShaderStage, Slot, SlotType};
 use spirv_std::{
     arch::report_intersection,
     glam::{vec2, vec3, vec4, UVec2, UVec3, Vec2, Vec3},
-    ray_tracing::{AccelerationStructure, RayFlags},
     Image,
 };
 
@@ -28,12 +30,38 @@ pub struct RayPayload {
     color: Vec3,
 }
 
+#[derive(Clone)]
+pub enum SlotId {
+    Scene,
+    OutputImage,
+    Spheres,
+}
+
+pub const SLOTS: [(SlotId, Slot); 3] = [
+    (
+        SlotId::Scene,
+        Slot::new(SlotType::AccelerationStructure, ShaderStage::RayGen),
+    ),
+    (
+        SlotId::OutputImage,
+        Slot::new(SlotType::Image, ShaderStage::RayGen),
+    ),
+    (
+        SlotId::Spheres,
+        Slot::new(
+            SlotType::Buffer(TypeId::of::<&[Sphere]>()),
+            ShaderStage::Intersection,
+        ),
+    ),
+];
+
 #[spirv(ray_generation)]
 pub fn generate_rays(
     #[spirv(launch_id)] launch_id: UVec3,
     #[spirv(launch_size)] launch_size: UVec3,
     #[spirv(ray_payload)] payload: &mut RayPayload,
-    #[spirv(descriptor_set = 0, binding = 0)] accel_structure: &AccelerationStructure,
+    #[spirv(descriptor_set = 0, binding = 0)]
+    accel_structure: &spirv_std::ray_tracing::AccelerationStructure,
     #[spirv(descriptor_set = 0, binding = 1)] image: &mut Image!(2D, format=rgba32f, sampled=false),
 ) {
     let ray_direction = ray_for_pixel(
@@ -43,7 +71,7 @@ pub fn generate_rays(
 
     unsafe {
         accel_structure.trace_ray(
-            RayFlags::NONE,
+            spirv_std::ray_tracing::RayFlags::NONE,
             0xff,
             0,
             0,
@@ -84,7 +112,7 @@ pub fn intersect_sphere(
     #[spirv(world_ray_origin)] ray_origin: Vec3,
     #[spirv(world_ray_direction)] ray_direction: Vec3,
     #[spirv(ray_geometry_index)] sphere_id: usize,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] spheres: &mut [Sphere],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] spheres: &[Sphere],
 ) {
     let _sphere = &spheres[sphere_id as usize];
     let sphere = Sphere {

@@ -1,9 +1,7 @@
 use super::CommandBuffer;
 use crate::{
-    core::{
-        descriptor_set::DescriptorSet,
-        pipeline::{Pipeline, PipelineLayout},
-    },
+    core::pipeline::{Pipeline, PipelineLayout},
+    descriptors::DescriptorSet,
     device::Device,
 };
 use ash::vk;

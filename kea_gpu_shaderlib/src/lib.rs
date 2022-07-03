@@ -5,8 +5,11 @@
     register_attr(spirv)
 )]
 // #![deny(warnings)]
+#![feature(const_type_id)]
 
 use spirv_std::glam::Vec3;
+
+pub mod slots;
 
 #[repr(C)]
 pub struct Aabb {

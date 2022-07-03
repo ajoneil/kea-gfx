@@ -4,20 +4,19 @@ use gpu_allocator::MemoryLocation;
 use kea_gpu::{
     commands::CommandBuffer,
     core::{
-        descriptor_set::{
-            DescriptorPool, DescriptorSet, DescriptorSetLayout, DescriptorSetLayoutBinding,
-        },
         pipeline::{
             Pipeline, PipelineDescription, PipelineLayout, PipelineShaderStage,
             RayTracingPipelineDescription,
         },
         shaders::ShaderModule,
     },
+    descriptors::{DescriptorPool, DescriptorSet, DescriptorSetLayout},
     device::Device,
     ray_tracing::{
         scenes::{Geometry, GeometryInstance, Scene},
         RayTracingShaderBindingTables, ShaderBindingTable,
     },
+    slots::SlotLayout,
     storage::{
         buffers::{Buffer, TransferBuffer},
         images::{Image, ImageView},
@@ -156,26 +155,8 @@ impl PathTracer {
     }
 
     fn create_pipeline(device: &Arc<Device>) -> (Pipeline, PipelineLayout, DescriptorSetLayout) {
-        let bindings = [
-            DescriptorSetLayoutBinding::new(
-                0,
-                vk::DescriptorType::ACCELERATION_STRUCTURE_KHR,
-                1,
-                vk::ShaderStageFlags::RAYGEN_KHR,
-            ),
-            DescriptorSetLayoutBinding::new(
-                1,
-                vk::DescriptorType::STORAGE_IMAGE,
-                1,
-                vk::ShaderStageFlags::RAYGEN_KHR,
-            ),
-            DescriptorSetLayoutBinding::new(
-                2,
-                vk::DescriptorType::STORAGE_BUFFER,
-                1,
-                vk::ShaderStageFlags::INTERSECTION_KHR,
-            ),
-        ];
+        let slot_layout = SlotLayout::new(kea_renderer_shaders::SLOTS.to_vec());
+        let bindings = slot_layout.bindings();
 
         let descriptor_set_layout = DescriptorSetLayout::new(device.clone(), &bindings);
         let pipeline_layout =

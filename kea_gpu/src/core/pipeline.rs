@@ -1,5 +1,5 @@
-use super::{descriptor_set::DescriptorSetLayout, shaders::ShaderEntryPoint};
-use crate::device::Device;
+use super::shaders::ShaderEntryPoint;
+use crate::{descriptors::DescriptorSetLayout, device::Device};
 use ash::vk;
 use std::{ffi::CString, pin::Pin, slice, sync::Arc};
 
