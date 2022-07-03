@@ -1,12 +1,12 @@
 use super::{Surface, SurfaceExt};
-use crate::{core::sync::Semaphore, device::Device};
+use crate::{
+    core::sync::Semaphore,
+    device::Device,
+    storage::images::{Image, ImageOwnership, ImageView},
+};
 use ash::vk;
+use gpu_allocator::MemoryLocation;
 use std::sync::Arc;
-
-pub struct SwapchainImageView {
-    pub image: vk::Image,
-    pub view: ImageView,
-}
 
 pub struct Swapchain {
     device: Arc<Device>,
@@ -14,7 +14,7 @@ pub struct Swapchain {
     raw: vk::SwapchainKHR,
     extent: vk::Extent2D,
     format: vk::Format,
-    image_views: Vec<SwapchainImageView>,
+    images: Vec<ImageView>,
 }
 
 impl Swapchain {
@@ -72,35 +72,48 @@ impl Swapchain {
         }
         .unwrap();
 
-        let images = unsafe { device.ext().swapchain().get_swapchain_images(raw) }.unwrap();
-        let image_views =
-            Self::create_swapchain_image_views(&images, surface_format.format, &device);
+        let images = Self::create_images(
+            device,
+            raw,
+            (extent.width, extent.height),
+            surface_format.format,
+        );
 
         Swapchain {
             raw,
             _surface: surface,
             format: surface_format.format,
-            image_views,
+            images,
             extent,
             device: device.clone(),
         }
     }
 
-    fn create_swapchain_image_views(
-        swapchain_images: &[vk::Image],
-        format: vk::Format,
+    fn create_images(
         device: &Arc<Device>,
-    ) -> Vec<SwapchainImageView> {
-        swapchain_images
-            .iter()
-            .map(|&image| SwapchainImageView {
-                image: image,
-                view: ImageView::new(image, format, device),
+        swapchain: vk::SwapchainKHR,
+        size: (u32, u32),
+        format: vk::Format,
+    ) -> Vec<ImageView> {
+        unsafe { device.ext().swapchain().get_swapchain_images(swapchain) }
+            .unwrap()
+            .into_iter()
+            .map(|raw| unsafe {
+                let image = Image::from_raw(
+                    device.clone(),
+                    raw,
+                    "Swapchain image".to_string(),
+                    size,
+                    format,
+                    MemoryLocation::GpuOnly,
+                    ImageOwnership::ExternallyOwned,
+                );
+                ImageView::new(Arc::new(image))
             })
             .collect()
     }
 
-    pub fn acquire_next_image(&self, semaphore: &Semaphore) -> (u32, &SwapchainImageView) {
+    pub fn acquire_next_image(&self, semaphore: &Semaphore) -> (u32, &ImageView) {
         let (image_index, _) = unsafe {
             self.device.ext().swapchain().acquire_next_image(
                 self.raw,
@@ -111,7 +124,7 @@ impl Swapchain {
         }
         .unwrap();
 
-        (image_index, &self.image_views[image_index as usize])
+        (image_index, &self.images[image_index as usize])
     }
 
     pub fn format(&self) -> vk::Format {
@@ -138,52 +151,6 @@ impl Drop for Swapchain {
                 .ext()
                 .swapchain()
                 .destroy_swapchain(self.raw, None);
-        }
-    }
-}
-
-pub struct ImageView {
-    raw: vk::ImageView,
-    device: Arc<Device>,
-}
-
-impl ImageView {
-    fn new(image: vk::Image, format: vk::Format, device: &Arc<Device>) -> ImageView {
-        let imageview_create_info = vk::ImageViewCreateInfo::builder()
-            .image(image)
-            .view_type(vk::ImageViewType::TYPE_2D)
-            .format(format)
-            .components(vk::ComponentMapping {
-                r: vk::ComponentSwizzle::IDENTITY,
-                g: vk::ComponentSwizzle::IDENTITY,
-                b: vk::ComponentSwizzle::IDENTITY,
-                a: vk::ComponentSwizzle::IDENTITY,
-            })
-            .subresource_range(vk::ImageSubresourceRange {
-                aspect_mask: vk::ImageAspectFlags::COLOR,
-                base_mip_level: 0,
-                level_count: 1,
-                base_array_layer: 0,
-                layer_count: 1,
-            });
-
-        let raw = unsafe { device.raw().create_image_view(&imageview_create_info, None) }.unwrap();
-
-        ImageView {
-            raw,
-            device: device.clone(),
-        }
-    }
-
-    pub unsafe fn raw(&self) -> vk::ImageView {
-        self.raw
-    }
-}
-
-impl Drop for ImageView {
-    fn drop(&mut self) {
-        unsafe {
-            self.device.raw().destroy_image_view(self.raw(), None);
         }
     }
 }

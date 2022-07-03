@@ -2,14 +2,12 @@ use crate::{
     commands::{CommandBufferRecorder, CommandPool},
     core::sync::{Fence, Semaphore},
     device::Device,
+    storage::images::ImageView,
 };
 use ash::vk;
 use std::sync::Arc;
 
-use super::{
-    swapchain::{Swapchain, SwapchainImageView},
-    Surface,
-};
+use super::{swapchain::Swapchain, Surface};
 
 pub struct Presenter {
     command_pool: Arc<CommandPool>,
@@ -55,7 +53,7 @@ impl Presenter {
 
     pub fn draw<F>(&self, func: F)
     where
-        F: FnOnce(&CommandBufferRecorder, &SwapchainImageView),
+        F: FnOnce(&CommandBufferRecorder, &ImageView),
     {
         self.in_flight_fence.wait_and_reset();
 

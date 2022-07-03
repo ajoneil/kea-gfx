@@ -20,7 +20,7 @@ use kea_gpu::{
     },
     storage::{
         buffers::{Buffer, TransferBuffer},
-        images::Image,
+        images::{Image, ImageView},
         memory,
     },
     Kea,
@@ -37,8 +37,7 @@ pub struct PathTracer {
     pipeline_layout: PipelineLayout,
     _descriptor_set_layout: DescriptorSetLayout,
     descriptor_set: DescriptorSet,
-    storage_image: Image,
-    storage_image_view: vk::ImageView,
+    storage_image: ImageView,
     _shader_binding_tables_buffer: Buffer,
     shader_binding_tables: RayTracingShaderBindingTables,
 }
@@ -47,7 +46,7 @@ impl PathTracer {
     pub fn new(kea: Kea) -> PathTracer {
         let scene = Self::build_scene(&kea);
 
-        let (storage_image, storage_image_view) = Self::create_storage_image(
+        let storage_image = Self::create_storage_image(
             kea.device(),
             kea.presenter().format(),
             kea.presenter().size(),
@@ -60,7 +59,7 @@ impl PathTracer {
             kea.device(),
             &descriptor_set_layout,
             &scene,
-            storage_image_view,
+            &storage_image,
             &scene
                 .instances()
                 .iter()
@@ -85,7 +84,6 @@ impl PathTracer {
             _descriptor_set_layout: descriptor_set_layout,
             descriptor_set,
             storage_image,
-            storage_image_view,
             _shader_binding_tables_buffer: shader_binding_tables_buffer,
             shader_binding_tables,
         }
@@ -239,33 +237,21 @@ impl PathTracer {
         device: &Arc<Device>,
         format: vk::Format,
         size: (u32, u32),
-    ) -> (Image, vk::ImageView) {
+    ) -> ImageView {
         let image = Image::new(
             device.clone(),
+            "rt image output".to_string(),
             size,
             format,
             vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_SRC,
-            "rt image output".to_string(),
             MemoryLocation::GpuOnly,
         );
 
-        let view_info = vk::ImageViewCreateInfo::builder()
-            .view_type(vk::ImageViewType::TYPE_2D)
-            .format(format)
-            .subresource_range(vk::ImageSubresourceRange {
-                aspect_mask: vk::ImageAspectFlags::COLOR,
-                base_mip_level: 0,
-                level_count: 1,
-                base_array_layer: 0,
-                layer_count: 1,
-            })
-            .image(unsafe { image.raw() });
-
-        let image_view = unsafe { device.raw().create_image_view(&view_info, None) }.unwrap();
+        let image_view = ImageView::new(Arc::new(image));
 
         CommandBuffer::now(device, |cmd| {
             cmd.transition_image_layout(
-                unsafe { image.raw() },
+                &image_view.image(),
                 vk::ImageLayout::UNDEFINED,
                 vk::ImageLayout::GENERAL,
                 vk::AccessFlags::empty(),
@@ -275,14 +261,14 @@ impl PathTracer {
             )
         });
 
-        (image, image_view)
+        image_view
     }
 
     fn create_descriptor_set(
         device: &Arc<Device>,
         layout: &DescriptorSetLayout,
         scene: &Scene,
-        storage_image_view: vk::ImageView,
+        storage_image: &ImageView,
         spheres_buffer: &Buffer,
     ) -> DescriptorSet {
         let pool_sizes = [
@@ -316,7 +302,7 @@ impl PathTracer {
         as_write_set.descriptor_count = 1;
 
         let desc_img_info = vk::DescriptorImageInfo::builder()
-            .image_view(storage_image_view)
+            .image_view(unsafe { storage_image.raw() })
             .image_layout(vk::ImageLayout::GENERAL);
 
         let img_write_set = vk::WriteDescriptorSet::builder()
@@ -456,7 +442,7 @@ impl PathTracer {
     }
 
     pub fn draw(&self) {
-        self.kea.presenter().draw(|cmd, swapchain_image_view| {
+        self.kea.presenter().draw(|cmd, swapchain_image| {
             cmd.bind_pipeline(vk::PipelineBindPoint::RAY_TRACING_KHR, &self.pipeline);
             cmd.bind_descriptor_sets(
                 vk::PipelineBindPoint::RAY_TRACING_KHR,
@@ -474,7 +460,7 @@ impl PathTracer {
             );
 
             cmd.transition_image_layout(
-                swapchain_image_view.image,
+                &swapchain_image.image(),
                 vk::ImageLayout::UNDEFINED,
                 vk::ImageLayout::TRANSFER_DST_OPTIMAL,
                 vk::AccessFlags::empty(),
@@ -484,7 +470,7 @@ impl PathTracer {
             );
 
             cmd.transition_image_layout(
-                unsafe { self.storage_image.raw() },
+                &self.storage_image.image(),
                 vk::ImageLayout::GENERAL,
                 vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
                 vk::AccessFlags::empty(),
@@ -514,13 +500,13 @@ impl PathTracer {
                 .build();
 
             cmd.copy_image(
-                unsafe { self.storage_image.raw() },
-                swapchain_image_view.image,
+                &self.storage_image.image(),
+                &swapchain_image.image(),
                 &copy_region,
             );
 
             cmd.transition_image_layout(
-                swapchain_image_view.image,
+                swapchain_image.image(),
                 vk::ImageLayout::TRANSFER_DST_OPTIMAL,
                 vk::ImageLayout::PRESENT_SRC_KHR,
                 vk::AccessFlags::TRANSFER_WRITE,
@@ -530,7 +516,7 @@ impl PathTracer {
             );
 
             cmd.transition_image_layout(
-                unsafe { self.storage_image.raw() },
+                &self.storage_image.image(),
                 vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
                 vk::ImageLayout::GENERAL,
                 vk::AccessFlags::TRANSFER_READ,
@@ -539,17 +525,5 @@ impl PathTracer {
                 vk::PipelineStageFlags::TOP_OF_PIPE,
             );
         })
-    }
-}
-
-impl Drop for PathTracer {
-    fn drop(&mut self) {
-        unsafe {
-            self.kea.device().wait_until_idle();
-            self.kea
-                .device()
-                .raw()
-                .destroy_image_view(self.storage_image_view, None);
-        }
     }
 }
