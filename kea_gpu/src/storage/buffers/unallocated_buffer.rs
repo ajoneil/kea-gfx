@@ -1,7 +1,7 @@
 use super::Buffer;
-use crate::device::Device;
+use crate::{device::Device, storage::memory::Allocation};
 use ash::vk;
-use gpu_allocator::{vulkan::AllocationCreateDesc, MemoryLocation};
+use gpu_allocator::MemoryLocation;
 use std::sync::Arc;
 
 pub struct UnallocatedBuffer {
@@ -24,19 +24,7 @@ impl UnallocatedBuffer {
 
     pub fn allocate(self, name: String, location: MemoryLocation) -> Buffer {
         let requirements = unsafe { self.device().raw().get_buffer_memory_requirements(self.raw) };
-
-        let allocation = self
-            .device
-            .allocator()
-            .lock()
-            .unwrap()
-            .allocate(&AllocationCreateDesc {
-                name: &name,
-                requirements,
-                location,
-                linear: true,
-            })
-            .unwrap();
+        let allocation = Allocation::new(self.device.clone(), name.clone(), location, requirements);
 
         unsafe {
             self.device

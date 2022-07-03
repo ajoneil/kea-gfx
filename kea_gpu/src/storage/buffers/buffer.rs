@@ -1,17 +1,13 @@
 use super::{TransferBuffer, UnallocatedBuffer};
-use crate::device::Device;
+use crate::{device::Device, storage::memory::Allocation};
 use ash::vk;
-use gpu_allocator::{vulkan::Allocation, MemoryLocation};
-use std::{
-    mem::{self, ManuallyDrop},
-    slice,
-    sync::Arc,
-};
+use gpu_allocator::MemoryLocation;
+use std::{mem, slice, sync::Arc};
 
 pub struct Buffer {
     name: String,
     buffer: UnallocatedBuffer,
-    allocation: ManuallyDrop<Allocation>,
+    allocation: Allocation,
     location: MemoryLocation,
 }
 
@@ -59,7 +55,7 @@ impl Buffer {
         Self {
             name,
             buffer,
-            allocation: ManuallyDrop::new(allocation),
+            allocation,
             location,
         }
     }
@@ -87,7 +83,7 @@ impl Buffer {
         assert!(data.len() == self.buffer.size());
 
         unsafe {
-            let pointer = self.allocation.mapped_ptr().unwrap().as_ptr();
+            let pointer = self.allocation.mapped_ptr();
             pointer.copy_from_nonoverlapping(data.as_ptr() as _, data.len());
             // let mut align = ash::util::Align::new(
             //     pointer,
@@ -116,20 +112,5 @@ impl Buffer {
 
     pub unsafe fn raw(&self) -> vk::Buffer {
         self.buffer.raw()
-    }
-}
-
-impl Drop for Buffer {
-    fn drop(&mut self) {
-        log::debug!("Freeing {:?}", self.name);
-        unsafe {
-            self.buffer
-                .device()
-                .allocator()
-                .lock()
-                .unwrap()
-                .free(ManuallyDrop::take(&mut self.allocation))
-                .unwrap();
-        }
     }
 }

@@ -1,8 +1,7 @@
-use std::{mem::ManuallyDrop, sync::Arc};
-
 use ash::vk;
 use gpu_allocator::{vulkan::AllocationCreateDesc, MemoryLocation};
 use num_traits::{PrimInt, Unsigned};
+use std::{mem::ManuallyDrop, os::raw::c_void, sync::Arc};
 
 use crate::device::Device;
 
@@ -51,6 +50,14 @@ impl Allocation {
 
     pub unsafe fn offset(&self) -> u64 {
         self.allocation.offset()
+    }
+
+    pub fn size(&self) -> u64 {
+        self.allocation.size()
+    }
+
+    pub unsafe fn mapped_ptr(&self) -> *mut c_void {
+        self.allocation.mapped_ptr().unwrap().as_ptr()
     }
 }
 
