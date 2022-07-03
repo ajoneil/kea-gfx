@@ -10,9 +10,8 @@ pub struct CommandPool {
 
 impl CommandPool {
     pub fn new(queue: Queue) -> Arc<CommandPool> {
-        let create_info = vk::CommandPoolCreateInfo::builder()
-            .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
-            .queue_family_index(queue.family().index());
+        let create_info =
+            vk::CommandPoolCreateInfo::builder().queue_family_index(queue.family().index());
         let raw = unsafe { queue.device().raw().create_command_pool(&create_info, None) }.unwrap();
 
         Arc::new(CommandPool { queue, raw })

@@ -37,15 +37,6 @@ impl CommandBuffer {
         }
     }
 
-    pub fn reset(&self) {
-        unsafe {
-            self.device()
-                .raw()
-                .reset_command_buffer(self.raw, vk::CommandBufferResetFlags::empty())
-        }
-        .unwrap();
-    }
-
     fn begin(&self) {
         unsafe {
             self.device()
@@ -111,20 +102,18 @@ pub struct SubmittedCommandBuffer {
 }
 
 impl SubmittedCommandBuffer {
-    pub fn wait(&mut self) {
-        match &self.fence {
-            Some(fence) => {
-                fence.wait();
-                self.fence = None;
-            }
-            None => log::warn!("Duplicate wait on command buffer"),
-        }
+    pub fn wait(mut self) {
+        self.fence.as_ref().unwrap().wait();
+        self.fence = None;
     }
 
-    pub fn wait_and_reset(mut self) -> CommandBuffer {
-        self.wait();
-        let buffer = unsafe { ManuallyDrop::take(&mut self.buffer) };
-        buffer
+    pub fn wait_and_reuse(mut self) -> RecordedCommandBuffer {
+        self.fence.as_ref().unwrap().wait();
+        self.fence = None;
+
+        RecordedCommandBuffer {
+            buffer: unsafe { ManuallyDrop::new(Some(ManuallyDrop::take(&mut self.buffer))) },
+        }
     }
 }
 
