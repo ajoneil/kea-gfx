@@ -1,5 +1,7 @@
 use super::{extensions::DeviceExtensions, physical_device::PhysicalDevice, QueueFamily};
-use crate::{commands::CommandBuffer, core::sync::Fence, features::Feature};
+use crate::{
+    commands::CommandBuffer, core::sync::Fence, features::Feature, instance::VulkanInstance,
+};
 use ash::vk;
 use gpu_allocator::vulkan::{Allocator, AllocatorCreateDesc};
 use std::{
@@ -65,12 +67,12 @@ impl Device {
     ) -> Arc<Device> {
         let (raw, extensions) =
             super::initialization::create_device(&physical_device, queues, features);
-        let vulkan = physical_device.vulkan();
-        let ext = DeviceExtensions::new(&raw, unsafe { vulkan.raw() }, &extensions);
+        let instance = physical_device.instance();
+        let ext = DeviceExtensions::new(&raw, unsafe { instance.raw() }, &extensions);
 
         let allocator = unsafe {
             Allocator::new(&AllocatorCreateDesc {
-                instance: vulkan.raw().clone(),
+                instance: instance.raw().clone(),
                 device: raw.clone(),
                 physical_device: physical_device.raw(),
                 debug_settings: Default::default(),
@@ -119,6 +121,10 @@ impl Device {
 
     pub unsafe fn ext(&self) -> &DeviceExtensions {
         &self.ext
+    }
+
+    pub fn instance(&self) -> &VulkanInstance {
+        self.physical_device.instance()
     }
 
     // pub fn queues(self: &Arc<Self>) -> Vec<Queue> {

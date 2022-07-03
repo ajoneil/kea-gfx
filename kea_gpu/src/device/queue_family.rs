@@ -1,4 +1,4 @@
-use crate::presentation::Surface;
+use crate::presentation::{Surface, SurfaceExt};
 
 use super::physical_device::PhysicalDevice;
 use ash::vk;
@@ -54,18 +54,10 @@ impl QueueFamily {
     }
 
     pub fn supports_surface(&self, surface: &Surface) -> bool {
-        unsafe {
-            self.physical_device
-                .vulkan()
-                .ext()
-                .surface()
-                .get_physical_device_surface_support(
-                    self.physical_device.raw(),
-                    self.index(),
-                    surface.raw(),
-                )
-        }
-        .unwrap()
+        self.physical_device
+            .instance()
+            .ext::<SurfaceExt>()
+            .surface_support(&self.physical_device, &self, surface)
     }
 }
 

@@ -1,24 +1,21 @@
-use super::Window;
-use crate::instance::vulkan_instance::VulkanInstance;
+use super::{SurfaceExt, Window};
+use crate::instance::VulkanInstance;
 use ash::vk;
 use std::sync::Arc;
 
 pub struct Surface {
+    instance: Arc<VulkanInstance>,
     raw: vk::SurfaceKHR,
-    vulkan: Arc<VulkanInstance>,
 }
 
 impl Surface {
-    pub fn from_window(vulkan: Arc<VulkanInstance>, window: &Window) -> Surface {
+    pub fn from_window(instance: Arc<VulkanInstance>, window: &Window) -> Surface {
         let raw = unsafe {
-            ash_window::create_surface(&vulkan.entry(), &vulkan.raw(), window.window(), None)
+            ash_window::create_surface(&instance.entry(), &instance.raw(), window.window(), None)
         }
         .unwrap();
 
-        Surface {
-            raw,
-            vulkan: vulkan,
-        }
+        Surface { instance, raw }
     }
 
     pub unsafe fn raw(&self) -> vk::SurfaceKHR {
@@ -28,6 +25,6 @@ impl Surface {
 
 impl Drop for Surface {
     fn drop(&mut self) {
-        unsafe { self.vulkan.ext().surface().destroy_surface(self.raw, None) };
+        unsafe { self.instance.ext::<SurfaceExt>().destroy_surface(self) };
     }
 }

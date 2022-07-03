@@ -1,7 +1,7 @@
 use crate::{
     device::{Device, PhysicalDevice, QueueFamily},
     features::Feature,
-    instance::vulkan_instance::VulkanInstance,
+    instance::VulkanInstance,
     presentation::{PresentationFeature, Presenter, Surface, Window},
 };
 use log::{debug, info};

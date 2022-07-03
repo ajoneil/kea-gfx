@@ -1,10 +1,14 @@
 use crate::{
     device::{self, DeviceConfig},
-    instance::{self, config::InstanceConfig},
+    instance::{self, InstanceConfig, InstanceExtension, VulkanInstance},
 };
 
 pub trait Feature {
-    fn instance_extensions(&self) -> Vec<instance::Ext> {
+    fn instance_extension_names(&self) -> Vec<instance::Ext> {
+        vec![]
+    }
+
+    fn instance_extensions(&self, _instance: &VulkanInstance) -> Vec<Box<dyn InstanceExtension>> {
         vec![]
     }
 

@@ -1,8 +1,8 @@
-use std::{iter, os::raw::c_char};
+use super::{Ext, PhysicalDevice, QueueFamily};
+use crate::features::Feature;
 use ash::vk;
 use log::info;
-use crate::features::Feature;
-use super::{Ext, PhysicalDevice, QueueFamily};
+use std::{iter, os::raw::c_char};
 
 #[derive(Default, Debug)]
 pub struct DeviceConfig {}
@@ -69,7 +69,7 @@ pub fn create_device(
 
     let device = unsafe {
         physical_device
-            .vulkan()
+            .instance()
             .raw()
             .create_device(physical_device.raw(), &create_info, None)
     }
@@ -77,8 +77,3 @@ pub fn create_device(
 
     (device, extensions)
 }
-
-// Workaround missing ash binding
-struct ValidationFeatures(vk::ValidationFeaturesEXT);
-
-unsafe impl vk::ExtendsDeviceCreateInfo for ValidationFeatures {}

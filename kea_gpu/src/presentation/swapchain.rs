@@ -1,4 +1,4 @@
-use super::Surface;
+use super::{Surface, SurfaceExt};
 use crate::{core::sync::Semaphore, device::Device};
 use ash::vk;
 use std::sync::Arc;
@@ -19,7 +19,10 @@ pub struct Swapchain {
 
 impl Swapchain {
     pub fn new(device: &Arc<Device>, surface: Surface, extent: vk::Extent2D) -> Swapchain {
-        let surface_capabilities = device.physical_device().surface_capabilities(&surface);
+        let surface_capabilities = device
+            .instance()
+            .ext::<SurfaceExt>()
+            .surface_capabilities(device.physical_device(), &surface);
 
         let image_count = surface_capabilities.min_image_count + 1;
         let image_count = if surface_capabilities.max_image_count > 0 {
@@ -28,7 +31,10 @@ impl Swapchain {
             image_count
         };
 
-        let available_formats = device.physical_device().surface_formats(&surface);
+        let available_formats = device
+            .instance()
+            .ext::<SurfaceExt>()
+            .surface_formats(device.physical_device(), &surface);
         let surface_format = available_formats
             .iter()
             .find(|format| {
@@ -38,8 +44,9 @@ impl Swapchain {
             .unwrap_or(&available_formats[0]);
 
         let present_mode = device
-            .physical_device()
-            .surface_present_modes(&surface)
+            .instance()
+            .ext::<SurfaceExt>()
+            .surface_present_modes(device.physical_device(), &surface)
             .iter()
             .cloned()
             .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)

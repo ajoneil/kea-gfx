@@ -11,7 +11,7 @@ impl PhysicalDevice {
             .build();
 
         unsafe {
-            self.vulkan()
+            self.instance()
                 .raw()
                 .get_physical_device_properties2(self.raw(), &mut props)
         }
@@ -29,7 +29,7 @@ impl PhysicalDevice {
             .build();
 
         unsafe {
-            self.vulkan()
+            self.instance()
                 .raw()
                 .get_physical_device_properties2(self.raw(), &mut props)
         }

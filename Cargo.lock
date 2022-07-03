@@ -507,6 +507,7 @@ version = "0.1.0"
 dependencies = [
  "ash",
  "ash-window",
+ "downcast-rs",
  "glam",
  "gpu-allocator",
  "kea_gpu_shaderlib",

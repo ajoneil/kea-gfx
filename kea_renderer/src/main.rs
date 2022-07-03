@@ -1,5 +1,5 @@
 use env_logger::Env;
-use kea_gpu::debug::features::VulkanValidationFeature;
+use kea_gpu::debug::DebugFeature;
 use kea_gpu::presentation::Window;
 use kea_gpu::ray_tracing::RayTracingFeature;
 use kea_gpu::Kea;
@@ -16,7 +16,7 @@ fn main() {
         size,
         vec![
             Box::new(RayTracingFeature::new()),
-            Box::new(VulkanValidationFeature::new()),
+            Box::new(DebugFeature::new()),
         ],
     );
     let path_tracer = PathTracer::new(kea);

@@ -1,29 +1,32 @@
+use super::{Ext, InstanceExtension};
+use crate::{device::PhysicalDevice, features::Feature, instance::InstanceConfig};
 use ash::vk;
 use log::info;
-use std::{ffi::CString, os::raw::c_char, sync::Arc};
-
-use crate::{device::PhysicalDevice, features::Feature, instance::config::InstanceConfig};
-
-use super::{extensions::InstanceExtensions, Ext};
+use std::{any::TypeId, collections::HashMap, ffi::CString, os::raw::c_char, sync::Arc};
 
 pub struct VulkanInstance {
     entry: ash::Entry,
     raw: ash::Instance,
-    ext: InstanceExtensions,
+    extensions: HashMap<TypeId, Box<dyn InstanceExtension>>,
 }
 
 impl VulkanInstance {
     pub fn new(features: &[Box<dyn Feature + '_>]) -> Arc<VulkanInstance> {
         let entry = ash::Entry::linked();
-        let (raw, extensions) = Self::create_instance(&entry, features);
-        let ext = InstanceExtensions::new(&entry, &raw, &extensions);
-        Arc::new(VulkanInstance { entry, raw, ext })
+        let raw = Self::create_instance(&entry, features);
+        let extensions = HashMap::new();
+
+        let mut instance = VulkanInstance {
+            entry,
+            raw,
+            extensions,
+        };
+        instance.add_extensions(features);
+
+        Arc::new(instance)
     }
 
-    fn create_instance(
-        entry: &ash::Entry,
-        features: &[Box<dyn Feature + '_>],
-    ) -> (ash::Instance, Vec<Ext>) {
+    fn create_instance(entry: &ash::Entry, features: &[Box<dyn Feature + '_>]) -> ash::Instance {
         let app_info = vk::ApplicationInfo::builder().api_version(vk::API_VERSION_1_3);
 
         let mut instance_config = InstanceConfig::default();
@@ -31,7 +34,7 @@ impl VulkanInstance {
         let mut layers: Vec<CString> = vec![];
 
         for feature in features {
-            for ext in feature.instance_extensions() {
+            for ext in feature.instance_extension_names() {
                 extensions.push(ext);
             }
 
@@ -78,9 +81,16 @@ impl VulkanInstance {
 
         log::debug!("{:?}", create_info);
 
-        let raw = unsafe { entry.create_instance(&create_info, None).unwrap() };
+        unsafe { entry.create_instance(&create_info, None).unwrap() }
+    }
 
-        (raw, extensions)
+    fn add_extensions(&mut self, features: &[Box<dyn Feature + '_>]) {
+        for feature in features {
+            for extension in feature.instance_extensions(self) {
+                self.extensions
+                    .insert(extension.as_ref().type_id(), extension);
+            }
+        }
     }
 
     pub unsafe fn raw(&self) -> &ash::Instance {
@@ -91,8 +101,9 @@ impl VulkanInstance {
         &self.entry
     }
 
-    pub unsafe fn ext(&self) -> &InstanceExtensions {
-        &self.ext
+    pub fn ext<T: InstanceExtension>(&self) -> &T {
+        let ext = self.extensions.get(&TypeId::of::<T>()).unwrap().as_ref();
+        ext.downcast_ref::<T>().unwrap()
     }
 
     pub fn physical_devices(self: &Arc<VulkanInstance>) -> Vec<Arc<PhysicalDevice>> {

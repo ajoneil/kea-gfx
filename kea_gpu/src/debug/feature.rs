@@ -1,21 +1,25 @@
-use ash::vk;
-
+use super::DebugUtilsExt;
 use crate::{
     features::Feature,
-    instance::{self, config::InstanceConfig},
+    instance::{self, InstanceConfig, InstanceExtension, VulkanInstance},
 };
+use ash::vk;
 
 #[derive(Debug)]
-pub struct ValidationFeaturesInstanceConfig {
+pub struct DebugInstanceConfig {
     pub enable: Vec<vk::ValidationFeatureEnableEXT>,
     pub disable: Vec<vk::ValidationFeatureDisableEXT>,
 }
 
-pub struct VulkanValidationFeature {}
+pub struct DebugFeature {}
 
-impl Feature for VulkanValidationFeature {
-    fn instance_extensions(&self) -> Vec<instance::Ext> {
-        vec![instance::Ext::ValidationFeatures]
+impl Feature for DebugFeature {
+    fn instance_extension_names(&self) -> Vec<instance::Ext> {
+        vec![instance::Ext::ValidationFeatures, instance::Ext::DebugUtils]
+    }
+
+    fn instance_extensions(&self, instance: &VulkanInstance) -> Vec<Box<dyn InstanceExtension>> {
+        vec![Box::new(DebugUtilsExt::new(instance))]
     }
 
     fn layers(&self) -> Vec<String> {
@@ -23,7 +27,7 @@ impl Feature for VulkanValidationFeature {
     }
 
     fn configure_instance(&self, config: &mut InstanceConfig) {
-        config.validation_features = Some(ValidationFeaturesInstanceConfig {
+        config.validation_features = Some(DebugInstanceConfig {
             enable: vec![
                 vk::ValidationFeatureEnableEXT::GPU_ASSISTED,
                 vk::ValidationFeatureEnableEXT::GPU_ASSISTED_RESERVE_BINDING_SLOT,
@@ -36,7 +40,7 @@ impl Feature for VulkanValidationFeature {
     }
 }
 
-impl VulkanValidationFeature {
+impl DebugFeature {
     pub fn new() -> Self {
         Self {}
     }

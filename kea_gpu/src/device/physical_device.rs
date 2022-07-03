@@ -1,28 +1,35 @@
 use super::queue_family::QueueFamily;
-use crate::instance::vulkan_instance::VulkanInstance;
+use crate::instance::VulkanInstance;
 use ash::vk;
 use std::{ffi::CStr, fmt, sync::Arc};
 
 pub struct PhysicalDevice {
-    vulkan: Arc<VulkanInstance>,
+    instance: Arc<VulkanInstance>,
     raw: vk::PhysicalDevice,
     name: String,
 }
 
 impl PhysicalDevice {
-    pub unsafe fn from_raw(raw: vk::PhysicalDevice, vulkan: Arc<VulkanInstance>) -> PhysicalDevice {
-        let props = vulkan.raw().get_physical_device_properties(raw);
+    pub unsafe fn from_raw(
+        raw: vk::PhysicalDevice,
+        instance: Arc<VulkanInstance>,
+    ) -> PhysicalDevice {
+        let props = instance.raw().get_physical_device_properties(raw);
         let name = CStr::from_ptr(props.device_name.as_ptr())
             .to_str()
             .unwrap()
             .to_string();
 
-        PhysicalDevice { raw, vulkan, name }
+        PhysicalDevice {
+            raw,
+            instance,
+            name,
+        }
     }
 
     pub fn queue_families(self: &Arc<Self>) -> Vec<QueueFamily> {
         unsafe {
-            self.vulkan
+            self.instance
                 .raw()
                 .get_physical_device_queue_family_properties(self.raw)
         }
@@ -36,8 +43,8 @@ impl PhysicalDevice {
         self.raw
     }
 
-    pub fn vulkan(&self) -> &Arc<VulkanInstance> {
-        &self.vulkan
+    pub fn instance(&self) -> &Arc<VulkanInstance> {
+        &self.instance
     }
 }
 
