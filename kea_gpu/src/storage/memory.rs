@@ -1,7 +1,7 @@
 use ash::vk;
 use gpu_allocator::{vulkan::AllocationCreateDesc, MemoryLocation};
 use num_traits::{PrimInt, Unsigned};
-use std::{mem::ManuallyDrop, os::raw::c_void, sync::Arc};
+use std::{mem::ManuallyDrop, sync::Arc};
 
 use crate::device::Device;
 
@@ -56,8 +56,8 @@ impl Allocation {
         self.allocation.size()
     }
 
-    pub unsafe fn mapped_ptr(&self) -> *mut c_void {
-        self.allocation.mapped_ptr().unwrap().as_ptr()
+    pub unsafe fn mapped_slice_mut(&mut self) -> &mut [u8] {
+        self.allocation.mapped_slice_mut().unwrap()
     }
 }
 

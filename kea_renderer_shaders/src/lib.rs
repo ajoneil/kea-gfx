@@ -112,7 +112,7 @@ pub fn intersect_sphere(
     #[spirv(world_ray_origin)] ray_origin: Vec3,
     #[spirv(world_ray_direction)] ray_direction: Vec3,
     #[spirv(ray_geometry_index)] sphere_id: usize,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] spheres: &[Sphere],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] spheres: &mut [Sphere],
 ) {
     let _sphere = &spheres[sphere_id as usize];
     let sphere = Sphere {

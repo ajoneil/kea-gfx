@@ -31,13 +31,13 @@ impl Buffer {
     ) -> Buffer {
         let size = data.len() * mem::size_of::<T>();
         if location == MemoryLocation::CpuToGpu {
-            let buffer = Buffer::new(device, size as _, usage, name, MemoryLocation::CpuToGpu);
+            let mut buffer = Buffer::new(device, size as _, usage, name, MemoryLocation::CpuToGpu);
 
             buffer.fill(data);
 
             buffer
         } else if location == MemoryLocation::GpuOnly {
-            let buffer = TransferBuffer::new(device, size as _, usage, name);
+            let mut buffer = TransferBuffer::new(device, size as _, usage, name);
             buffer.cpu_buffer().fill(data);
 
             buffer.transfer_to_gpu()
@@ -76,21 +76,15 @@ impl Buffer {
         self.allocation.size() as usize
     }
 
-    pub fn fill<T>(&self, data: &[T]) {
+    pub fn fill<T>(&mut self, data: &[T]) {
         let data = unsafe {
             slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * mem::size_of::<T>())
         };
         assert!(data.len() == self.buffer.size());
 
         unsafe {
-            let pointer = self.allocation.mapped_ptr();
-            pointer.copy_from_nonoverlapping(data.as_ptr() as _, data.len());
-            // let mut align = ash::util::Align::new(
-            //     pointer,
-            //     mem::align_of::<T>() as _,
-            //     mem::size_of_val(data) as _,
-            // );
-            // align.copy_from_slice(data);
+            let slice = self.allocation.mapped_slice_mut();
+            slice.copy_from_slice(data);
         }
     }
 

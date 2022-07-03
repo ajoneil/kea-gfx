@@ -382,7 +382,7 @@ impl PathTracer {
             }
         }
 
-        let binding_table_buffer = TransferBuffer::new(
+        let mut binding_table_buffer = TransferBuffer::new(
             device.clone(),
             buffer_size as _,
             vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR,

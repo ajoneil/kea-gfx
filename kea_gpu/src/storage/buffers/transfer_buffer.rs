@@ -34,11 +34,11 @@ impl TransferBuffer {
         }
     }
 
-    pub fn cpu_buffer(&self) -> &Buffer {
-        &self.cpu_buffer
+    pub fn cpu_buffer(&mut self) -> &mut Buffer {
+        &mut self.cpu_buffer
     }
 
-    pub fn transfer_to_gpu(&self) -> Buffer {
+    pub fn transfer_to_gpu(&mut self) -> Buffer {
         let usage = self.usage | vk::BufferUsageFlags::TRANSFER_DST;
         let gpu_buffer = Buffer::new(
             self.device.clone(),
@@ -55,7 +55,7 @@ impl TransferBuffer {
         gpu_buffer
     }
 
-    pub fn transfer_to_gpu_with_alignment(&self, alignment: u32) -> AlignedBuffer {
+    pub fn transfer_to_gpu_with_alignment(&mut self, alignment: u32) -> AlignedBuffer {
         let usage = self.usage | vk::BufferUsageFlags::TRANSFER_DST;
         let gpu_buffer = AlignedBuffer::new(
             self.device.clone(),
