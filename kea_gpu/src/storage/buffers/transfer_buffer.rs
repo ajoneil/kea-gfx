@@ -48,9 +48,11 @@ impl TransferBuffer {
             MemoryLocation::GpuOnly,
         );
 
-        CommandBuffer::now(&self.device, |cmd| {
-            cmd.copy_buffer(&self.cpu_buffer, &gpu_buffer)
-        });
+        CommandBuffer::now(
+            &self.device,
+            format!("transfer {} to gpu", self.name),
+            |cmd| cmd.copy_buffer(&self.cpu_buffer, &gpu_buffer),
+        );
 
         gpu_buffer
     }
@@ -65,9 +67,11 @@ impl TransferBuffer {
             self.name.clone(),
         );
 
-        CommandBuffer::now(&self.device, |cmd| {
-            cmd.copy_buffer_aligned(&self.cpu_buffer, &gpu_buffer)
-        });
+        CommandBuffer::now(
+            &self.device,
+            format!("transfer aligned {} to gpu", self.name),
+            |cmd| cmd.copy_buffer_aligned(&self.cpu_buffer, &gpu_buffer),
+        );
 
         gpu_buffer
     }

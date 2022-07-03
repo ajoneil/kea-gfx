@@ -98,7 +98,7 @@ impl Geometry {
             })
             .build();
 
-        CommandBuffer::now(self.device(), |cmd| {
+        CommandBuffer::now(self.device(), "build BLAS".to_string(), |cmd| {
             cmd.build_acceleration_structure(geometry_info, range);
         });
 

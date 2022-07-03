@@ -4,21 +4,22 @@ use ash::vk;
 use std::{mem::ManuallyDrop, sync::Arc};
 
 pub struct CommandBuffer {
+    name: String,
     pool: Arc<CommandPool>,
     raw: vk::CommandBuffer,
 }
 
 impl CommandBuffer {
-    pub unsafe fn new(pool: Arc<CommandPool>, raw: vk::CommandBuffer) -> Self {
-        Self { pool, raw }
+    pub unsafe fn new(name: String, pool: Arc<CommandPool>, raw: vk::CommandBuffer) -> Self {
+        Self { name, pool, raw }
     }
 
-    pub fn now<F>(device: &Arc<Device>, func: F)
+    pub fn now<F>(device: &Arc<Device>, name: String, func: F)
     where
         F: FnOnce(&CommandBufferRecorder),
     {
         CommandPool::new(device.graphics_queue())
-            .allocate_buffer()
+            .allocate_buffer(name)
             .record(func)
             .submit()
             .wait();
@@ -56,6 +57,10 @@ impl CommandBuffer {
 
     pub unsafe fn raw(&self) -> vk::CommandBuffer {
         self.raw
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
     }
 }
 
@@ -103,13 +108,17 @@ pub struct SubmittedCommandBuffer {
 
 impl SubmittedCommandBuffer {
     pub fn wait(mut self) {
+        log::debug!("Waiting upon command {}", self.buffer.name());
         self.fence.as_ref().unwrap().wait();
         self.fence = None;
+        log::debug!("Command {} complete", self.buffer.name());
     }
 
     pub fn wait_and_reuse(mut self) -> RecordedCommandBuffer {
+        log::debug!("Waiting upon command {}", self.buffer.name());
         self.fence.as_ref().unwrap().wait();
         self.fence = None;
+        log::debug!("Command {} complete", self.buffer.name());
 
         RecordedCommandBuffer {
             buffer: unsafe { ManuallyDrop::new(Some(ManuallyDrop::take(&mut self.buffer))) },
@@ -125,6 +134,8 @@ impl Drop for SubmittedCommandBuffer {
                     "Submitted command buffer dropped before being waited upon - forcing wait"
                 );
                 fence.wait();
+                log::debug!("Command {} complete", self.buffer.name());
+
                 unsafe {
                     ManuallyDrop::drop(&mut self.buffer);
                 }

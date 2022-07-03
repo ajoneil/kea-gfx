@@ -17,7 +17,7 @@ impl ScratchBuffer {
             device,
             size,
             alignment,
-            vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+            vk::BufferUsageFlags::STORAGE_BUFFER,
             "acceleration structure build scratch".to_string(),
         );
 

@@ -230,17 +230,21 @@ impl PathTracer {
 
         let image_view = ImageView::new(Arc::new(image));
 
-        CommandBuffer::now(device, |cmd| {
-            cmd.transition_image_layout(
-                &image_view.image(),
-                vk::ImageLayout::UNDEFINED,
-                vk::ImageLayout::GENERAL,
-                vk::AccessFlags::empty(),
-                vk::AccessFlags::empty(),
-                vk::PipelineStageFlags::TOP_OF_PIPE,
-                vk::PipelineStageFlags::TOP_OF_PIPE,
-            )
-        });
+        CommandBuffer::now(
+            device,
+            "Set initial rt output image layout".to_string(),
+            |cmd| {
+                cmd.transition_image_layout(
+                    &image_view.image(),
+                    vk::ImageLayout::UNDEFINED,
+                    vk::ImageLayout::GENERAL,
+                    vk::AccessFlags::empty(),
+                    vk::AccessFlags::empty(),
+                    vk::PipelineStageFlags::TOP_OF_PIPE,
+                    vk::PipelineStageFlags::TOP_OF_PIPE,
+                )
+            },
+        );
 
         image_view
     }

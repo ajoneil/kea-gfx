@@ -61,9 +61,12 @@ impl Presenter {
             .swapchain
             .acquire_next_image(&self.semaphores.image_available);
 
-        let cmd = self.command_pool.allocate_buffer().record(|cmd| {
-            func(cmd, image_view);
-        });
+        let cmd = self
+            .command_pool
+            .allocate_buffer("draw".to_string())
+            .record(|cmd| {
+                func(cmd, image_view);
+            });
 
         unsafe {
             let wait_semaphores: Vec<vk::Semaphore> = vec![self.semaphores.image_available.vk()];

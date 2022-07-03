@@ -1,7 +1,7 @@
 use super::CommandBuffer;
 use crate::device::{Device, Queue};
 use ash::vk;
-use std::sync::Arc;
+use std::{slice, sync::Arc};
 
 pub struct CommandPool {
     queue: Queue,
@@ -17,21 +17,26 @@ impl CommandPool {
         Arc::new(CommandPool { queue, raw })
     }
 
-    pub fn allocate_buffers(self: &Arc<Self>, count: u32) -> Vec<CommandBuffer> {
+    pub fn allocate_buffers(self: &Arc<Self>, names: &[String]) -> Vec<CommandBuffer> {
         let create_info = vk::CommandBufferAllocateInfo::builder()
             .command_pool(self.raw)
             .level(vk::CommandBufferLevel::PRIMARY)
-            .command_buffer_count(count);
+            .command_buffer_count(names.len() as _);
 
         let raws = unsafe { self.device().raw().allocate_command_buffers(&create_info) }.unwrap();
 
-        raws.into_iter()
-            .map(|raw| unsafe { CommandBuffer::new(self.clone(), raw) })
+        names
+            .into_iter()
+            .zip(raws)
+            .map(|(name, raw)| unsafe { CommandBuffer::new(name.to_string(), self.clone(), raw) })
             .collect()
     }
 
-    pub fn allocate_buffer(self: &Arc<Self>) -> CommandBuffer {
-        self.allocate_buffers(1).into_iter().nth(0).unwrap()
+    pub fn allocate_buffer(self: &Arc<Self>, name: String) -> CommandBuffer {
+        self.allocate_buffers(slice::from_ref(&name))
+            .into_iter()
+            .nth(0)
+            .unwrap()
     }
 
     pub fn device(&self) -> &Arc<Device> {
