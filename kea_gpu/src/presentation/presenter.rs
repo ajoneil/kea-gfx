@@ -1,8 +1,8 @@
 use crate::{
     commands::{CommandBufferRecorder, CommandPool},
-    core::sync::{Fence, Semaphore},
     device::Device,
     storage::images::ImageView,
+    sync::{Fence, Semaphore},
 };
 use ash::vk;
 use std::{slice, sync::Arc};

@@ -1,8 +1,8 @@
 use super::{Surface, SurfaceExt};
 use crate::{
-    core::sync::Semaphore,
     device::Device,
     storage::images::{Image, ImageOwnership, ImageView},
+    sync::Semaphore,
 };
 use ash::vk;
 use gpu_allocator::MemoryLocation;

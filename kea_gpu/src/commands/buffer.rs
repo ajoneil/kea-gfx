@@ -1,5 +1,5 @@
 use super::{CommandBufferRecorder, CommandPool};
-use crate::{core::sync::Fence, device::Device};
+use crate::{device::Device, sync::Fence};
 use ash::vk;
 use std::{mem::ManuallyDrop, sync::Arc};
 

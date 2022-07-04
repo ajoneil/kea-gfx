@@ -10,5 +10,6 @@ pub mod presentation;
 pub mod ray_tracing;
 pub mod slots;
 pub mod storage;
+pub mod sync;
 
 pub use kea::Kea;
