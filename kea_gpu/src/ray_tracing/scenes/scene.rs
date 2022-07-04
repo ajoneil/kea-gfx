@@ -52,7 +52,7 @@ impl Scene {
             self.device.clone(),
             &instances,
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
-            "scene build".to_string(),
+            "scene instances".to_string(),
             MemoryLocation::GpuOnly,
         );
 

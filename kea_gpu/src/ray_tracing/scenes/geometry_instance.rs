@@ -40,8 +40,8 @@ impl GeometryInstance {
                 flags,
             ),
             acceleration_structure_reference: vk::AccelerationStructureReferenceKHR {
-                // device_handle: bl_acceleration_structure.device_address(),
-                host_handle: self.geometry.acceleration_structure().raw(),
+                device_handle: self.geometry().acceleration_structure().device_address(),
+                //host_handle: self.geometry.acceleration_structure().raw(),
             },
         }
     }
