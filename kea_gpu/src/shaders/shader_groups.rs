@@ -91,6 +91,10 @@ impl<ShaderGroupId> ShaderGroups<ShaderGroupId> {
             groups,
         }
     }
+
+    pub fn groups(&self) -> &[(ShaderGroupId, ShaderGroup)] {
+        &self.groups
+    }
 }
 
 pub struct PipelineShaders {

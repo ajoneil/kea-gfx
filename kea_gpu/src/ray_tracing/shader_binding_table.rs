@@ -1,4 +1,15 @@
+use crate::{
+    device::Device,
+    pipelines::Pipeline,
+    shaders::{PipelineShaders, ShaderGroups},
+    storage::{
+        buffers::{AlignedBuffer, TransferBuffer},
+        memory,
+    },
+};
 use ash::vk;
+use kea_gpu_shaderlib::shaders::ShaderGroup;
+use std::{iter, sync::Arc};
 
 #[derive(Debug)]
 pub struct RayTracingShaderBindingTables {
@@ -6,6 +17,114 @@ pub struct RayTracingShaderBindingTables {
     pub miss: ShaderBindingTable,
     pub hit: ShaderBindingTable,
     pub callable: ShaderBindingTable,
+    _buffer: AlignedBuffer,
+}
+
+impl RayTracingShaderBindingTables {
+    pub fn new<ShaderGroupId>(
+        device: &Arc<Device>,
+        shader_groups: &ShaderGroups<ShaderGroupId>,
+        shaders: &PipelineShaders,
+        pipeline: &Pipeline,
+    ) -> Self {
+        let vk::PhysicalDeviceRayTracingPipelinePropertiesKHR {
+            shader_group_handle_size,
+            shader_group_handle_alignment,
+            shader_group_base_alignment,
+            ..
+        } = device.physical_device().ray_tracing_pipeline_properties();
+
+        let group_handles = unsafe {
+            device
+                .ext()
+                .ray_tracing_pipeline()
+                .get_ray_tracing_shader_group_handles(
+                    pipeline.raw(),
+                    0,
+                    shaders.groups.len() as _,
+                    shaders.groups.len() as usize * shader_group_handle_size as usize,
+                )
+        }
+        .unwrap();
+
+        let mut raygen: Vec<u8> = vec![];
+        let mut miss: Vec<u8> = vec![];
+        let mut hit: Vec<u8> = vec![];
+
+        let shader_group_handle_aligned_size =
+            memory::align(shader_group_handle_size, shader_group_handle_alignment);
+        for ((_, group), handle) in shader_groups
+            .groups()
+            .iter()
+            .zip(group_handles.chunks(shader_group_handle_size as _))
+        {
+            match group {
+                ShaderGroup::RayGeneration(_) => {
+                    raygen.extend_from_slice(handle);
+                    raygen.extend(iter::repeat(0).take(
+                        shader_group_handle_aligned_size as usize
+                            - shader_group_handle_size as usize,
+                    ));
+                }
+                ShaderGroup::Miss(_) => {
+                    miss.extend_from_slice(handle);
+                    miss.extend(iter::repeat(0).take(
+                        shader_group_handle_aligned_size as usize
+                            - shader_group_handle_size as usize,
+                    ));
+                }
+                ShaderGroup::ProceduralHit { .. } => {
+                    hit.extend_from_slice(handle);
+                    hit.extend(iter::repeat(0).take(
+                        shader_group_handle_aligned_size as usize
+                            - shader_group_handle_size as usize,
+                    ));
+                }
+            }
+        }
+
+        let mut binding_table_data: Vec<u8> = vec![];
+        for group in [&mut raygen, &mut miss, &mut hit] {
+            let aligned_size = memory::align(group.len(), shader_group_base_alignment as _);
+            group.extend(iter::repeat(0).take(group.len() - aligned_size));
+            binding_table_data.extend(group.iter());
+        }
+
+        let mut binding_table_buffer = TransferBuffer::new(
+            device.clone(),
+            binding_table_data.len() as _,
+            vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR,
+            "rt shader binding table".to_string(),
+        );
+        binding_table_buffer.cpu_buffer().fill(&binding_table_data);
+        let buffer =
+            binding_table_buffer.transfer_to_gpu_with_alignment(shader_group_base_alignment);
+
+        let buffer_address = buffer.device_address();
+
+        Self {
+            raygen: ShaderBindingTable::new(
+                buffer_address,
+                raygen.len() as _,
+                shader_group_handle_aligned_size as _,
+            ),
+
+            miss: ShaderBindingTable::new(
+                buffer_address + raygen.len() as u64,
+                miss.len() as _,
+                shader_group_handle_aligned_size as _,
+            ),
+
+            hit: ShaderBindingTable::new(
+                buffer_address + raygen.len() as u64 + miss.len() as u64,
+                hit.len() as _,
+                shader_group_handle_aligned_size as _,
+            ),
+
+            callable: ShaderBindingTable::empty(),
+            _buffer: buffer,
+        }
+    }
 }
 
 #[derive(Debug)]

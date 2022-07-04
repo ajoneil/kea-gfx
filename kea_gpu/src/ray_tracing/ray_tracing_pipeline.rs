@@ -1,11 +1,11 @@
-use ash::vk;
-
+use super::RayTracingShaderBindingTables;
 use crate::{
     device::Device,
     pipelines::{Pipeline, PipelineLayout},
-    shaders::PipelineShaders,
+    shaders::{PipelineShaders, ShaderGroups},
     slots::SlotLayout,
 };
+use ash::vk;
 use std::{slice, sync::Arc};
 
 pub struct RayTracingPipeline<SlotId> {
@@ -13,11 +13,13 @@ pub struct RayTracingPipeline<SlotId> {
     layout: PipelineLayout,
     slot_layout: SlotLayout<SlotId>,
     pipeline: Pipeline,
+    shader_binding_tables: RayTracingShaderBindingTables,
 }
 
 impl<SlotId> RayTracingPipeline<SlotId> {
-    pub fn new(
+    pub fn new<ShaderGroupId>(
         device: Arc<Device>,
+        shader_groups: ShaderGroups<ShaderGroupId>,
         shaders: PipelineShaders,
         layout: PipelineLayout,
         slot_layout: SlotLayout<SlotId>,
@@ -58,14 +60,18 @@ impl<SlotId> RayTracingPipeline<SlotId> {
                 .nth(0)
                 .unwrap();
 
-            Pipeline::new(device, raw)
+            Pipeline::new(device.clone(), raw)
         };
+
+        let shader_binding_tables =
+            RayTracingShaderBindingTables::new(&device, &shader_groups, &shaders, &pipeline);
 
         Self {
             _shaders: shaders,
             layout,
             slot_layout,
             pipeline,
+            shader_binding_tables,
         }
     }
 
@@ -79,5 +85,9 @@ impl<SlotId> RayTracingPipeline<SlotId> {
 
     pub fn slot_layout(&self) -> &SlotLayout<SlotId> {
         &self.slot_layout
+    }
+
+    pub fn shader_binding_tables(&self) -> &RayTracingShaderBindingTables {
+        &self.shader_binding_tables
     }
 }

@@ -4,6 +4,7 @@ use crate::{
 };
 use ash::vk;
 use gpu_allocator::MemoryLocation;
+use std::fmt::Debug;
 use std::sync::Arc;
 
 pub struct AlignedBuffer {
@@ -51,5 +52,17 @@ impl AlignedBuffer {
 
     pub unsafe fn raw(&self) -> vk::Buffer {
         self.buffer.raw()
+    }
+}
+
+impl Debug for AlignedBuffer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "AlignedBuffer({}|{}=>{})",
+            self.buffer.device_address(),
+            self.alignment,
+            self.device_address()
+        )
     }
 }

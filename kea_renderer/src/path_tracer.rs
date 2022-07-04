@@ -8,14 +8,13 @@ use kea_gpu::{
     pipelines::PipelineLayout,
     ray_tracing::{
         scenes::{Geometry, GeometryInstance, Scene},
-        RayTracingPipeline, RayTracingShaderBindingTables, ShaderBindingTable,
+        RayTracingPipeline,
     },
     shaders::ShaderGroups,
     slots::SlotLayout,
     storage::{
-        buffers::{AlignedBuffer, Buffer, TransferBuffer},
+        buffers::Buffer,
         images::{Image, ImageView},
-        memory,
     },
     Kea,
 };
@@ -30,8 +29,6 @@ pub struct PathTracer {
     pipeline: RayTracingPipeline<SlotId>,
     descriptor_set: DescriptorSet,
     storage_image: ImageView,
-    _shader_binding_tables_buffer: AlignedBuffer,
-    shader_binding_tables: RayTracingShaderBindingTables,
 }
 
 impl PathTracer {
@@ -60,21 +57,12 @@ impl PathTracer {
                 .additional_data(),
         );
 
-        let (shader_binding_tables_buffer, shader_binding_tables) =
-            Self::create_shader_binding_tables(
-                kea.device(),
-                &pipeline,
-                &kea.physical_device().ray_tracing_pipeline_properties(),
-            );
-
         PathTracer {
             kea,
             _scene: scene,
             pipeline,
             descriptor_set,
             storage_image,
-            _shader_binding_tables_buffer: shader_binding_tables_buffer,
-            shader_binding_tables,
         }
     }
 
@@ -156,6 +144,7 @@ impl PathTracer {
         let pipeline_shaders = shader_groups.build(device.clone(), "./kea_renderer_shaders");
         let pipeline = RayTracingPipeline::<SlotId>::new(
             device.clone(),
+            shader_groups,
             pipeline_shaders,
             pipeline_layout,
             slot_layout,
@@ -266,118 +255,6 @@ impl PathTracer {
         descriptor_set
     }
 
-    fn create_shader_binding_tables(
-        device: &Arc<Device>,
-        pipeline: &RayTracingPipeline<SlotId>,
-        rt_pipeline_props: &vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
-    ) -> (AlignedBuffer, RayTracingShaderBindingTables) {
-        let handle_size = rt_pipeline_props.shader_group_handle_size;
-        let handle_alignment =
-            memory::align(handle_size, rt_pipeline_props.shader_group_handle_alignment);
-        let aligned_handle_size = memory::align(handle_size, handle_alignment);
-        let handle_pad = aligned_handle_size - handle_size;
-
-        let group_alignment = rt_pipeline_props.shader_group_base_alignment;
-
-        let group_count = 3;
-        //
-        let data_size = group_count * handle_size;
-
-        let group_handles = unsafe {
-            device
-                .ext()
-                .ray_tracing_pipeline()
-                .get_ray_tracing_shader_group_handles(
-                    pipeline.pipeline().raw(),
-                    0,
-                    group_count,
-                    data_size as _,
-                )
-        }
-        .unwrap();
-
-        let raygen_count = 1;
-        let raygen_region_size = memory::align(raygen_count * aligned_handle_size, group_alignment);
-
-        let miss_count = 1;
-        let miss_region_size = memory::align(miss_count * aligned_handle_size, group_alignment);
-
-        let hit_count = 1;
-        let hit_region_size = memory::align(hit_count * aligned_handle_size, group_alignment);
-
-        let buffer_size = raygen_region_size + miss_region_size + hit_region_size;
-        let mut aligned_handles = Vec::<u8>::with_capacity(buffer_size as _);
-
-        let groups_shader_count = [raygen_count, miss_count, hit_count];
-        let mut offset = 0;
-        // for each groups
-        for group_shader_count in groups_shader_count {
-            let group_size = group_shader_count * aligned_handle_size;
-            let aligned_group_size =
-                memory::align(group_size, rt_pipeline_props.shader_group_base_alignment);
-            let group_pad = aligned_group_size - group_size;
-
-            // for each handle
-            for _ in 0..group_shader_count {
-                //copy handle
-                for _ in 0..handle_size as usize {
-                    aligned_handles.push(group_handles[offset]);
-                    offset += 1;
-                }
-
-                // pad handle to alignment
-                for _ in 0..handle_pad {
-                    aligned_handles.push(0);
-                }
-            }
-
-            // pad group to alignment
-            for _ in 0..group_pad {
-                aligned_handles.push(0);
-            }
-        }
-
-        let mut binding_table_buffer = TransferBuffer::new(
-            device.clone(),
-            buffer_size as _,
-            vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR,
-            "rt shader binding table".to_string(),
-        );
-
-        info!("unaligned shader handles {:?}", group_handles);
-        info!("aligned shader handles {:?}", aligned_handles);
-
-        binding_table_buffer.cpu_buffer().fill(&aligned_handles);
-        let binding_table_buffer =
-            binding_table_buffer.transfer_to_gpu_with_alignment(group_alignment);
-
-        let buffer_address = binding_table_buffer.device_address();
-
-        let tables = RayTracingShaderBindingTables {
-            raygen: ShaderBindingTable::new(
-                buffer_address,
-                raygen_region_size as _,
-                raygen_region_size as _,
-            ),
-
-            miss: ShaderBindingTable::new(
-                buffer_address + raygen_region_size as u64,
-                miss_region_size as _,
-                aligned_handle_size as _,
-            ),
-
-            hit: ShaderBindingTable::new(
-                buffer_address + raygen_region_size as u64 + miss_region_size as u64,
-                hit_region_size as _,
-                aligned_handle_size as _,
-            ),
-
-            callable: ShaderBindingTable::empty(),
-        };
-
-        (binding_table_buffer, tables)
-    }
-
     pub fn draw(&self) {
         self.kea.presenter().draw(|cmd, swapchain_image| {
             cmd.bind_pipeline(
@@ -391,7 +268,7 @@ impl PathTracer {
             );
 
             cmd.trace_rays(
-                &self.shader_binding_tables,
+                self.pipeline.shader_binding_tables(),
                 (
                     self.kea.presenter().size().0,
                     self.kea.presenter().size().1,
