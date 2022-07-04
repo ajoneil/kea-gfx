@@ -86,7 +86,7 @@ impl RayTracingShaderBindingTables {
         let mut binding_table_data: Vec<u8> = vec![];
         for group in [&mut raygen, &mut miss, &mut hit] {
             let aligned_size = memory::align(group.len(), shader_group_base_alignment as _);
-            group.extend(iter::repeat(0).take(group.len() - aligned_size));
+            group.extend(iter::repeat(0).take(aligned_size - group.len()));
             binding_table_data.extend(group.iter());
         }
 
@@ -103,11 +103,7 @@ impl RayTracingShaderBindingTables {
         let buffer_address = buffer.device_address();
 
         Self {
-            raygen: ShaderBindingTable::new(
-                buffer_address,
-                raygen.len() as _,
-                shader_group_handle_aligned_size as _,
-            ),
+            raygen: ShaderBindingTable::new(buffer_address, raygen.len() as _, raygen.len() as _),
 
             miss: ShaderBindingTable::new(
                 buffer_address + raygen.len() as u64,
