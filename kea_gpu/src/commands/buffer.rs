@@ -39,7 +39,7 @@ impl CommandBuffer {
     }
 
     fn begin(&self) {
-        log::debug!("{}: recording", self.name);
+        // log::debug!("{}: recording", self.name);
         unsafe {
             self.device()
                 .raw()
@@ -49,7 +49,7 @@ impl CommandBuffer {
     }
 
     fn end(&self) {
-        log::debug!("{}: recording complete", self.name);
+        // log::debug!("{}: recording complete", self.name);
         unsafe { self.device().raw().end_command_buffer(self.raw) }.unwrap()
     }
 

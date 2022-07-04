@@ -91,7 +91,8 @@ pub fn generate_rays(
 }
 
 pub fn ray_for_pixel(pixel_position: Vec2, size: Vec2) -> Vec3 {
-    let uv = pixel_position / size;
+    let aspect_ratio = vec2(size.x / size.y, 1.0);
+    let uv = pixel_position / size * aspect_ratio;
     let direction = uv * 2.0 - 1.0;
     let target = vec3(direction.x, direction.y, 1.0);
     target.normalize()
@@ -114,6 +115,9 @@ pub fn intersect_sphere(
     #[spirv(ray_geometry_index)] sphere_id: usize,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] spheres: &mut [Sphere],
 ) {
+    unsafe {
+        report_intersection(1.0, 4);
+    }
     let _sphere = &spheres[sphere_id as usize];
     let sphere = Sphere {
         position: vec3(0.0, 0.0, 1.5),

@@ -82,8 +82,9 @@ impl Presenter {
                 ))
                 .command_buffers(slice::from_ref(&cmd))
                 .signal_semaphores(slice::from_ref(&render_finished));
+            // self.in_flight_fence = self.swapchain.device().graphics_queue().submit();
 
-            log::debug!("Submitting draw command..");
+            // log::debug!("Submitting draw command..");
 
             self.swapchain
                 .device()
@@ -95,7 +96,7 @@ impl Presenter {
                 )
                 .unwrap();
 
-            log::debug!("Submission complete");
+            // log::debug!("Submission complete");
 
             let present = vk::PresentInfoKHR::builder()
                 .wait_semaphores(slice::from_ref(&render_finished))

@@ -110,6 +110,9 @@ impl Scene {
             })
             .build();
 
+        log::debug!("geometry info {:?}", geometry_info);
+        log::debug!("range {:?}", range);
+
         CommandBuffer::now(&self.device, "build TLAS".to_string(), |cmd| {
             cmd.build_acceleration_structure(geometry_info, range);
         });

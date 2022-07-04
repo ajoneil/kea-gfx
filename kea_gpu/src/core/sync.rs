@@ -65,14 +65,14 @@ impl Fence {
     }
 
     pub fn wait(&self) {
-        log::debug!("Waiting on fence {}", self.name);
+        // log::debug!("Waiting on fence {}", self.name);
         unsafe {
             self.device
                 .raw()
                 .wait_for_fences(&[self.raw], true, u64::MAX)
                 .unwrap();
         }
-        log::debug!("Fence {} wait complete", self.name);
+        // log::debug!("Fence {} wait complete", self.name);
     }
 
     pub fn reset(&self) {

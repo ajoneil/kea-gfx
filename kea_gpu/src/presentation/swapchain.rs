@@ -114,7 +114,7 @@ impl Swapchain {
     }
 
     pub fn acquire_next_image(&self, semaphore: &Semaphore) -> (u32, &ImageView) {
-        log::debug!("Acquiring swapchain image");
+        // log::debug!("Acquiring swapchain image");
         let (image_index, _) = unsafe {
             self.device.ext().swapchain().acquire_next_image(
                 self.raw,
@@ -125,10 +125,10 @@ impl Swapchain {
         }
         .unwrap();
 
-        log::debug!(
-            "Got image {}, but must wait on semaphore before use",
-            image_index
-        );
+        // log::debug!(
+        //     "Got image {}, but must wait on semaphore before use",
+        //     image_index
+        // );
 
         (image_index, &self.images[image_index as usize])
     }

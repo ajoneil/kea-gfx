@@ -18,7 +18,7 @@ use kea_gpu::{
     },
     slots::SlotLayout,
     storage::{
-        buffers::{Buffer, TransferBuffer},
+        buffers::{AlignedBuffer, Buffer, TransferBuffer},
         images::{Image, ImageView},
         memory,
     },
@@ -37,7 +37,7 @@ pub struct PathTracer {
     _descriptor_set_layout: DescriptorSetLayout,
     descriptor_set: DescriptorSet,
     storage_image: ImageView,
-    _shader_binding_tables_buffer: Buffer,
+    _shader_binding_tables_buffer: AlignedBuffer,
     shader_binding_tables: RayTracingShaderBindingTables,
 }
 
@@ -95,12 +95,12 @@ impl PathTracer {
                 radius: 0.5,
             },
             Sphere {
-                position: vec3(0.0, 0.0, 1.5),
-                radius: 0.5,
+                position: vec3(1.0, 1.0, 1.5),
+                radius: 1.5,
             },
             Sphere {
-                position: vec3(0.0, 0.0, 1.5),
-                radius: 0.5,
+                position: vec3(-0.5, 0.0, -1.5),
+                radius: 2.5,
             },
             Sphere {
                 position: vec3(0.0, 0.0, 1.5),
@@ -143,6 +143,7 @@ impl PathTracer {
         info!("spheres data {:?}", spheres);
 
         let aabbs: Vec<Aabb> = spheres.iter().map(|s: &Sphere| s.aabb()).collect();
+        log::debug!("Aabbs: {:?}", aabbs);
         let aabbs_buffer = Buffer::new_from_data(
             device.clone(),
             &aabbs,
@@ -319,7 +320,7 @@ impl PathTracer {
         device: &Arc<Device>,
         pipeline: &Pipeline,
         rt_pipeline_props: &vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
-    ) -> (Buffer, RayTracingShaderBindingTables) {
+    ) -> (AlignedBuffer, RayTracingShaderBindingTables) {
         let handle_size = rt_pipeline_props.shader_group_handle_size;
         let handle_alignment =
             memory::align(handle_size, rt_pipeline_props.shader_group_handle_alignment);
@@ -397,7 +398,8 @@ impl PathTracer {
         info!("aligned shader handles {:?}", aligned_handles);
 
         binding_table_buffer.cpu_buffer().fill(&aligned_handles);
-        let binding_table_buffer = binding_table_buffer.transfer_to_gpu();
+        let binding_table_buffer =
+            binding_table_buffer.transfer_to_gpu_with_alignment(group_alignment);
 
         let buffer_address = binding_table_buffer.device_address();
 
