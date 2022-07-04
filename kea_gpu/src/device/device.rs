@@ -33,7 +33,7 @@ impl Queue {
             log::debug!("Submitting command {}", cmd.name());
         }
 
-        let fence = Fence::new(self.device.clone(), false);
+        let fence = Fence::new(self.device.clone(), "command submit".to_string(), false);
         let buffers: Vec<vk::CommandBuffer> = command_buffers
             .into_iter()
             .map(|cmd| unsafe { cmd.raw() })
@@ -42,7 +42,7 @@ impl Queue {
         unsafe {
             self.device
                 .raw()
-                .queue_submit(self.raw(), &submits, fence.vk())
+                .queue_submit(self.raw(), &submits, fence.raw())
                 .unwrap();
         }
 

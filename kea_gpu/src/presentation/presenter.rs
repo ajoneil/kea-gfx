@@ -5,7 +5,7 @@ use crate::{
     storage::images::ImageView,
 };
 use ash::vk;
-use std::sync::Arc;
+use std::{slice, sync::Arc};
 
 use super::{swapchain::Swapchain, Surface};
 
@@ -34,7 +34,7 @@ impl Presenter {
                 image_available: Semaphore::new(swapchain.device().clone()),
                 render_finished: Semaphore::new(swapchain.device().clone()),
             },
-            in_flight_fence: Fence::new(swapchain.device().clone(), true),
+            in_flight_fence: Fence::new(swapchain.device().clone(), "in flight".to_string(), true),
             command_pool: CommandPool::new(swapchain.device().graphics_queue()),
             swapchain,
         }
@@ -69,35 +69,38 @@ impl Presenter {
             });
 
         unsafe {
-            let wait_semaphores: Vec<vk::Semaphore> = vec![self.semaphores.image_available.vk()];
-            let render_finished: Vec<vk::Semaphore> = vec![self.semaphores.render_finished.vk()];
-            let command_buffers: Vec<vk::CommandBuffer> = vec![cmd.consume().raw()];
-            let color_attachment_stage = vec![vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
+            let image_available = self.semaphores.image_available.vk();
+            let render_finished = self.semaphores.render_finished.vk();
+            // This would be dangerous if we were destroying commands, but they
+            // live as long as their pool.
+            let cmd = cmd.consume().raw();
 
-            let submits = [vk::SubmitInfo::builder()
-                .wait_semaphores(&wait_semaphores)
-                .wait_dst_stage_mask(&color_attachment_stage)
-                .command_buffers(&command_buffers)
-                .signal_semaphores(&render_finished)
-                .build()];
+            let submit = vk::SubmitInfo::builder()
+                .wait_semaphores(slice::from_ref(&image_available))
+                .wait_dst_stage_mask(slice::from_ref(
+                    &vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+                ))
+                .command_buffers(slice::from_ref(&cmd))
+                .signal_semaphores(slice::from_ref(&render_finished));
+
+            log::debug!("Submitting draw command..");
 
             self.swapchain
                 .device()
                 .raw()
                 .queue_submit(
                     self.swapchain.device().graphics_queue().raw(),
-                    &submits,
-                    self.in_flight_fence.vk(),
+                    slice::from_ref(&submit),
+                    self.in_flight_fence.raw(),
                 )
                 .unwrap();
 
-            let swapchains: Vec<vk::SwapchainKHR> = vec![self.swapchain.raw()];
-            let image_indices = vec![image_index];
+            log::debug!("Submission complete");
 
             let present = vk::PresentInfoKHR::builder()
-                .wait_semaphores(&render_finished)
-                .swapchains(&swapchains)
-                .image_indices(&image_indices)
+                .wait_semaphores(slice::from_ref(&render_finished))
+                .swapchains(slice::from_ref(&self.swapchain.raw()))
+                .image_indices(slice::from_ref(&image_index))
                 .build();
 
             self.swapchain

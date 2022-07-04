@@ -38,13 +38,14 @@ impl Drop for Semaphore {
 }
 
 pub struct Fence {
-    vk: vk::Fence,
     device: Arc<Device>,
+    name: String,
+    raw: vk::Fence,
 }
 
 impl Fence {
-    pub fn new(device: Arc<Device>, signaled: bool) -> Fence {
-        let fence = unsafe {
+    pub fn new(device: Arc<Device>, name: String, signaled: bool) -> Fence {
+        let raw = unsafe {
             device.raw().create_fence(
                 &vk::FenceCreateInfo::builder().flags(if signaled {
                     vk::FenceCreateFlags::SIGNALED
@@ -56,25 +57,27 @@ impl Fence {
         }
         .unwrap();
 
-        Fence { vk: fence, device }
+        Fence { device, name, raw }
     }
 
-    pub unsafe fn vk(&self) -> vk::Fence {
-        self.vk
+    pub unsafe fn raw(&self) -> vk::Fence {
+        self.raw
     }
 
     pub fn wait(&self) {
+        log::debug!("Waiting on fence {}", self.name);
         unsafe {
             self.device
                 .raw()
-                .wait_for_fences(&[self.vk], true, u64::MAX)
+                .wait_for_fences(&[self.raw], true, u64::MAX)
                 .unwrap();
         }
+        log::debug!("Fence {} wait complete", self.name);
     }
 
     pub fn reset(&self) {
         unsafe {
-            self.device.raw().reset_fences(&[self.vk]).unwrap();
+            self.device.raw().reset_fences(&[self.raw]).unwrap();
         }
     }
 
@@ -87,7 +90,7 @@ impl Fence {
 impl Drop for Fence {
     fn drop(&mut self) {
         unsafe {
-            self.device.raw().destroy_fence(self.vk, None);
+            self.device.raw().destroy_fence(self.raw, None);
         }
     }
 }
