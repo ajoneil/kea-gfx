@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 pub struct Fence {
     device: Arc<Device>,
-    name: String,
+    _name: String,
     raw: vk::Fence,
 }
 
@@ -22,7 +22,11 @@ impl Fence {
         }
         .unwrap();
 
-        Fence { device, name, raw }
+        Fence {
+            device,
+            _name: name,
+            raw,
+        }
     }
 
     pub unsafe fn raw(&self) -> vk::Fence {

@@ -3,19 +3,14 @@ use glam::vec3;
 use gpu_allocator::MemoryLocation;
 use kea_gpu::{
     commands::CommandBuffer,
-    core::{
-        pipeline::{
-            Pipeline, PipelineDescription, PipelineLayout, PipelineShaderStage,
-            RayTracingPipelineDescription,
-        },
-        shaders::ShaderModule,
-    },
     descriptors::{DescriptorPool, DescriptorSet, DescriptorSetLayout},
     device::Device,
+    pipelines::PipelineLayout,
     ray_tracing::{
         scenes::{Geometry, GeometryInstance, Scene},
-        RayTracingShaderBindingTables, ShaderBindingTable,
+        RayTracingPipeline, RayTracingShaderBindingTables, ShaderBindingTable,
     },
+    shaders::ShaderGroups,
     slots::SlotLayout,
     storage::{
         buffers::{AlignedBuffer, Buffer, TransferBuffer},
@@ -25,16 +20,14 @@ use kea_gpu::{
     Kea,
 };
 use kea_gpu_shaderlib::Aabb;
-use kea_renderer_shaders::Sphere;
+use kea_renderer_shaders::{SlotId, Sphere};
 use log::info;
 use std::{slice, sync::Arc};
 
 pub struct PathTracer {
     kea: Kea,
     _scene: Scene,
-    pipeline: Pipeline,
-    pipeline_layout: PipelineLayout,
-    _descriptor_set_layout: DescriptorSetLayout,
+    pipeline: RayTracingPipeline<SlotId>,
     descriptor_set: DescriptorSet,
     storage_image: ImageView,
     _shader_binding_tables_buffer: AlignedBuffer,
@@ -51,12 +44,11 @@ impl PathTracer {
             kea.presenter().size(),
         );
 
-        let (pipeline, pipeline_layout, descriptor_set_layout) =
-            Self::create_pipeline(kea.device());
+        let pipeline = Self::create_pipeline(kea.device());
 
         let descriptor_set = Self::create_descriptor_set(
             kea.device(),
-            &descriptor_set_layout,
+            &pipeline,
             &scene,
             &storage_image,
             &scene
@@ -79,8 +71,6 @@ impl PathTracer {
             kea,
             _scene: scene,
             pipeline,
-            pipeline_layout,
-            _descriptor_set_layout: descriptor_set_layout,
             descriptor_set,
             storage_image,
             _shader_binding_tables_buffer: shader_binding_tables_buffer,
@@ -155,64 +145,23 @@ impl PathTracer {
         (spheres_buffer, aabbs_buffer)
     }
 
-    fn create_pipeline(device: &Arc<Device>) -> (Pipeline, PipelineLayout, DescriptorSetLayout) {
+    fn create_pipeline(device: &Arc<Device>) -> RayTracingPipeline<SlotId> {
         let slot_layout = SlotLayout::new(kea_renderer_shaders::SLOTS.to_vec());
         let bindings = slot_layout.bindings();
 
         let descriptor_set_layout = DescriptorSetLayout::new(device.clone(), &bindings);
-        let pipeline_layout =
-            PipelineLayout::new(device.clone(), slice::from_ref(&descriptor_set_layout));
+        let pipeline_layout = PipelineLayout::new(device.clone(), descriptor_set_layout);
 
-        let shader_modules =
-            ShaderModule::new_multimodule(&device.clone(), "./kea_renderer_shaders");
-        // let shader_module = ShaderModule::new(device.clone(), "./kea_renderer_shaders");
-        let generate_rays = shader_modules["generate_rays"].entry_point("generate_rays");
-        let ray_miss = shader_modules["ray_miss"].entry_point("ray_miss");
-        let ray_hit = shader_modules["ray_hit"].entry_point("ray_hit");
-        let intersect_sphere = shader_modules["intersect_sphere"].entry_point("intersect_sphere");
+        let shader_groups = ShaderGroups::new(kea_renderer_shaders::SHADERS.to_vec());
+        let pipeline_shaders = shader_groups.build(device.clone(), "./kea_renderer_shaders");
+        let pipeline = RayTracingPipeline::<SlotId>::new(
+            device.clone(),
+            pipeline_shaders,
+            pipeline_layout,
+            slot_layout,
+        );
 
-        let shader_stages = [
-            PipelineShaderStage::new(vk::ShaderStageFlags::RAYGEN_KHR, &generate_rays),
-            PipelineShaderStage::new(vk::ShaderStageFlags::MISS_KHR, &ray_miss),
-            PipelineShaderStage::new(vk::ShaderStageFlags::CLOSEST_HIT_KHR, &ray_hit),
-            PipelineShaderStage::new(vk::ShaderStageFlags::INTERSECTION_KHR, &intersect_sphere),
-        ];
-
-        let shader_groups = [
-            // generate
-            vk::RayTracingShaderGroupCreateInfoKHR::builder()
-                .ty(vk::RayTracingShaderGroupTypeKHR::GENERAL)
-                .general_shader(0)
-                .closest_hit_shader(vk::SHADER_UNUSED_KHR)
-                .any_hit_shader(vk::SHADER_UNUSED_KHR)
-                .intersection_shader(vk::SHADER_UNUSED_KHR)
-                .build(),
-            // miss
-            vk::RayTracingShaderGroupCreateInfoKHR::builder()
-                .ty(vk::RayTracingShaderGroupTypeKHR::GENERAL)
-                .general_shader(1)
-                .closest_hit_shader(vk::SHADER_UNUSED_KHR)
-                .any_hit_shader(vk::SHADER_UNUSED_KHR)
-                .intersection_shader(vk::SHADER_UNUSED_KHR)
-                .build(),
-            // sphere hit
-            vk::RayTracingShaderGroupCreateInfoKHR::builder()
-                .ty(vk::RayTracingShaderGroupTypeKHR::PROCEDURAL_HIT_GROUP)
-                .general_shader(vk::SHADER_UNUSED_KHR)
-                .closest_hit_shader(2)
-                .any_hit_shader(vk::SHADER_UNUSED_KHR)
-                .intersection_shader(3)
-                .build(),
-        ];
-
-        let pipeline_desc = PipelineDescription::RayTracing(RayTracingPipelineDescription::new(
-            &shader_stages,
-            &shader_groups,
-            &pipeline_layout,
-        ));
-        let pipeline = Pipeline::new(device.clone(), &pipeline_desc);
-
-        (pipeline, pipeline_layout, descriptor_set_layout)
+        pipeline
     }
 
     fn create_storage_image(
@@ -252,7 +201,7 @@ impl PathTracer {
 
     fn create_descriptor_set(
         device: &Arc<Device>,
-        layout: &DescriptorSetLayout,
+        pipeline: &RayTracingPipeline<SlotId>,
         scene: &Scene,
         storage_image: &ImageView,
         spheres_buffer: &Buffer,
@@ -272,7 +221,8 @@ impl PathTracer {
             },
         ];
         let descriptor_pool = DescriptorPool::new(device.clone(), 1, &pool_sizes);
-        let descriptor_sets = descriptor_pool.allocate_descriptor_sets(slice::from_ref(layout));
+        let descriptor_sets = descriptor_pool
+            .allocate_descriptor_sets(slice::from_ref(pipeline.layout().descriptor_set_layout()));
         let descriptor_set = descriptor_sets.into_iter().nth(0).unwrap();
 
         let raw_as = unsafe { scene.acceleration_structure().raw() };
@@ -318,7 +268,7 @@ impl PathTracer {
 
     fn create_shader_binding_tables(
         device: &Arc<Device>,
-        pipeline: &Pipeline,
+        pipeline: &RayTracingPipeline<SlotId>,
         rt_pipeline_props: &vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
     ) -> (AlignedBuffer, RayTracingShaderBindingTables) {
         let handle_size = rt_pipeline_props.shader_group_handle_size;
@@ -338,7 +288,7 @@ impl PathTracer {
                 .ext()
                 .ray_tracing_pipeline()
                 .get_ray_tracing_shader_group_handles(
-                    pipeline.raw(),
+                    pipeline.pipeline().raw(),
                     0,
                     group_count,
                     data_size as _,
@@ -430,10 +380,13 @@ impl PathTracer {
 
     pub fn draw(&self) {
         self.kea.presenter().draw(|cmd, swapchain_image| {
-            cmd.bind_pipeline(vk::PipelineBindPoint::RAY_TRACING_KHR, &self.pipeline);
+            cmd.bind_pipeline(
+                vk::PipelineBindPoint::RAY_TRACING_KHR,
+                &self.pipeline.pipeline(),
+            );
             cmd.bind_descriptor_sets(
                 vk::PipelineBindPoint::RAY_TRACING_KHR,
-                &self.pipeline_layout,
+                &self.pipeline.layout(),
                 slice::from_ref(&self.descriptor_set),
             );
 

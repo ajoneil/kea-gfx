@@ -1,8 +1,8 @@
 use super::CommandBuffer;
 use crate::{
-    core::pipeline::{Pipeline, PipelineLayout},
     descriptors::DescriptorSet,
     device::Device,
+    pipelines::{Pipeline, PipelineLayout},
 };
 use ash::vk;
 use std::sync::Arc;

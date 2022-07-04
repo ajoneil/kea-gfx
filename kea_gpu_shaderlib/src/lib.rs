@@ -9,6 +9,7 @@
 
 use spirv_std::glam::Vec3;
 
+pub mod shaders;
 pub mod slots;
 
 #[repr(C)]

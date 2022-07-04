@@ -11,24 +11,24 @@ pub struct ShaderModule {
 }
 
 impl ShaderModule {
-    pub fn new(device: Arc<Device>, shader_crate_path: &str) -> ShaderModule {
+    pub fn new(device: Arc<Device>, shader_crate_path: &str) -> Arc<ShaderModule> {
         let (entry_points, compiled_shaders) = Self::compile_shaders(&shader_crate_path);
 
         let shader_create_info = vk::ShaderModuleCreateInfo::builder().code(&compiled_shaders);
 
         let raw = unsafe { device.raw().create_shader_module(&shader_create_info, None) }.unwrap();
 
-        ShaderModule {
+        Arc::new(ShaderModule {
             raw,
             device,
             entry_points,
-        }
+        })
     }
 
     pub fn new_multimodule(
         device: &Arc<Device>,
         shader_crate_path: &str,
-    ) -> HashMap<String, ShaderModule> {
+    ) -> HashMap<String, Arc<ShaderModule>> {
         let compiled_shaders = Self::compile_shaders_multimodule(&shader_crate_path);
 
         compiled_shaders
@@ -41,11 +41,11 @@ impl ShaderModule {
 
                 (
                     entry_point.clone(),
-                    ShaderModule {
+                    Arc::new(ShaderModule {
                         raw,
                         device: device.clone(),
                         entry_points: vec![entry_point],
-                    },
+                    }),
                 )
             })
             .collect()
@@ -97,17 +97,24 @@ impl ShaderModule {
         self.raw
     }
 
-    pub fn entry_point(&self, entry_point_name: &str) -> ShaderEntryPoint {
-        self.entry_points()
-            .find(|ep| ep.name == entry_point_name)
-            .unwrap()
+    pub fn entry_point(self: &Arc<Self>, entry_point_name: &str) -> ShaderEntryPoint {
+        ShaderEntryPoint {
+            module: self.clone(),
+            name: self
+                .entry_points
+                .iter()
+                .find(|name| *name == entry_point_name)
+                .unwrap()
+                .clone(),
+        }
     }
 
-    pub fn entry_points(&self) -> impl Iterator<Item = ShaderEntryPoint> {
-        self.entry_points
-            .iter()
-            .map(|name| ShaderEntryPoint { module: self, name })
-    }
+    // pub fn entry_points(self: &Arc<Self>) -> impl Iterator<Item = ShaderEntryPoint> {
+    //     self.entry_points.iter().map(|name| ShaderEntryPoint {
+    //         module: self.clone(),
+    //         name: name.clone(),
+    //     })
+    // }
 }
 
 impl Drop for ShaderModule {
@@ -118,17 +125,17 @@ impl Drop for ShaderModule {
     }
 }
 
-pub struct ShaderEntryPoint<'a> {
-    module: &'a ShaderModule,
-    name: &'a String,
+pub struct ShaderEntryPoint {
+    module: Arc<ShaderModule>,
+    name: String,
 }
 
-impl<'a> ShaderEntryPoint<'a> {
+impl ShaderEntryPoint {
     pub fn module(&self) -> &ShaderModule {
-        self.module
+        &self.module
     }
 
-    pub fn name(&self) -> &String {
-        self.name
+    pub fn name(&self) -> &str {
+        &self.name
     }
 }
