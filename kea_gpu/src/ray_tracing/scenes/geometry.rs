@@ -23,6 +23,7 @@ pub struct Geometry {
     geometry_type: GeometryType,
     additional_data: Option<Arc<Buffer>>,
     acceleration_structure: Option<Arc<AccelerationStructure>>,
+    buffer: Option<Buffer>,
 }
 
 impl Geometry {
@@ -38,6 +39,7 @@ impl Geometry {
             geometry_type,
             additional_data,
             acceleration_structure: None,
+            buffer: None,
         }
     }
 
@@ -62,7 +64,7 @@ impl Geometry {
             log::warn!("Geometry {} has multiple build calls.", self.name);
         }
 
-        let acceleration_structure = match &self.geometry_type {
+        self.acceleration_structure = match &self.geometry_type {
             GeometryType::Aabbs(aabbs_buffer) => {
                 let geometry_data = vk::AccelerationStructureGeometryDataKHR {
                     aabbs: vk::AccelerationStructureGeometryAabbsDataKHR::builder()
@@ -89,7 +91,7 @@ impl Geometry {
                     .build();
 
                 let build_sizes =
-                    AccelerationStructure::build_sizes(self.device(), geometry_info, range);
+                    AccelerationStructure::build_sizes(self.device(), &geometry_info, range);
                 let scratch_buffer =
                     ScratchBuffer::new(self.device().clone(), build_sizes.build_scratch);
 
@@ -99,6 +101,7 @@ impl Geometry {
                     vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR,
                     format!("{} acceleration structure", self.name),
                     MemoryLocation::GpuOnly,
+                    None,
                 );
 
                 let acceleration_structure = AccelerationStructure::new(
@@ -122,7 +125,7 @@ impl Geometry {
                     cmd.build_acceleration_structure(geometry_info, range);
                 });
 
-                acceleration_structure
+                Some(Arc::new(acceleration_structure))
             }
             GeometryType::Triangles { vertices, indices } => {
                 let geometry_data = vk::AccelerationStructureGeometryDataKHR {
@@ -153,11 +156,10 @@ impl Geometry {
                 let geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
                     .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
                     .flags(vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_TRACE)
-                    .geometries(slice::from_ref(&geometry))
-                    .build();
+                    .geometries(slice::from_ref(&geometry));
 
                 let build_sizes =
-                    AccelerationStructure::build_sizes(self.device(), geometry_info, range);
+                    AccelerationStructure::build_sizes(self.device(), &geometry_info, range);
                 let scratch_buffer =
                     ScratchBuffer::new(self.device().clone(), build_sizes.build_scratch);
 
@@ -167,15 +169,17 @@ impl Geometry {
                     vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR,
                     format!("{} acceleration structure", self.name),
                     MemoryLocation::GpuOnly,
+                    None,
                 );
+                // self.buffer = Some(acceleration_structure_buffer);
 
-                let acceleration_structure = AccelerationStructure::new(
-                    self.device(),
-                    acceleration_structure_buffer,
-                    vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL,
-                );
+                // let acceleration_structure = AccelerationStructure::new(
+                //     self.device(),
+                //     acceleration_structure_buffer,
+                //     vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL,
+                // );
 
-                // let geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
+                // let geometry_info = geometry_info
                 //     .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
                 //     .dst_acceleration_structure(unsafe { acceleration_structure.raw() })
                 //     .scratch_data(vk::DeviceOrHostAddressKHR {
@@ -187,10 +191,9 @@ impl Geometry {
                 //     cmd.build_acceleration_structure(geometry_info, range);
                 // });
 
-                acceleration_structure
+                // Some(Arc::new(acceleration_structure))
+                None
             }
         };
-
-        self.acceleration_structure = Some(Arc::new(acceleration_structure));
     }
 }
