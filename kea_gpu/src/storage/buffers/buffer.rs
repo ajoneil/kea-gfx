@@ -92,17 +92,15 @@ impl Buffer {
     }
 
     pub fn fill<T: Copy>(&mut self, data: &[T]) {
-        assert!(mem::size_of_val(data) == self.buffer.size());
+        let data = unsafe {
+            slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * mem::size_of::<T>())
+        };
+
+        assert!(data.len() == self.buffer.size());
 
         unsafe {
-            let data_ptr = self.allocation.data_ptr();
-            let mut align = ash::util::Align::new(
-                data_ptr,
-                mem::align_of::<T>() as _,
-                mem::size_of_val(data) as _,
-            );
-
-            align.copy_from_slice(data);
+            let slice = &mut self.allocation.mapped_slice_mut()[..data.len()];
+            slice.copy_from_slice(data);
         }
     }
 
