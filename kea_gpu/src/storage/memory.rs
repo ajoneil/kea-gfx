@@ -1,7 +1,7 @@
 use ash::vk;
 use gpu_allocator::{vulkan::AllocationCreateDesc, MemoryLocation};
 use num_traits::{PrimInt, Unsigned};
-use std::{mem::ManuallyDrop, sync::Arc};
+use std::{mem::ManuallyDrop, os::raw::c_void, sync::Arc};
 
 use crate::device::Device;
 
@@ -23,7 +23,7 @@ impl Allocation {
         location: MemoryLocation,
         requirements: vk::MemoryRequirements,
     ) -> Self {
-        log::debug!("Allocating {:?}", name);
+        // log::debug!("Allocating {:?}", name);
 
         let allocation = device
             .allocator()
@@ -59,11 +59,15 @@ impl Allocation {
     pub unsafe fn mapped_slice_mut(&mut self) -> &mut [u8] {
         self.allocation.mapped_slice_mut().unwrap()
     }
+
+    pub unsafe fn data_ptr(&mut self) -> *mut c_void {
+        self.allocation.mapped_ptr().unwrap().as_ptr()
+    }
 }
 
 impl Drop for Allocation {
     fn drop(&mut self) {
-        log::debug!("Freeing {:?}", self.name);
+        // log::debug!("Freeing {:?}", self.name);
 
         unsafe {
             self.device
