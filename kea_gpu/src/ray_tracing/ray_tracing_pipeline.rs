@@ -37,6 +37,9 @@ impl<SlotId> RayTracingPipeline<SlotId> {
                 })
                 .collect();
 
+            log::debug!("{:?}", stages);
+            log::debug!("{:?}", shaders.groups);
+
             let create_info = vk::RayTracingPipelineCreateInfoKHR::builder()
                 .stages(&stages)
                 .groups(&shaders.groups)

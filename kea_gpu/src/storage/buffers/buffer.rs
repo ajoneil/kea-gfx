@@ -75,6 +75,10 @@ impl Buffer {
         self.allocation.size() as usize
     }
 
+    pub fn count<T>(&self) -> usize {
+        self.size() / mem::size_of::<T>()
+    }
+
     pub fn fill<T>(&mut self, data: &[T]) {
         let data = unsafe {
             slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * mem::size_of::<T>())
@@ -82,7 +86,7 @@ impl Buffer {
         assert!(data.len() == self.buffer.size());
 
         unsafe {
-            let slice = self.allocation.mapped_slice_mut();
+            let slice = &mut self.allocation.mapped_slice_mut()[..data.len()];
             slice.copy_from_slice(data);
         }
     }

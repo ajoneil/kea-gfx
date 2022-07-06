@@ -29,10 +29,10 @@ impl Feature for DebugFeature {
     fn configure_instance(&self, config: &mut InstanceConfig) {
         config.validation_features = Some(DebugInstanceConfig {
             enable: vec![
-                vk::ValidationFeatureEnableEXT::GPU_ASSISTED,
-                vk::ValidationFeatureEnableEXT::GPU_ASSISTED_RESERVE_BINDING_SLOT,
+                // vk::ValidationFeatureEnableEXT::GPU_ASSISTED,
+                // vk::ValidationFeatureEnableEXT::GPU_ASSISTED_RESERVE_BINDING_SLOT,
                 vk::ValidationFeatureEnableEXT::BEST_PRACTICES,
-                // vk::ValidationFeatureEnableEXT::DEBUG_PRINTF,
+                vk::ValidationFeatureEnableEXT::DEBUG_PRINTF,
                 vk::ValidationFeatureEnableEXT::SYNCHRONIZATION_VALIDATION,
             ],
             disable: vec![],

@@ -6,6 +6,7 @@
 )]
 // #![deny(warnings)]
 #![feature(const_type_id)]
+#![feature(asm_experimental_arch)]
 
 use core::any::TypeId;
 use kea_gpu_shaderlib::{
@@ -49,10 +50,11 @@ pub const SLOTS: [(SlotId, Slot); 3] = [
 pub enum ShaderGroupId {
     RayGen,
     Miss,
+    TriangleHit,
     SphereHit,
 }
 
-pub const SHADERS: [(ShaderGroupId, ShaderGroup); 3] = [
+pub const SHADERS: [(ShaderGroupId, ShaderGroup); 4] = [
     (
         ShaderGroupId::RayGen,
         ShaderGroup::RayGeneration(Shader("entrypoints::generate_rays")),
@@ -62,10 +64,14 @@ pub const SHADERS: [(ShaderGroupId, ShaderGroup); 3] = [
         ShaderGroup::Miss(Shader("entrypoints::ray_miss")),
     ),
     (
+        ShaderGroupId::TriangleHit,
+        ShaderGroup::TriangleHit(Shader("entrypoints::triangle_hit")),
+    ),
+    (
         ShaderGroupId::SphereHit,
         ShaderGroup::ProceduralHit {
             intersection: Shader("entrypoints::intersect_sphere"),
-            hit: Shader("entrypoints::ray_hit"),
+            hit: Shader("entrypoints::sphere_hit"),
         },
     ),
 ];

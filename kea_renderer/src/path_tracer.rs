@@ -1,5 +1,5 @@
 use ash::vk;
-use glam::vec3;
+use glam::{vec3, Vec3};
 use gpu_allocator::MemoryLocation;
 use kea_gpu::{
     commands::CommandBuffer,
@@ -7,7 +7,7 @@ use kea_gpu::{
     device::Device,
     pipelines::PipelineLayout,
     ray_tracing::{
-        scenes::{Geometry, GeometryInstance, Scene},
+        scenes::{Geometry, GeometryInstance, GeometryType, Scene},
         RayTracingPipeline,
     },
     shaders::ShaderGroups,
@@ -21,7 +21,7 @@ use kea_gpu::{
 use kea_gpu_shaderlib::Aabb;
 use kea_renderer_shaders::{SlotId, Sphere};
 use log::info;
-use std::{slice, sync::Arc};
+use std::{mem, slice, sync::Arc};
 
 pub struct PathTracer {
     kea: Kea,
@@ -48,13 +48,15 @@ impl PathTracer {
             &pipeline,
             &scene,
             &storage_image,
-            &scene
+            scene
                 .instances()
                 .iter()
                 .nth(0)
                 .unwrap()
                 .geometry()
-                .additional_data(),
+                .additional_data()
+                .as_ref()
+                .unwrap(),
         );
 
         PathTracer {
@@ -67,44 +69,67 @@ impl PathTracer {
     }
 
     fn build_scene(kea: &Kea) -> Scene {
+        let mut scene = Scene::new(kea.device().clone(), "test scene".to_string());
+
         let spheres = [
-            Sphere {
-                position: vec3(0.0, 0.0, 1.5),
-                radius: 0.5,
-            },
-            Sphere {
-                position: vec3(1.0, 1.0, 1.5),
-                radius: 1.5,
-            },
-            Sphere {
-                position: vec3(-0.5, 0.0, -1.5),
-                radius: 2.5,
-            },
-            Sphere {
-                position: vec3(0.0, 0.0, 1.5),
-                radius: 0.5,
-            },
-            Sphere {
-                position: vec3(0.0, 0.0, 1.5),
-                radius: 0.5,
-            },
-            Sphere {
-                position: vec3(0.0, 0.0, 1.5),
-                radius: 0.5,
-            },
+            Sphere::new(vec3(0.0, 0.0, 1.5), 0.4),
+            Sphere::new(vec3(-1.0, 0.0, 1.5), 0.4),
+            Sphere::new(vec3(1.0, 0.0, 1.5), 0.4),
+            // Sphere::new(vec3(-0.5, 0.0, 1.5), 0.5),
+            // Sphere::new(vec3(0.0, 0.0, 1.5), 0.5),
+            // Sphere::new(vec3(0.0, 0.0, 1.5), 0.5),
+            // Sphere::new(vec3(0.0, 0.0, 1.5), 0.5),
         ];
 
         let (spheres_buffer, aabbs_buffer) = Self::create_buffers(kea.device(), &spheres);
         let mut geometry = Geometry::new(
+            kea.device().clone(),
             "spheres".to_string(),
-            aabbs_buffer,
-            Arc::new(spheres_buffer),
+            GeometryType::Aabbs(aabbs_buffer),
+            Some(Arc::new(spheres_buffer)),
         );
         geometry.build();
-        let geometry_instance = GeometryInstance::new(Arc::new(geometry));
-
-        let mut scene = Scene::new(kea.device().clone(), "test scene".to_string());
+        let geometry_instance = GeometryInstance::new(Arc::new(geometry), 1);
         scene.add_instance(geometry_instance);
+
+        let vertices = [
+            vec3(-1.0, 1.0, 1.0),
+            vec3(1.0, 1.0, 1.0),
+            vec3(0.0, -1.0, 1.0),
+        ];
+
+        let vertex_buffer = Buffer::new_from_data(
+            kea.device().clone(),
+            &vertices,
+            vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
+            "vertices".to_string(),
+            MemoryLocation::GpuOnly,
+        );
+
+        const INDICES: [u16; 3] = [0, 1, 2];
+
+        let index_buffer = Buffer::new_from_data(
+            kea.device().clone(),
+            &INDICES,
+            vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
+            "indices".to_string(),
+            MemoryLocation::CpuToGpu,
+        );
+
+        let mut geometry = Geometry::new(
+            kea.device().clone(),
+            "spheres".to_string(),
+            GeometryType::Triangles {
+                vertices: vertex_buffer,
+                indices: index_buffer,
+            },
+            None,
+        );
+        geometry.build();
+
+        let geometry_instance = GeometryInstance::new(Arc::new(geometry), 0);
+        scene.add_instance(geometry_instance);
+
         scene.build();
 
         scene

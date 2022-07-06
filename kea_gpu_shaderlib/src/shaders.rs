@@ -5,5 +5,6 @@ pub struct Shader(pub &'static str);
 pub enum ShaderGroup {
     RayGeneration(Shader),
     Miss(Shader),
+    TriangleHit(Shader),
     ProceduralHit { intersection: Shader, hit: Shader },
 }

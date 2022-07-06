@@ -15,7 +15,11 @@ impl PresentationFeature {
 
 impl Feature for PresentationFeature {
     fn instance_extension_names(&self) -> Vec<instance::Ext> {
-        vec![instance::Ext::Surface, instance::Ext::WaylandSurface]
+        vec![
+            instance::Ext::Surface,
+            instance::Ext::WaylandSurface,
+            instance::Ext::XlibSurface,
+        ]
     }
 
     fn instance_extensions(&self, instance: &VulkanInstance) -> Vec<Box<dyn InstanceExtension>> {

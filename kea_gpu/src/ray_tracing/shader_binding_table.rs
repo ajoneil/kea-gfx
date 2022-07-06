@@ -73,6 +73,13 @@ impl RayTracingShaderBindingTables {
                             - shader_group_handle_size as usize,
                     ));
                 }
+                ShaderGroup::TriangleHit { .. } => {
+                    hit.extend_from_slice(handle);
+                    hit.extend(iter::repeat(0).take(
+                        shader_group_handle_aligned_size as usize
+                            - shader_group_handle_size as usize,
+                    ));
+                }
                 ShaderGroup::ProceduralHit { .. } => {
                     hit.extend_from_slice(handle);
                     hit.extend(iter::repeat(0).take(

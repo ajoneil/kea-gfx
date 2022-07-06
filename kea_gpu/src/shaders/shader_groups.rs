@@ -82,6 +82,23 @@ impl<ShaderGroupId> ShaderGroups<ShaderGroupId> {
                         .intersection_shader(intersection_index as _)
                         .build()
                 }
+                ShaderGroup::TriangleHit(Shader(shader)) => {
+                    let entry_point = modules[*shader].entry_point(shader);
+                    let index = stages.len();
+                    let stage = (
+                        CString::new(*shader).unwrap(),
+                        vk::ShaderStageFlags::CLOSEST_HIT_KHR,
+                        entry_point,
+                    );
+                    stages.push(stage);
+                    vk::RayTracingShaderGroupCreateInfoKHR::builder()
+                        .ty(vk::RayTracingShaderGroupTypeKHR::TRIANGLES_HIT_GROUP)
+                        .general_shader(vk::SHADER_UNUSED_KHR)
+                        .closest_hit_shader(index as _)
+                        .any_hit_shader(vk::SHADER_UNUSED_KHR)
+                        .intersection_shader(vk::SHADER_UNUSED_KHR)
+                        .build()
+                }
             })
             .collect();
 

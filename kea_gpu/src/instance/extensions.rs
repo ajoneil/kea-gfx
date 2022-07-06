@@ -9,6 +9,7 @@ use std::os::raw::c_char;
 pub enum Ext {
     Surface,
     WaylandSurface,
+    XlibSurface,
     ValidationFeatures,
     DebugUtils,
 }
@@ -18,6 +19,7 @@ impl Ext {
         match self {
             Ext::Surface => khr::Surface::name().as_ptr(),
             Ext::WaylandSurface => khr::WaylandSurface::name().as_ptr(),
+            Ext::XlibSurface => khr::XlibSurface::name().as_ptr(),
             Ext::ValidationFeatures => vk::ExtValidationFeaturesFn::name().as_ptr(),
             Ext::DebugUtils => ext::DebugUtils::name().as_ptr(),
         }

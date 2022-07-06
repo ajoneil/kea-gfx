@@ -4,6 +4,7 @@ use spirv_std::macros::spirv;
 use spirv_std::{
     arch::report_intersection,
     glam::{vec2, vec3, vec4, UVec2, UVec3, Vec2, Vec3},
+    macros::debug_printfln,
     Image,
 };
 
@@ -19,6 +20,7 @@ pub struct RayPayload {
 }
 
 #[spirv(ray_generation)]
+#[rustfmt::skip]
 pub fn generate_rays(
     #[spirv(launch_id)] launch_id: UVec3,
     #[spirv(launch_size)] launch_size: UVec3,
@@ -54,43 +56,50 @@ pub fn generate_rays(
 }
 
 pub fn ray_for_pixel(pixel_position: Vec2, size: Vec2) -> Vec3 {
-    let aspect_ratio = vec2(size.x / size.y, 1.0);
-    let uv = pixel_position / size * aspect_ratio;
+    let aspect_ratio = size.x / size.y;
+    let uv = pixel_position / size;
     let direction = uv * 2.0 - 1.0;
-    let target = vec3(direction.x, direction.y, 1.0);
+    let target = vec3(direction.x * aspect_ratio, direction.y, 1.0);
     target.normalize()
 }
 
 #[spirv(miss)]
+#[rustfmt::skip]
 pub fn ray_miss(#[spirv(incoming_ray_payload)] ray_payload: &mut RayPayload) {
     ray_payload.color = vec3(0.0, 0.0, 1.0);
 }
 
 #[spirv(closest_hit)]
-pub fn ray_hit(#[spirv(incoming_ray_payload)] ray_payload: &mut RayPayload) {
+#[rustfmt::skip]
+pub fn triangle_hit(#[spirv(incoming_ray_payload)] ray_payload: &mut RayPayload) {
+    ray_payload.color = vec3(0.0, 1.0, 0.0);
+}
+
+#[spirv(closest_hit)]
+#[rustfmt::skip]
+pub fn sphere_hit(#[spirv(incoming_ray_payload)] ray_payload: &mut RayPayload) {
     ray_payload.color = vec3(1.0, 0.0, 0.0);
 }
 
 #[spirv(intersection)]
+#[rustfmt::skip]
 pub fn intersect_sphere(
     #[spirv(world_ray_origin)] ray_origin: Vec3,
     #[spirv(world_ray_direction)] ray_direction: Vec3,
-    #[spirv(ray_geometry_index)] sphere_id: usize,
+    #[spirv(primitive_id)] sphere_id: usize,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] spheres: &mut [Sphere],
 ) {
-    unsafe {
-        report_intersection(1.0, 4);
-    }
-    let _sphere = &spheres[sphere_id as usize];
-    let sphere = Sphere {
-        position: vec3(0.0, 0.0, 1.5),
-        radius: 0.5,
-    };
+    // unsafe {
+    //     if cfg!(target_arch = "spirv") {
+    //         debug_printfln!("id: %d", sphere_id as i32);
+    //     }
+    // }
 
-    let oc = ray_origin - sphere.position;
+    let sphere = spheres[sphere_id];
+    let oc = ray_origin - sphere.position();
     let a = ray_direction.dot(ray_direction);
     let b = 2.0 * oc.dot(ray_direction);
-    let c = oc.dot(oc) - (sphere.radius * sphere.radius);
+    let c = oc.dot(oc) - (sphere.radius() * sphere.radius());
     let discriminant = b * b - (4.0 * a * c);
 
     if discriminant >= 0.0 {

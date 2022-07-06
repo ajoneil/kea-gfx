@@ -55,6 +55,7 @@ impl ShaderModule {
         let compile_result = SpirvBuilder::new(shader_crate_path, "spirv-unknown-vulkan1.2")
             .capability(spirv_builder::Capability::RayTracingKHR)
             .extension("SPV_KHR_ray_tracing")
+            .extension("SPV_KHR_non_semantic_info")
             .print_metadata(MetadataPrintout::None)
             .multimodule(true)
             .build()
