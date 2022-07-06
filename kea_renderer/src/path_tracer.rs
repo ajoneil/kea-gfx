@@ -104,6 +104,7 @@ impl PathTracer {
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
             "vertices".to_string(),
             MemoryLocation::GpuOnly,
+            None,
         );
 
         const INDICES: [u16; 3] = [0, 1, 2];
@@ -113,12 +114,13 @@ impl PathTracer {
             &INDICES,
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
             "indices".to_string(),
-            MemoryLocation::CpuToGpu,
+            MemoryLocation::GpuOnly,
+            None,
         );
 
         let mut geometry = Geometry::new(
             kea.device().clone(),
-            "spheres".to_string(),
+            "triangles".to_string(),
             GeometryType::Triangles {
                 vertices: vertex_buffer,
                 indices: index_buffer,
@@ -127,8 +129,8 @@ impl PathTracer {
         );
         geometry.build();
 
-        let geometry_instance = GeometryInstance::new(Arc::new(geometry), 0);
-        scene.add_instance(geometry_instance);
+        // let geometry_instance = GeometryInstance::new(Arc::new(geometry), 0);
+        // scene.add_instance(geometry_instance);
 
         scene.build();
 
@@ -142,6 +144,7 @@ impl PathTracer {
             vk::BufferUsageFlags::STORAGE_BUFFER,
             "spheres".to_string(),
             MemoryLocation::GpuOnly,
+            None,
         );
         info!("spheres data {:?}", spheres);
 
@@ -153,6 +156,7 @@ impl PathTracer {
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
             "aabbs".to_string(),
             MemoryLocation::GpuOnly,
+            None,
         );
 
         (spheres_buffer, aabbs_buffer)

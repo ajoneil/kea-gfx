@@ -1,9 +1,13 @@
 use super::{extensions::DeviceExtensions, physical_device::PhysicalDevice, QueueFamily};
 use crate::{commands::CommandBuffer, features::Feature, instance::VulkanInstance, sync::Fence};
 use ash::vk;
-use gpu_allocator::vulkan::{Allocator, AllocatorCreateDesc};
+use gpu_allocator::{
+    vulkan::{Allocator, AllocatorCreateDesc},
+    AllocatorDebugSettings,
+};
 use std::{
     mem::ManuallyDrop,
+    slice,
     sync::{Arc, Mutex},
 };
 
@@ -36,11 +40,11 @@ impl Queue {
             .into_iter()
             .map(|cmd| unsafe { cmd.raw() })
             .collect();
-        let submits = [vk::SubmitInfo::builder().command_buffers(&buffers).build()];
+        let submit = vk::SubmitInfo::builder().command_buffers(&buffers).build();
         unsafe {
             self.device
                 .raw()
-                .queue_submit(self.raw(), &submits, fence.raw())
+                .queue_submit(self.raw(), slice::from_ref(&submit), fence.raw())
                 .unwrap();
         }
 
@@ -77,7 +81,13 @@ impl Device {
                 instance: instance.raw().clone(),
                 device: raw.clone(),
                 physical_device: physical_device.raw(),
-                debug_settings: Default::default(),
+                debug_settings: AllocatorDebugSettings {
+                    log_memory_information: true,
+                    log_leaks_on_shutdown: true,
+                    log_allocations: true,
+                    log_frees: true,
+                    ..Default::default()
+                },
                 buffer_device_address: true,
             })
         }

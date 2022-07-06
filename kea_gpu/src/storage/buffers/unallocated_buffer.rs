@@ -13,17 +13,24 @@ pub struct UnallocatedBuffer {
 impl UnallocatedBuffer {
     pub fn new(device: Arc<Device>, size: u64, usage: vk::BufferUsageFlags) -> UnallocatedBuffer {
         let usage = usage | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS;
-        let buffer_info = vk::BufferCreateInfo::builder()
-            .size(size)
-            .usage(usage)
-            .sharing_mode(vk::SharingMode::EXCLUSIVE);
+        let buffer_info = vk::BufferCreateInfo::builder().size(size).usage(usage);
         let raw = unsafe { device.raw().create_buffer(&buffer_info, None) }.unwrap();
 
         UnallocatedBuffer { device, raw, size }
     }
 
-    pub fn allocate(self, name: String, location: MemoryLocation) -> Buffer {
-        let requirements = unsafe { self.device().raw().get_buffer_memory_requirements(self.raw) };
+    pub fn allocate(
+        self,
+        name: String,
+        location: MemoryLocation,
+        alignment: Option<u64>,
+    ) -> Buffer {
+        let mut requirements =
+            unsafe { self.device().raw().get_buffer_memory_requirements(self.raw) };
+        if let Some(alignment) = alignment {
+            requirements.alignment = requirements.alignment.max(alignment);
+        }
+
         let allocation = Allocation::new(self.device.clone(), name.clone(), location, requirements);
 
         unsafe {

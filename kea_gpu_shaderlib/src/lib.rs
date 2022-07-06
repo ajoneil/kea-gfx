@@ -14,6 +14,7 @@ pub mod slots;
 
 #[repr(C)]
 #[cfg_attr(not(target_arch = "spirv"), derive(Debug))]
+#[derive(Clone, Copy)]
 pub struct Aabb {
     pub min: Vec3,
     pub max: Vec3,

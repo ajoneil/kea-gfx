@@ -28,7 +28,7 @@ impl GeometryInstance {
     pub unsafe fn raw(&self) -> vk::AccelerationStructureInstanceKHR {
         let custom_index = 0;
         let mask = 0xff;
-        let flags = vk::GeometryInstanceFlagsKHR::TRIANGLE_FACING_CULL_DISABLE
+        let flags = vk::GeometryInstanceFlagsKHR::FORCE_OPAQUE
             .as_raw()
             .try_into()
             .unwrap();

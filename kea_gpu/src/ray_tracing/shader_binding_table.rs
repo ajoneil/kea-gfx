@@ -3,7 +3,7 @@ use crate::{
     pipelines::Pipeline,
     shaders::{PipelineShaders, ShaderGroups},
     storage::{
-        buffers::{AlignedBuffer, TransferBuffer},
+        buffers::{Buffer, TransferBuffer},
         memory,
     },
 };
@@ -11,13 +11,12 @@ use ash::vk;
 use kea_gpu_shaderlib::shaders::ShaderGroup;
 use std::{iter, sync::Arc};
 
-#[derive(Debug)]
 pub struct RayTracingShaderBindingTables {
     pub raygen: ShaderBindingTable,
     pub miss: ShaderBindingTable,
     pub hit: ShaderBindingTable,
     pub callable: ShaderBindingTable,
-    _buffer: AlignedBuffer,
+    _buffer: Buffer,
 }
 
 impl RayTracingShaderBindingTables {
@@ -97,16 +96,14 @@ impl RayTracingShaderBindingTables {
             binding_table_data.extend(group.iter());
         }
 
-        let mut binding_table_buffer = TransferBuffer::new(
+        let buffer = Buffer::new_from_data(
             device.clone(),
-            binding_table_data.len() as _,
+            &binding_table_data,
             vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR,
             "rt shader binding table".to_string(),
+            gpu_allocator::MemoryLocation::GpuOnly,
+            Some(shader_group_base_alignment as _),
         );
-        binding_table_buffer.cpu_buffer().fill(&binding_table_data);
-        let buffer =
-            binding_table_buffer.transfer_to_gpu_with_alignment(shader_group_base_alignment);
-
         let buffer_address = buffer.device_address();
 
         Self {

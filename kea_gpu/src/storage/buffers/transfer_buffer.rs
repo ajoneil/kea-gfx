@@ -1,4 +1,4 @@
-use super::{AlignedBuffer, Buffer};
+use super::Buffer;
 use crate::{commands::CommandBuffer, device::Device};
 use ash::vk;
 use gpu_allocator::MemoryLocation;
@@ -9,6 +9,7 @@ pub struct TransferBuffer {
     name: String,
     cpu_buffer: Buffer,
     usage: vk::BufferUsageFlags,
+    alignment: Option<u64>,
 }
 
 impl TransferBuffer {
@@ -17,6 +18,7 @@ impl TransferBuffer {
         size: u64,
         usage: vk::BufferUsageFlags,
         name: String,
+        alignment: Option<u64>,
     ) -> TransferBuffer {
         let cpu_buffer = Buffer::new(
             device.clone(),
@@ -24,6 +26,7 @@ impl TransferBuffer {
             vk::BufferUsageFlags::TRANSFER_SRC,
             format!("{} transfer", name),
             MemoryLocation::CpuToGpu,
+            None,
         );
 
         TransferBuffer {
@@ -31,6 +34,7 @@ impl TransferBuffer {
             name,
             cpu_buffer,
             usage,
+            alignment,
         }
     }
 
@@ -46,31 +50,13 @@ impl TransferBuffer {
             usage,
             self.name.clone(),
             MemoryLocation::GpuOnly,
+            self.alignment,
         );
 
         CommandBuffer::now(
             &self.device,
             format!("transfer {} to gpu", self.name),
             |cmd| cmd.copy_buffer(&self.cpu_buffer, &gpu_buffer),
-        );
-
-        gpu_buffer
-    }
-
-    pub fn transfer_to_gpu_with_alignment(&mut self, alignment: u32) -> AlignedBuffer {
-        let usage = self.usage | vk::BufferUsageFlags::TRANSFER_DST;
-        let gpu_buffer = AlignedBuffer::new(
-            self.device.clone(),
-            self.cpu_buffer().size() as _,
-            alignment,
-            usage,
-            self.name.clone(),
-        );
-
-        CommandBuffer::now(
-            &self.device,
-            format!("transfer aligned {} to gpu", self.name),
-            |cmd| cmd.copy_buffer_aligned(&self.cpu_buffer, &gpu_buffer),
         );
 
         gpu_buffer

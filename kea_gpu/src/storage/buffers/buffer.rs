@@ -6,8 +6,8 @@ use std::{mem, slice, sync::Arc};
 
 pub struct Buffer {
     name: String,
-    buffer: UnallocatedBuffer,
     allocation: Allocation,
+    buffer: UnallocatedBuffer,
     location: MemoryLocation,
 }
 
@@ -18,26 +18,35 @@ impl Buffer {
         usage: vk::BufferUsageFlags,
         name: String,
         location: MemoryLocation,
+        alignment: Option<u64>,
     ) -> Buffer {
-        UnallocatedBuffer::new(device, size, usage).allocate(name, location)
+        UnallocatedBuffer::new(device, size, usage).allocate(name, location, alignment)
     }
 
-    pub fn new_from_data<T>(
+    pub fn new_from_data<T: Copy>(
         device: Arc<Device>,
         data: &[T],
         usage: vk::BufferUsageFlags,
         name: String,
         location: MemoryLocation,
+        alignment: Option<u64>,
     ) -> Buffer {
-        let size = data.len() * mem::size_of::<T>();
+        let size = mem::size_of_val(data);
         if location == MemoryLocation::CpuToGpu {
-            let mut buffer = Buffer::new(device, size as _, usage, name, MemoryLocation::CpuToGpu);
+            let mut buffer = Buffer::new(
+                device,
+                size as _,
+                usage,
+                name,
+                MemoryLocation::CpuToGpu,
+                alignment,
+            );
 
             buffer.fill(data);
 
             buffer
         } else if location == MemoryLocation::GpuOnly {
-            let mut buffer = TransferBuffer::new(device, size as _, usage, name);
+            let mut buffer = TransferBuffer::new(device, size as _, usage, name, alignment);
             buffer.cpu_buffer().fill(data);
 
             buffer.transfer_to_gpu()
@@ -61,10 +70,13 @@ impl Buffer {
     }
 
     pub fn device_address(&self) -> vk::DeviceAddress {
-        unsafe {
+        let address = unsafe {
             let info = vk::BufferDeviceAddressInfo::builder().buffer(self.buffer.raw());
             self.buffer.device().raw().get_buffer_device_address(&info)
-        }
+        };
+        log::debug!("mem address for buffer  {}: {}", self.name, address);
+
+        address
     }
 
     pub fn size(&self) -> usize {
@@ -79,15 +91,18 @@ impl Buffer {
         self.size() / mem::size_of::<T>()
     }
 
-    pub fn fill<T>(&mut self, data: &[T]) {
-        let data = unsafe {
-            slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * mem::size_of::<T>())
-        };
-        assert!(data.len() == self.buffer.size());
+    pub fn fill<T: Copy>(&mut self, data: &[T]) {
+        assert!(mem::size_of_val(data) == self.buffer.size());
 
         unsafe {
-            let slice = &mut self.allocation.mapped_slice_mut()[..data.len()];
-            slice.copy_from_slice(data);
+            let data_ptr = self.allocation.data_ptr();
+            let mut align = ash::util::Align::new(
+                data_ptr,
+                mem::align_of::<T>() as _,
+                mem::size_of_val(data) as _,
+            );
+
+            align.copy_from_slice(data);
         }
     }
 

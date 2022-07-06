@@ -53,7 +53,8 @@ impl Scene {
             &instances,
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
             "scene instances".to_string(),
-            MemoryLocation::GpuOnly,
+            MemoryLocation::CpuToGpu,
+            None,
         );
 
         let geometry_data = vk::AccelerationStructureGeometryDataKHR {
@@ -83,7 +84,7 @@ impl Scene {
             .geometries(slice::from_ref(&geometry))
             .build();
 
-        let build_sizes = AccelerationStructure::build_sizes(&self.device, geometry_info, range);
+        let build_sizes = AccelerationStructure::build_sizes(&self.device, &geometry_info, range);
         let scratch_buffer = ScratchBuffer::new(self.device.clone(), build_sizes.build_scratch);
 
         let acceleration_structure_buffer = Buffer::new(
@@ -92,6 +93,7 @@ impl Scene {
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR,
             format!("{} acceleration structure", self.name),
             MemoryLocation::GpuOnly,
+            None,
         );
         let acceleration_structure = AccelerationStructure::new(
             &self.device,

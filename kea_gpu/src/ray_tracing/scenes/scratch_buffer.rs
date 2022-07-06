@@ -1,9 +1,9 @@
-use crate::{device::Device, storage::buffers::AlignedBuffer};
+use crate::{device::Device, storage::buffers::Buffer};
 use ash::vk;
 use std::sync::Arc;
 
 pub struct ScratchBuffer {
-    buffer: AlignedBuffer,
+    buffer: Buffer,
 }
 
 impl ScratchBuffer {
@@ -13,12 +13,13 @@ impl ScratchBuffer {
             ..
         } = device.physical_device().acceleration_structure_properties();
 
-        let buffer = AlignedBuffer::new(
+        let buffer = Buffer::new(
             device,
             size,
-            alignment,
             vk::BufferUsageFlags::STORAGE_BUFFER,
             "acceleration structure build scratch".to_string(),
+            gpu_allocator::MemoryLocation::GpuOnly,
+            Some(alignment as _),
         );
 
         ScratchBuffer { buffer }

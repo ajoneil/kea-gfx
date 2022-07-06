@@ -27,6 +27,8 @@ impl AccelerationStructure {
         }
         .unwrap();
 
+        log::debug!("Creating AS {}: {:?}", buffer.name(), raw);
+
         AccelerationStructure {
             device: device.clone(),
             raw,
@@ -55,7 +57,7 @@ impl AccelerationStructure {
 
     pub fn build_sizes(
         device: &Device,
-        geometry_info: vk::AccelerationStructureBuildGeometryInfoKHR,
+        geometry_info: &vk::AccelerationStructureBuildGeometryInfoKHR,
         range: vk::AccelerationStructureBuildRangeInfoKHR,
     ) -> BuildSizes {
         let primitive_count = range.primitive_count;
@@ -70,7 +72,7 @@ impl AccelerationStructure {
                 .acceleration_structure()
                 .get_acceleration_structure_build_sizes(
                     vk::AccelerationStructureBuildTypeKHR::DEVICE,
-                    &geometry_info,
+                    geometry_info,
                     slice::from_ref(&primitive_count),
                 )
         };
@@ -84,6 +86,8 @@ impl AccelerationStructure {
 
 impl Drop for AccelerationStructure {
     fn drop(&mut self) {
+        log::debug!("Dropping AS {}: {:?}", self.buffer.name(), self.raw);
+
         unsafe {
             self.device
                 .ext()
