@@ -75,10 +75,10 @@ impl PathTracer {
             Sphere::new(vec3(0.0, 0.0, 1.5), 0.4),
             Sphere::new(vec3(-1.0, 0.0, 1.5), 0.4),
             Sphere::new(vec3(1.0, 0.0, 1.5), 0.4),
-            // Sphere::new(vec3(-0.5, 0.0, 1.5), 0.5),
-            // Sphere::new(vec3(0.0, 0.0, 1.5), 0.5),
-            // Sphere::new(vec3(0.0, 0.0, 1.5), 0.5),
-            // Sphere::new(vec3(0.0, 0.0, 1.5), 0.5),
+            Sphere::new(vec3(-0.5, 0.0, 1.5), 0.5),
+            Sphere::new(vec3(0.0, 0.0, 1.5), 0.5),
+            Sphere::new(vec3(0.0, 0.0, 1.5), 0.5),
+            Sphere::new(vec3(0.0, 0.0, 1.5), 0.5),
         ];
 
         let (spheres_buffer, aabbs_buffer) = Self::create_buffers(kea.device(), &spheres);
@@ -93,9 +93,9 @@ impl PathTracer {
         scene.add_instance(geometry_instance);
 
         let vertices = [
-            vec3(-1.0, 1.0, 1.0),
-            vec3(1.0, 1.0, 1.0),
-            vec3(0.0, -1.0, 1.0),
+            vec3(-0.2, 0.2, 0.5),
+            vec3(0.2, 0.2, 0.5),
+            vec3(0.0, -0.2, 0.5),
         ];
 
         let vertex_buffer = Buffer::new_from_data(
@@ -129,8 +129,8 @@ impl PathTracer {
         );
         geometry.build();
 
-        // let geometry_instance = GeometryInstance::new(Arc::new(geometry), 0);
-        // scene.add_instance(geometry_instance);
+        let geometry_instance = GeometryInstance::new(Arc::new(geometry), 0);
+        scene.add_instance(geometry_instance);
 
         scene.build();
 

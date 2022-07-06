@@ -173,26 +173,26 @@ impl Geometry {
                 );
                 // self.buffer = Some(acceleration_structure_buffer);
 
-                // let acceleration_structure = AccelerationStructure::new(
-                //     self.device(),
-                //     acceleration_structure_buffer,
-                //     vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL,
-                // );
+                let acceleration_structure = AccelerationStructure::new(
+                    self.device(),
+                    acceleration_structure_buffer,
+                    vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL,
+                );
 
-                // let geometry_info = geometry_info
-                //     .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
-                //     .dst_acceleration_structure(unsafe { acceleration_structure.raw() })
-                //     .scratch_data(vk::DeviceOrHostAddressKHR {
-                //         device_address: scratch_buffer.device_address(),
-                //     })
-                //     .build();
+                let geometry_info = geometry_info
+                    .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
+                    .dst_acceleration_structure(unsafe { acceleration_structure.raw() })
+                    .scratch_data(vk::DeviceOrHostAddressKHR {
+                        device_address: scratch_buffer.device_address(),
+                    })
+                    .build();
 
-                // CommandBuffer::now(self.device(), "build BLAS".to_string(), |cmd| {
-                //     cmd.build_acceleration_structure(geometry_info, range);
-                // });
+                CommandBuffer::now(self.device(), "build BLAS".to_string(), |cmd| {
+                    cmd.build_acceleration_structure(geometry_info, range);
+                });
 
-                // Some(Arc::new(acceleration_structure))
-                None
+                Some(Arc::new(acceleration_structure))
+                // None
             }
         };
     }
