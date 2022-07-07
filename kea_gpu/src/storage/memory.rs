@@ -13,7 +13,6 @@ pub fn align<T: PrimInt + Unsigned + From<u8>>(size_or_address: T, alignment: T)
 pub struct Allocation {
     device: Arc<Device>,
     allocation: ManuallyDrop<gpu_allocator::vulkan::Allocation>,
-    name: String,
 }
 
 impl Allocation {
@@ -23,8 +22,6 @@ impl Allocation {
         location: MemoryLocation,
         requirements: vk::MemoryRequirements,
     ) -> Self {
-        // log::debug!("Allocating {:?}", name);
-
         let allocation = device
             .allocator()
             .lock()
@@ -40,7 +37,6 @@ impl Allocation {
         Self {
             device,
             allocation: ManuallyDrop::new(allocation),
-            name,
         }
     }
 
@@ -67,8 +63,6 @@ impl Allocation {
 
 impl Drop for Allocation {
     fn drop(&mut self) {
-        // log::debug!("Freeing {:?}", self.name);
-
         unsafe {
             self.device
                 .allocator()

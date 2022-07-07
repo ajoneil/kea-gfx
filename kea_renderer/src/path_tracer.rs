@@ -1,5 +1,5 @@
 use ash::vk;
-use glam::{vec3, Vec3};
+use glam::vec3;
 use gpu_allocator::MemoryLocation;
 use kea_gpu::{
     commands::CommandBuffer,
@@ -21,7 +21,7 @@ use kea_gpu::{
 use kea_gpu_shaderlib::Aabb;
 use kea_renderer_shaders::{SlotId, Sphere};
 use log::info;
-use std::{mem, slice, sync::Arc};
+use std::{slice, sync::Arc};
 
 pub struct PathTracer {
     kea: Kea,

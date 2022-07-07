@@ -4,7 +4,6 @@ use spirv_std::macros::spirv;
 use spirv_std::{
     arch::report_intersection,
     glam::{vec2, vec3, vec4, UVec2, UVec3, Vec2, Vec3},
-    macros::debug_printfln,
     Image,
 };
 

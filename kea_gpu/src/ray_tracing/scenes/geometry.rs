@@ -5,10 +5,7 @@ use gpu_allocator::MemoryLocation;
 use kea_gpu_shaderlib::Aabb;
 use std::{mem, slice, sync::Arc};
 
-use super::{
-    acceleration_structure::{self, AccelerationStructure},
-    scratch_buffer::ScratchBuffer,
-};
+use super::{acceleration_structure::AccelerationStructure, scratch_buffer::ScratchBuffer};
 
 pub enum GeometryType {
     Triangles { vertices: Buffer, indices: Buffer },
@@ -16,14 +13,11 @@ pub enum GeometryType {
 }
 
 pub struct Geometry {
-    // type: AABB(intersection_shader: EntryPoint)
-    // hit_shader: EntryPoint
     device: Arc<Device>,
     name: String,
     geometry_type: GeometryType,
     additional_data: Option<Arc<Buffer>>,
     acceleration_structure: Option<Arc<AccelerationStructure>>,
-    buffer: Option<Buffer>,
 }
 
 impl Geometry {
@@ -39,7 +33,6 @@ impl Geometry {
             geometry_type,
             additional_data,
             acceleration_structure: None,
-            buffer: None,
         }
     }
 
@@ -192,7 +185,6 @@ impl Geometry {
                 });
 
                 Some(Arc::new(acceleration_structure))
-                // None
             }
         };
     }

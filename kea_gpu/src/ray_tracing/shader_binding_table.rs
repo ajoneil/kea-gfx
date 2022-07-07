@@ -2,10 +2,7 @@ use crate::{
     device::Device,
     pipelines::Pipeline,
     shaders::{PipelineShaders, ShaderGroups},
-    storage::{
-        buffers::{Buffer, TransferBuffer},
-        memory,
-    },
+    storage::{buffers::Buffer, memory},
 };
 use ash::vk;
 use kea_gpu_shaderlib::shaders::ShaderGroup;
