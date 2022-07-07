@@ -1,6 +1,7 @@
 use crate::{
     commands::RecordedCommandBuffer,
     device::Device,
+    queues::{Submission, Wait},
     storage::images::ImageView,
     sync::{Fence, Semaphore},
 };
@@ -60,37 +61,25 @@ impl Presenter {
     }
 
     pub fn draw(&self, swapchain_index: u32, commands: &[RecordedCommandBuffer]) {
-        let raw_commands: Vec<vk::CommandBuffer> =
-            commands.iter().map(|c| unsafe { c.raw() }).collect();
+        let wait = Wait {
+            semaphore: &self.semaphores.image_available,
+            stage: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+        };
+
+        let submission = Submission {
+            wait: slice::from_ref(&wait),
+            commands: &commands,
+            signal_semaphores: slice::from_ref(&self.semaphores.render_finished),
+        };
+
+        self.swapchain
+            .device()
+            .graphics_queue()
+            .submit(&submission, Some(&self.in_flight_fence));
 
         unsafe {
-            let image_available = self.semaphores.image_available.vk();
-            let render_finished = self.semaphores.render_finished.vk();
-
-            let submit = vk::SubmitInfo::builder()
-                .wait_semaphores(slice::from_ref(&image_available))
-                .wait_dst_stage_mask(slice::from_ref(
-                    &vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-                ))
-                .command_buffers(&raw_commands)
-                .signal_semaphores(slice::from_ref(&render_finished));
-            // self.in_flight_fence = self.swapchain.device().graphics_queue().submit();
-
-            // log::debug!("Submitting draw command..");
-
-            self.swapchain
-                .device()
-                .raw()
-                .queue_submit(
-                    self.swapchain.device().graphics_queue().raw(),
-                    slice::from_ref(&submit),
-                    self.in_flight_fence.raw(),
-                )
-                .unwrap();
-
-            // log::debug!("Submission complete");
-
             let swapchain_raw = self.swapchain.raw();
+            let render_finished = self.semaphores.render_finished.raw();
             let present = vk::PresentInfoKHR::builder()
                 .wait_semaphores(slice::from_ref(&render_finished))
                 .swapchains(slice::from_ref(&swapchain_raw))

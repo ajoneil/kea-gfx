@@ -1,5 +1,5 @@
 use super::CommandBuffer;
-use crate::device::{Device, Queue};
+use crate::{device::Device, queues::Queue};
 use ash::vk;
 use std::{slice, sync::Arc};
 

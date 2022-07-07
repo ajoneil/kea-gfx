@@ -119,7 +119,7 @@ impl Swapchain {
             self.device.ext().swapchain().acquire_next_image(
                 self.raw,
                 u64::MAX,
-                semaphore.vk(),
+                semaphore.raw(),
                 vk::Fence::null(),
             )
         }

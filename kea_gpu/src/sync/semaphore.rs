@@ -3,35 +3,35 @@ use ash::vk;
 use std::sync::Arc;
 
 pub struct Semaphore {
-    vk: vk::Semaphore,
     device: Arc<Device>,
+    raw: vk::Semaphore,
 }
 
 impl Semaphore {
     pub fn new(device: Arc<Device>) -> Semaphore {
-        let vk = unsafe {
+        let raw = unsafe {
             device
                 .raw()
                 .create_semaphore(&vk::SemaphoreCreateInfo::default(), None)
         }
         .unwrap();
 
-        log::debug!("created semaphore {:?}", vk);
+        log::debug!("created semaphore {:?}", raw);
 
-        Semaphore { vk, device }
+        Semaphore { raw, device }
     }
 
-    pub unsafe fn vk(&self) -> vk::Semaphore {
-        self.vk
+    pub unsafe fn raw(&self) -> vk::Semaphore {
+        self.raw
     }
 }
 
 impl Drop for Semaphore {
     fn drop(&mut self) {
-        log::debug!("destroying semaphore {:?}", self.vk);
+        log::debug!("destroying semaphore {:?}", self.raw);
 
         unsafe {
-            self.device.raw().destroy_semaphore(self.vk, None);
+            self.device.raw().destroy_semaphore(self.raw, None);
         }
     }
 }

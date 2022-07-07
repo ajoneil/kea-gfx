@@ -1,5 +1,5 @@
 use super::{extensions::DeviceExtensions, physical_device::PhysicalDevice, QueueFamily};
-use crate::{commands::CommandBuffer, features::Feature, instance::VulkanInstance, sync::Fence};
+use crate::{features::Feature, instance::VulkanInstance, queues::Queue};
 use ash::vk;
 use gpu_allocator::{
     vulkan::{Allocator, AllocatorCreateDesc},
@@ -7,50 +7,8 @@ use gpu_allocator::{
 };
 use std::{
     mem::ManuallyDrop,
-    slice,
     sync::{Arc, Mutex},
 };
-
-pub struct Queue {
-    device: Arc<Device>,
-    raw: vk::Queue,
-    family: QueueFamily,
-}
-
-impl Queue {
-    pub unsafe fn raw(&self) -> vk::Queue {
-        self.raw
-    }
-
-    pub fn family(&self) -> &QueueFamily {
-        &self.family
-    }
-
-    pub fn device(&self) -> &Arc<Device> {
-        &self.device
-    }
-
-    pub fn submit(&self, command_buffers: &[&CommandBuffer]) -> Fence {
-        // for cmd in command_buffers {
-        //     log::debug!("Submitting command {}", cmd.name());
-        // }
-
-        let fence = Fence::new(self.device.clone(), "command submit".to_string(), false);
-        let buffers: Vec<vk::CommandBuffer> = command_buffers
-            .into_iter()
-            .map(|cmd| unsafe { cmd.raw() })
-            .collect();
-        let submit = vk::SubmitInfo::builder().command_buffers(&buffers);
-        unsafe {
-            self.device
-                .raw()
-                .queue_submit(self.raw(), slice::from_ref(&submit), fence.raw())
-                .unwrap();
-        }
-
-        fence
-    }
-}
 
 pub struct QueueHandle {
     raw: vk::Queue,
@@ -157,11 +115,7 @@ impl Device {
             .find(|handle| handle.family.supports_graphics())
             .unwrap();
 
-        Queue {
-            device: self.clone(),
-            family: handle.family.clone(),
-            raw: handle.raw,
-        }
+        unsafe { Queue::new_from_raw(self.clone(), handle.raw, handle.family.clone()) }
     }
 }
 

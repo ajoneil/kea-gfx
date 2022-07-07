@@ -7,6 +7,7 @@ mod instance;
 mod kea;
 pub mod pipelines;
 pub mod presentation;
+pub mod queues;
 pub mod ray_tracing;
 pub mod shaders;
 pub mod slots;

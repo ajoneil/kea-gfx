@@ -1,7 +1,7 @@
 use super::{CommandBufferRecorder, CommandPool};
-use crate::{device::Device, sync::Fence};
+use crate::{device::Device, queues::Submission, sync::Fence};
 use ash::vk;
-use std::{mem::ManuallyDrop, sync::Arc};
+use std::{mem::ManuallyDrop, slice, sync::Arc};
 
 pub struct CommandBuffer {
     name: String,
@@ -73,11 +73,24 @@ pub struct RecordedCommandBuffer {
 
 impl RecordedCommandBuffer {
     pub fn submit(self) -> SubmittedCommandBuffer {
-        let buffer = unsafe { self.consume() };
-        let fence = buffer.pool.queue().submit(&[&buffer]);
+        let submission = Submission {
+            commands: slice::from_ref(&self),
+            ..Default::default()
+        };
+
+        let command_buffer = self.buffer.as_ref().unwrap();
+        let fence = Fence::new(
+            command_buffer.device().clone(),
+            "Command submission fence".to_string(),
+            false,
+        );
+        command_buffer
+            .pool
+            .queue()
+            .submit(&submission, Some(&fence));
 
         SubmittedCommandBuffer {
-            buffer: ManuallyDrop::new(buffer),
+            buffer: ManuallyDrop::new(unsafe { self.consume() }),
             fence: Some(fence),
         }
     }
