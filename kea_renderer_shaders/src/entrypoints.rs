@@ -56,9 +56,12 @@ pub fn generate_rays(
 
 pub fn ray_for_pixel(pixel_position: Vec2, size: Vec2) -> Vec3 {
     let aspect_ratio = size.x / size.y;
-    let uv = pixel_position / size;
+    let uv = vec2(
+        pixel_position.x / size.x,
+        (size.y - pixel_position.y) / size.y,
+    );
     let direction = uv * 2.0 - 1.0;
-    let target = vec3(direction.x * aspect_ratio, direction.y, 1.0);
+    let target = vec3(direction.x * aspect_ratio, direction.y, -1.0);
     target.normalize()
 }
 
