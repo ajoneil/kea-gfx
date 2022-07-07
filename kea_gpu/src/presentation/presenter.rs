@@ -77,21 +77,11 @@ impl Presenter {
             .graphics_queue()
             .submit(&submission, Some(&self.in_flight_fence));
 
-        unsafe {
-            let swapchain_raw = self.swapchain.raw();
-            let render_finished = self.semaphores.render_finished.raw();
-            let present = vk::PresentInfoKHR::builder()
-                .wait_semaphores(slice::from_ref(&render_finished))
-                .swapchains(slice::from_ref(&swapchain_raw))
-                .image_indices(slice::from_ref(&swapchain_index));
-
-            self.swapchain
-                .device()
-                .ext()
-                .swapchain()
-                .queue_present(self.swapchain.device().graphics_queue().raw(), &present)
-                .unwrap();
-        }
+        self.swapchain.present(
+            &self.swapchain.device().graphics_queue(),
+            slice::from_ref(&self.semaphores.render_finished),
+            swapchain_index,
+        );
     }
 }
 
