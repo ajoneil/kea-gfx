@@ -74,8 +74,7 @@ impl DescriptorPool {
     ) -> Arc<DescriptorPool> {
         let create_info = vk::DescriptorPoolCreateInfo::builder()
             .max_sets(max_sets)
-            .pool_sizes(pool_sizes)
-            .build();
+            .pool_sizes(pool_sizes);
         let raw = unsafe { device.raw().create_descriptor_pool(&create_info, None) }.unwrap();
 
         Arc::new(DescriptorPool { device, raw })
@@ -91,8 +90,7 @@ impl DescriptorPool {
             .collect();
         let allocate_info = vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(self.raw)
-            .set_layouts(&raw_layouts)
-            .build();
+            .set_layouts(&raw_layouts);
 
         let descriptor_sets =
             unsafe { self.device.raw().allocate_descriptor_sets(&allocate_info) }.unwrap();

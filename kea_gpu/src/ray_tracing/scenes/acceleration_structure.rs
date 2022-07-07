@@ -58,7 +58,7 @@ impl AccelerationStructure {
     pub fn build_sizes(
         device: &Device,
         geometry_info: &vk::AccelerationStructureBuildGeometryInfoKHR,
-        range: vk::AccelerationStructureBuildRangeInfoKHR,
+        range: &vk::AccelerationStructureBuildRangeInfoKHR,
     ) -> BuildSizes {
         let primitive_count = range.primitive_count;
 

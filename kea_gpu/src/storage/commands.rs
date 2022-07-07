@@ -45,8 +45,7 @@ impl<'a> CommandBufferRecorder<'a> {
                     .level_count(1)
                     .layer_count(1)
                     .build(),
-            )
-            .build();
+            );
 
         self.pipeline_barrier(
             src_stage_mask,
@@ -54,7 +53,7 @@ impl<'a> CommandBufferRecorder<'a> {
             vk::DependencyFlags::empty(),
             &[],
             &[],
-            &[barrier],
+            slice::from_ref(&barrier),
         );
     }
 

@@ -58,9 +58,7 @@ impl VulkanInstance {
             .enabled_layer_names(&layers_names_raw);
 
         #[allow(unused_assignments)]
-        let mut features_validation = vk::ValidationFeaturesEXT {
-            ..Default::default()
-        };
+        let mut features_validation = vk::ValidationFeaturesEXT::default();
         let create_info = if let Some(_) = instance_config.validation_features {
             let enable = &instance_config.validation_features.as_ref().unwrap().enable;
             let disable = &instance_config
@@ -77,9 +75,6 @@ impl VulkanInstance {
         } else {
             create_info
         };
-        let create_info = create_info.build();
-
-        log::debug!("{:?}", create_info);
 
         unsafe { entry.create_instance(&create_info, None).unwrap() }
     }

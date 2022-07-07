@@ -29,8 +29,8 @@ impl CommandBufferRecorder<'_> {
 
     pub fn build_acceleration_structure(
         &self,
-        geometry_info: vk::AccelerationStructureBuildGeometryInfoKHR,
-        range: vk::AccelerationStructureBuildRangeInfoKHR,
+        geometry_info: &vk::AccelerationStructureBuildGeometryInfoKHR,
+        range: &vk::AccelerationStructureBuildRangeInfoKHR,
     ) {
         unsafe {
             self.device()
@@ -38,8 +38,8 @@ impl CommandBufferRecorder<'_> {
                 .acceleration_structure()
                 .cmd_build_acceleration_structures(
                     self.buffer().raw(),
-                    slice::from_ref(&geometry_info),
-                    slice::from_ref(&slice::from_ref(&range)),
+                    slice::from_ref(geometry_info),
+                    slice::from_ref(&slice::from_ref(range)),
                 );
         }
     }

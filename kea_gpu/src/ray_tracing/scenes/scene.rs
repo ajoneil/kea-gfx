@@ -42,7 +42,7 @@ impl Scene {
     }
 
     pub fn build(&mut self) {
-        let instances: Vec<vk::AccelerationStructureInstanceKHR> = self
+        let instances_data: Vec<vk::AccelerationStructureInstanceKHR> = self
             .instances
             .iter()
             .map(|instance| unsafe { instance.raw() })
@@ -50,30 +50,28 @@ impl Scene {
 
         let instances_buffer = Buffer::new_from_data(
             self.device.clone(),
-            &instances,
+            &instances_data,
             vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
             "scene instances".to_string(),
             MemoryLocation::CpuToGpu,
             None,
         );
 
-        let geometry_data = vk::AccelerationStructureGeometryDataKHR {
-            instances: vk::AccelerationStructureGeometryInstancesDataKHR::builder()
-                .data(vk::DeviceOrHostAddressConstKHR {
-                    device_address: instances_buffer.device_address(),
-                })
-                .array_of_pointers(false)
-                .build(),
-        };
+        let instances = vk::AccelerationStructureGeometryInstancesDataKHR::builder()
+            .data(vk::DeviceOrHostAddressConstKHR {
+                device_address: instances_buffer.device_address(),
+            })
+            .array_of_pointers(false);
 
         let geometry = vk::AccelerationStructureGeometryKHR::builder()
             .geometry_type(vk::GeometryTypeKHR::INSTANCES)
             .flags(vk::GeometryFlagsKHR::OPAQUE)
-            .geometry(geometry_data)
-            .build();
+            .geometry(vk::AccelerationStructureGeometryDataKHR {
+                instances: *instances,
+            });
 
         let range = vk::AccelerationStructureBuildRangeInfoKHR {
-            primitive_count: instances.len() as _,
+            primitive_count: instances_data.len() as _,
             primitive_offset: 0,
             first_vertex: 0,
             transform_offset: 0,
@@ -81,10 +79,9 @@ impl Scene {
 
         let geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
             .ty(vk::AccelerationStructureTypeKHR::TOP_LEVEL)
-            .geometries(slice::from_ref(&geometry))
-            .build();
+            .geometries(slice::from_ref(&geometry));
 
-        let build_sizes = AccelerationStructure::build_sizes(&self.device, &geometry_info, range);
+        let build_sizes = AccelerationStructure::build_sizes(&self.device, &geometry_info, &range);
         let scratch_buffer = ScratchBuffer::new(self.device.clone(), build_sizes.build_scratch);
 
         let acceleration_structure_buffer = Buffer::new(
@@ -109,14 +106,13 @@ impl Scene {
             .dst_acceleration_structure(unsafe { acceleration_structure.raw() })
             .scratch_data(vk::DeviceOrHostAddressKHR {
                 device_address: scratch_buffer.device_address(),
-            })
-            .build();
+            });
 
-        log::debug!("geometry info {:?}", geometry_info);
+        log::debug!("geometry info {:?}", *geometry_info);
         log::debug!("range {:?}", range);
 
         CommandBuffer::now(&self.device, "build TLAS".to_string(), |cmd| {
-            cmd.build_acceleration_structure(geometry_info, range);
+            cmd.build_acceleration_structure(&geometry_info, &range);
         });
 
         self.instances_buffer = Some(instances_buffer);

@@ -44,8 +44,7 @@ impl<SlotId> RayTracingPipeline<SlotId> {
                 .stages(&stages)
                 .groups(&shaders.groups)
                 .max_pipeline_ray_recursion_depth(1)
-                .layout(layout.raw())
-                .build();
+                .layout(layout.raw());
 
             let raw = device
                 .ext()

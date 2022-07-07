@@ -59,32 +59,26 @@ impl Geometry {
 
         self.acceleration_structure = match &self.geometry_type {
             GeometryType::Aabbs(aabbs_buffer) => {
-                let geometry_data = vk::AccelerationStructureGeometryDataKHR {
-                    aabbs: vk::AccelerationStructureGeometryAabbsDataKHR::builder()
-                        .data(vk::DeviceOrHostAddressConstKHR {
-                            device_address: aabbs_buffer.device_address(),
-                        })
-                        .stride(mem::size_of::<Aabb>() as u64)
-                        .build(),
-                };
+                let aabbs = vk::AccelerationStructureGeometryAabbsDataKHR::builder()
+                    .data(vk::DeviceOrHostAddressConstKHR {
+                        device_address: aabbs_buffer.device_address(),
+                    })
+                    .stride(mem::size_of::<Aabb>() as u64);
 
                 let geometry = vk::AccelerationStructureGeometryKHR::builder()
                     .geometry_type(vk::GeometryTypeKHR::AABBS)
-                    .geometry(geometry_data)
-                    .flags(vk::GeometryFlagsKHR::OPAQUE)
-                    .build();
+                    .geometry(vk::AccelerationStructureGeometryDataKHR { aabbs: *aabbs })
+                    .flags(vk::GeometryFlagsKHR::OPAQUE);
 
                 let range = vk::AccelerationStructureBuildRangeInfoKHR::builder()
-                    .primitive_count((aabbs_buffer.size() / mem::size_of::<Aabb>()) as u32)
-                    .build();
+                    .primitive_count((aabbs_buffer.size() / mem::size_of::<Aabb>()) as u32);
 
                 let geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
                     .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
-                    .geometries(slice::from_ref(&geometry))
-                    .build();
+                    .geometries(slice::from_ref(&geometry));
 
                 let build_sizes =
-                    AccelerationStructure::build_sizes(self.device(), &geometry_info, range);
+                    AccelerationStructure::build_sizes(self.device(), &geometry_info, &range);
                 let scratch_buffer =
                     ScratchBuffer::new(self.device().clone(), build_sizes.build_scratch);
 
@@ -111,40 +105,36 @@ impl Geometry {
                     .dst_acceleration_structure(unsafe { acceleration_structure.raw() })
                     .scratch_data(vk::DeviceOrHostAddressKHR {
                         device_address: scratch_buffer.device_address(),
-                    })
-                    .build();
+                    });
 
                 CommandBuffer::now(self.device(), "build BLAS".to_string(), |cmd| {
-                    cmd.build_acceleration_structure(geometry_info, range);
+                    cmd.build_acceleration_structure(&geometry_info, &range);
                 });
 
                 Some(Arc::new(acceleration_structure))
             }
             GeometryType::Triangles { vertices, indices } => {
-                let geometry_data = vk::AccelerationStructureGeometryDataKHR {
-                    triangles: vk::AccelerationStructureGeometryTrianglesDataKHR::builder()
-                        .vertex_format(vk::Format::R32G32B32_SFLOAT)
-                        .vertex_data(vk::DeviceOrHostAddressConstKHR {
-                            device_address: vertices.device_address(),
-                        })
-                        .vertex_stride(mem::size_of::<Vec3>() as _)
-                        .index_type(vk::IndexType::UINT16)
-                        .index_data(vk::DeviceOrHostAddressConstKHR {
-                            device_address: indices.device_address(),
-                        })
-                        .max_vertex(indices.count::<u16>() as _)
-                        .build(),
-                };
+                let triangles = vk::AccelerationStructureGeometryTrianglesDataKHR::builder()
+                    .vertex_format(vk::Format::R32G32B32_SFLOAT)
+                    .vertex_data(vk::DeviceOrHostAddressConstKHR {
+                        device_address: vertices.device_address(),
+                    })
+                    .vertex_stride(mem::size_of::<Vec3>() as _)
+                    .index_type(vk::IndexType::UINT16)
+                    .index_data(vk::DeviceOrHostAddressConstKHR {
+                        device_address: indices.device_address(),
+                    })
+                    .max_vertex(indices.count::<u16>() as _);
 
                 let geometry = vk::AccelerationStructureGeometryKHR::builder()
                     .geometry_type(vk::GeometryTypeKHR::TRIANGLES)
-                    .geometry(geometry_data)
-                    .flags(vk::GeometryFlagsKHR::OPAQUE)
-                    .build();
+                    .geometry(vk::AccelerationStructureGeometryDataKHR {
+                        triangles: *triangles,
+                    })
+                    .flags(vk::GeometryFlagsKHR::OPAQUE);
 
                 let range = vk::AccelerationStructureBuildRangeInfoKHR::builder()
-                    .primitive_count((indices.count::<u16>() / 3) as u32)
-                    .build();
+                    .primitive_count((indices.count::<u16>() / 3) as u32);
 
                 let geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
                     .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
@@ -152,7 +142,7 @@ impl Geometry {
                     .geometries(slice::from_ref(&geometry));
 
                 let build_sizes =
-                    AccelerationStructure::build_sizes(self.device(), &geometry_info, range);
+                    AccelerationStructure::build_sizes(self.device(), &geometry_info, &range);
                 let scratch_buffer =
                     ScratchBuffer::new(self.device().clone(), build_sizes.build_scratch);
 
@@ -177,11 +167,10 @@ impl Geometry {
                     .dst_acceleration_structure(unsafe { acceleration_structure.raw() })
                     .scratch_data(vk::DeviceOrHostAddressKHR {
                         device_address: scratch_buffer.device_address(),
-                    })
-                    .build();
+                    });
 
                 CommandBuffer::now(self.device(), "build BLAS".to_string(), |cmd| {
-                    cmd.build_acceleration_structure(geometry_info, range);
+                    cmd.build_acceleration_structure(&geometry_info, &range);
                 });
 
                 Some(Arc::new(acceleration_structure))

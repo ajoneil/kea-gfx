@@ -263,8 +263,7 @@ impl PathTracer {
             .descriptor_type(vk::DescriptorType::STORAGE_IMAGE)
             .dst_set(unsafe { descriptor_set.raw() })
             .dst_binding(1)
-            .image_info(slice::from_ref(&desc_img_info))
-            .build();
+            .image_info(slice::from_ref(&desc_img_info));
 
         let sphere_buffer_info = vk::DescriptorBufferInfo {
             buffer: unsafe { spheres_buffer.buffer().raw() },
@@ -275,10 +274,9 @@ impl PathTracer {
             .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
             .dst_set(unsafe { descriptor_set.raw() })
             .dst_binding(2)
-            .buffer_info(slice::from_ref(&sphere_buffer_info))
-            .build();
+            .buffer_info(slice::from_ref(&sphere_buffer_info));
 
-        let write_sets = [as_write_set, img_write_set, spheres_write_set];
+        let write_sets = [as_write_set, *img_write_set, *spheres_write_set];
 
         unsafe { device.raw().update_descriptor_sets(&write_sets, &[]) };
         descriptor_set

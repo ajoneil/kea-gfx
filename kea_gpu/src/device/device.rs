@@ -40,7 +40,7 @@ impl Queue {
             .into_iter()
             .map(|cmd| unsafe { cmd.raw() })
             .collect();
-        let submit = vk::SubmitInfo::builder().command_buffers(&buffers).build();
+        let submit = vk::SubmitInfo::builder().command_buffers(&buffers);
         unsafe {
             self.device
                 .raw()

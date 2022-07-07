@@ -50,8 +50,7 @@ pub fn create_device(
 
     let mut features_12 = vk::PhysicalDeviceVulkan12Features::builder()
         .buffer_device_address(true)
-        .vulkan_memory_model(true)
-        .build();
+        .vulkan_memory_model(true);
 
     let mut features_13 = vk::PhysicalDeviceVulkan13Features::builder().dynamic_rendering(true);
     let mut features_rt =

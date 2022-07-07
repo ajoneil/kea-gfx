@@ -98,11 +98,11 @@ impl Presenter {
 
             // log::debug!("Submission complete");
 
+            let swapchain_raw = self.swapchain.raw();
             let present = vk::PresentInfoKHR::builder()
                 .wait_semaphores(slice::from_ref(&render_finished))
-                .swapchains(slice::from_ref(&self.swapchain.raw()))
-                .image_indices(slice::from_ref(&image_index))
-                .build();
+                .swapchains(slice::from_ref(&swapchain_raw))
+                .image_indices(slice::from_ref(&image_index));
 
             self.swapchain
                 .device()

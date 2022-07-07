@@ -141,7 +141,7 @@ impl ShaderBindingTable {
     }
 
     pub fn empty() -> ShaderBindingTable {
-        let raw = vk::StridedDeviceAddressRegionKHR::builder().build();
+        let raw = vk::StridedDeviceAddressRegionKHR::default();
 
         ShaderBindingTable { raw }
     }

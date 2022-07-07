@@ -5,10 +5,8 @@ impl PhysicalDevice {
     pub fn ray_tracing_pipeline_properties(
         &self,
     ) -> vk::PhysicalDeviceRayTracingPipelinePropertiesKHR {
-        let mut rt_props = vk::PhysicalDeviceRayTracingPipelinePropertiesKHR::builder().build();
-        let mut props = vk::PhysicalDeviceProperties2::builder()
-            .push_next(&mut rt_props)
-            .build();
+        let mut rt_props = vk::PhysicalDeviceRayTracingPipelinePropertiesKHR::default();
+        let mut props = vk::PhysicalDeviceProperties2::builder().push_next(&mut rt_props);
 
         unsafe {
             self.instance()
@@ -22,11 +20,8 @@ impl PhysicalDevice {
     pub fn acceleration_structure_properties(
         &self,
     ) -> vk::PhysicalDeviceAccelerationStructurePropertiesKHR {
-        let mut accel_props =
-            vk::PhysicalDeviceAccelerationStructurePropertiesKHR::builder().build();
-        let mut props = vk::PhysicalDeviceProperties2::builder()
-            .push_next(&mut accel_props)
-            .build();
+        let mut accel_props = vk::PhysicalDeviceAccelerationStructurePropertiesKHR::default();
+        let mut props = vk::PhysicalDeviceProperties2::builder().push_next(&mut accel_props);
 
         unsafe {
             self.instance()
