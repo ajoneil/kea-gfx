@@ -1,5 +1,5 @@
 use crate::{
-    commands::{CommandBufferRecorder, CommandPool},
+    commands::RecordedCommandBuffer,
     device::Device,
     storage::images::ImageView,
     sync::{Fence, Semaphore},
@@ -10,7 +10,6 @@ use std::{slice, sync::Arc};
 use super::{swapchain::Swapchain, Surface};
 
 pub struct Presenter {
-    command_pool: Arc<CommandPool>,
     semaphores: Semaphores,
     in_flight_fence: Fence,
     swapchain: Swapchain,
@@ -35,7 +34,6 @@ impl Presenter {
                 render_finished: Semaphore::new(swapchain.device().clone()),
             },
             in_flight_fence: Fence::new(swapchain.device().clone(), "in flight".to_string(), true),
-            command_pool: CommandPool::new(swapchain.device().graphics_queue()),
             swapchain,
         }
     }
@@ -51,36 +49,30 @@ impl Presenter {
         )
     }
 
-    pub fn draw<F>(&self, func: F)
-    where
-        F: FnOnce(&CommandBufferRecorder, &ImageView),
-    {
+    pub fn get_swapchain_image(&self) -> (u32, &ImageView) {
         self.in_flight_fence.wait_and_reset();
 
-        let (image_index, image_view) = self
+        let (index, image) = self
             .swapchain
             .acquire_next_image(&self.semaphores.image_available);
 
-        let cmd = self
-            .command_pool
-            .allocate_buffer("draw".to_string())
-            .record(|cmd| {
-                func(cmd, image_view);
-            });
+        (index, image)
+    }
+
+    pub fn draw(&self, swapchain_index: u32, commands: &[RecordedCommandBuffer]) {
+        let raw_commands: Vec<vk::CommandBuffer> =
+            commands.iter().map(|c| unsafe { c.raw() }).collect();
 
         unsafe {
             let image_available = self.semaphores.image_available.vk();
             let render_finished = self.semaphores.render_finished.vk();
-            // This would be dangerous if we were destroying commands, but they
-            // live as long as their pool.
-            let cmd = cmd.consume().raw();
 
             let submit = vk::SubmitInfo::builder()
                 .wait_semaphores(slice::from_ref(&image_available))
                 .wait_dst_stage_mask(slice::from_ref(
                     &vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
                 ))
-                .command_buffers(slice::from_ref(&cmd))
+                .command_buffers(&raw_commands)
                 .signal_semaphores(slice::from_ref(&render_finished));
             // self.in_flight_fence = self.swapchain.device().graphics_queue().submit();
 
@@ -102,7 +94,7 @@ impl Presenter {
             let present = vk::PresentInfoKHR::builder()
                 .wait_semaphores(slice::from_ref(&render_finished))
                 .swapchains(slice::from_ref(&swapchain_raw))
-                .image_indices(slice::from_ref(&image_index));
+                .image_indices(slice::from_ref(&swapchain_index));
 
             self.swapchain
                 .device()
@@ -111,5 +103,11 @@ impl Presenter {
                 .queue_present(self.swapchain.device().graphics_queue().raw(), &present)
                 .unwrap();
         }
+    }
+}
+
+impl Drop for Presenter {
+    fn drop(&mut self) {
+        self.in_flight_fence.wait();
     }
 }
