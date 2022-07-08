@@ -19,7 +19,7 @@ use kea_gpu::{
     Kea,
 };
 use kea_gpu_shaderlib::Aabb;
-use kea_renderer_shaders::{SlotId, Sphere};
+use kea_renderer_shaders::{spheres::Sphere, SlotId};
 use log::info;
 use std::{cell::RefCell, slice, sync::Arc};
 

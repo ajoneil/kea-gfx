@@ -1,25 +1,13 @@
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
 
+use crate::payload::RayPayload;
 use spirv_std::{
-    arch::report_intersection,
     glam::{vec2, vec3, vec4, UVec2, UVec3, Vec2, Vec3},
     Image,
 };
 
-// Needed for .sqrt()
-#[allow(unused_imports)]
-use spirv_std::num_traits::Float;
-
-use crate::Sphere;
-
-#[repr(C)]
-pub struct RayPayload {
-    color: Vec3,
-}
-
 #[spirv(ray_generation)]
-#[rustfmt::skip]
 pub fn generate_rays(
     #[spirv(launch_id)] launch_id: UVec3,
     #[spirv(launch_size)] launch_size: UVec3,
@@ -66,48 +54,6 @@ pub fn ray_for_pixel(pixel_position: Vec2, size: Vec2) -> Vec3 {
 }
 
 #[spirv(miss)]
-#[rustfmt::skip]
 pub fn ray_miss(#[spirv(incoming_ray_payload)] ray_payload: &mut RayPayload) {
     ray_payload.color = vec3(0.0, 0.0, 1.0);
-}
-
-#[spirv(closest_hit)]
-#[rustfmt::skip]
-pub fn triangle_hit(#[spirv(incoming_ray_payload)] ray_payload: &mut RayPayload) {
-    ray_payload.color = vec3(0.0, 1.0, 0.0);
-}
-
-#[spirv(closest_hit)]
-#[rustfmt::skip]
-pub fn sphere_hit(#[spirv(incoming_ray_payload)] ray_payload: &mut RayPayload) {
-    ray_payload.color = vec3(1.0, 0.0, 0.0);
-}
-
-#[spirv(intersection)]
-#[rustfmt::skip]
-pub fn intersect_sphere(
-    #[spirv(world_ray_origin)] ray_origin: Vec3,
-    #[spirv(world_ray_direction)] ray_direction: Vec3,
-    #[spirv(primitive_id)] sphere_id: usize,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] spheres: &mut [Sphere],
-) {
-    // unsafe {
-    //     if cfg!(target_arch = "spirv") {
-    //         debug_printfln!("id: %d", sphere_id as i32);
-    //     }
-    // }
-
-    let sphere = spheres[sphere_id];
-    let oc = ray_origin - sphere.position();
-    let a = ray_direction.dot(ray_direction);
-    let b = 2.0 * oc.dot(ray_direction);
-    let c = oc.dot(oc) - (sphere.radius() * sphere.radius());
-    let discriminant = b * b - (4.0 * a * c);
-
-    if discriminant >= 0.0 {
-        let hit = (-b - discriminant.sqrt()) / (2.0 * a);
-        unsafe {
-            report_intersection(hit, 4);
-        }
-    }
 }

@@ -8,18 +8,12 @@
 #![feature(const_type_id)]
 #![feature(asm_experimental_arch)]
 
-use core::any::TypeId;
-use kea_gpu_shaderlib::{
-    shaders::{Shader, ShaderGroup},
-    slots::{ShaderStage, Slot, SlotType},
-};
+use kea_gpu_shaderlib::{shaders::ShaderGroup, slots::Slot};
 
-// Needed for .sqrt()
-#[allow(unused_imports)]
-use spirv_std::num_traits::Float;
-
-pub mod sphere;
-pub use sphere::Sphere;
+pub mod path_tracer;
+mod payload;
+pub mod spheres;
+pub mod triangles;
 
 #[derive(Clone)]
 pub enum SlotId {
@@ -29,21 +23,9 @@ pub enum SlotId {
 }
 
 pub const SLOTS: [(SlotId, Slot); 3] = [
-    (
-        SlotId::Scene,
-        Slot::new(SlotType::AccelerationStructure, ShaderStage::RayGen),
-    ),
-    (
-        SlotId::OutputImage,
-        Slot::new(SlotType::Image, ShaderStage::RayGen),
-    ),
-    (
-        SlotId::Spheres,
-        Slot::new(
-            SlotType::Buffer(TypeId::of::<&[Sphere]>()),
-            ShaderStage::Intersection,
-        ),
-    ),
+    path_tracer::SLOT_SCENE,
+    path_tracer::SLOT_OUTPUT_IMAGE,
+    spheres::SLOT,
 ];
 
 #[derive(Clone)]
@@ -55,26 +37,8 @@ pub enum ShaderGroupId {
 }
 
 pub const SHADERS: [(ShaderGroupId, ShaderGroup); 4] = [
-    (
-        ShaderGroupId::RayGen,
-        ShaderGroup::RayGeneration(Shader("entrypoints::generate_rays")),
-    ),
-    (
-        ShaderGroupId::Miss,
-        ShaderGroup::Miss(Shader("entrypoints::ray_miss")),
-    ),
-    (
-        ShaderGroupId::TriangleHit,
-        ShaderGroup::TriangleHit(Shader("entrypoints::triangle_hit")),
-    ),
-    (
-        ShaderGroupId::SphereHit,
-        ShaderGroup::ProceduralHit {
-            intersection: Shader("entrypoints::intersect_sphere"),
-            hit: Shader("entrypoints::sphere_hit"),
-        },
-    ),
+    path_tracer::SHADER_GENERATE_RAY,
+    path_tracer::SHADER_RAY_MISS,
+    triangles::SHADER,
+    spheres::SHADER,
 ];
-
-mod entrypoints;
-pub use entrypoints::*;
