@@ -1,6 +1,6 @@
 use crate::descriptors::DescriptorSetLayoutBinding;
 use ash::vk;
-use kea_gpu_shaderlib::slots::{ShaderStage, Slot, SlotType};
+use kea_gpu_shaderlib::slots::{Slot, SlotType};
 
 pub struct SlotLayout<SlotId> {
     slots: Vec<(SlotId, Slot)>,
@@ -24,10 +24,16 @@ impl<SlotId> SlotLayout<SlotId> {
                     SlotType::Buffer(_) => vk::DescriptorType::STORAGE_BUFFER,
                 };
 
-                let stage_flags = match slot.stage {
-                    ShaderStage::RayGen => vk::ShaderStageFlags::RAYGEN_KHR,
-                    ShaderStage::Intersection => vk::ShaderStageFlags::INTERSECTION_KHR,
-                };
+                let mut stage_flags = vk::ShaderStageFlags::empty();
+                if slot.stages.raygen {
+                    stage_flags |= vk::ShaderStageFlags::RAYGEN_KHR
+                }
+                if slot.stages.intersection {
+                    stage_flags |= vk::ShaderStageFlags::INTERSECTION_KHR
+                }
+                if slot.stages.closest_hit {
+                    stage_flags |= vk::ShaderStageFlags::CLOSEST_HIT_KHR
+                }
 
                 DescriptorSetLayoutBinding::new(index as _, descriptor_type, 1, stage_flags)
             })

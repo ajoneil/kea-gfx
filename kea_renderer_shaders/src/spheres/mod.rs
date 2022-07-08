@@ -5,7 +5,7 @@ use crate::{ShaderGroupId, SlotId};
 use core::any::TypeId;
 use kea_gpu_shaderlib::{
     shaders::{Shader, ShaderGroup},
-    slots::{ShaderStage, Slot, SlotType},
+    slots::{ShaderStages, Slot, SlotType},
 };
 pub use sphere::Sphere;
 
@@ -21,6 +21,10 @@ pub const SLOT: (SlotId, Slot) = (
     SlotId::Spheres,
     Slot::new(
         SlotType::Buffer(TypeId::of::<&[Sphere]>()),
-        ShaderStage::Intersection,
+        ShaderStages {
+            raygen: false,
+            intersection: true,
+            closest_hit: true,
+        },
     ),
 );

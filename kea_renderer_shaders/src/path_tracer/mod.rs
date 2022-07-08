@@ -1,7 +1,7 @@
 use crate::{ShaderGroupId, SlotId};
 use kea_gpu_shaderlib::{
     shaders::{Shader, ShaderGroup},
-    slots::{ShaderStage, Slot, SlotType},
+    slots::{ShaderStages, Slot, SlotType},
 };
 pub mod entrypoints;
 
@@ -17,10 +17,24 @@ pub const SHADER_RAY_MISS: (ShaderGroupId, ShaderGroup) = (
 
 pub const SLOT_SCENE: (SlotId, Slot) = (
     SlotId::Scene,
-    Slot::new(SlotType::AccelerationStructure, ShaderStage::RayGen),
+    Slot::new(
+        SlotType::AccelerationStructure,
+        ShaderStages {
+            raygen: true,
+            intersection: false,
+            closest_hit: false,
+        },
+    ),
 );
 
 pub const SLOT_OUTPUT_IMAGE: (SlotId, Slot) = (
     SlotId::OutputImage,
-    Slot::new(SlotType::Image, ShaderStage::RayGen),
+    Slot::new(
+        SlotType::Image,
+        ShaderStages {
+            raygen: true,
+            intersection: false,
+            closest_hit: false,
+        },
+    ),
 );

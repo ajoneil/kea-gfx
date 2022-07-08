@@ -48,10 +48,9 @@ pub fn generate_rays(
             payload,
         );
 
-        let output_color = if let Some(depth) = payload.hit {
-            const MAX_DEPTH: f32 = 4.0;
-            let scaled_depth = 1.0 - (depth / MAX_DEPTH).clamp(0.0, 1.0);
-            vec4(scaled_depth, scaled_depth, scaled_depth, 1.0)
+        let output_color = if let Some(_) = payload.hit {
+            let scaled_normal = payload.normal * 0.5 + 0.5;
+            vec4(scaled_normal.x, scaled_normal.y, scaled_normal.z, 1.0)
         } else {
             vec4(0.0, 0.0, 0.0, 1.0)
         };

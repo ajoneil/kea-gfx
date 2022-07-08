@@ -2,5 +2,5 @@
 mod slot;
 mod types;
 
-pub use slot::{ShaderStage, Slot};
+pub use slot::{ShaderStages, Slot};
 pub use types::SlotType;
