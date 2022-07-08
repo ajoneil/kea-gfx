@@ -2,7 +2,7 @@ use winit::{
     dpi::PhysicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
+    window::{Fullscreen, WindowBuilder},
 };
 
 pub struct Window {
@@ -11,12 +11,17 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn new(width: u32, height: u32) -> Window {
+    pub fn new(width: u32, height: u32, fullscreen: bool) -> Window {
         let event_loop = EventLoop::new();
         let window = WindowBuilder::new()
             .with_title("kea")
             .with_inner_size(PhysicalSize::new(width, height))
             .with_resizable(false)
+            .with_fullscreen(if fullscreen {
+                Some(Fullscreen::Borderless(None))
+            } else {
+                None
+            })
             .build(&event_loop)
             .expect("Failed to create window");
 
