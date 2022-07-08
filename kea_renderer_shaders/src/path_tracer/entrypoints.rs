@@ -19,10 +19,10 @@ pub fn generate_rays(
 ) {
     let size = vec2(launch_size.x as f32, launch_size.y as f32);
     let pixel_position = vec2(launch_id.x as f32 + 0.5, launch_id.y as f32 + 0.5);
-    let ray_target = Camera::new(size.x / size.y).ray_target(vec2(
+    let ray_target = Camera::new(size.x / size.y, 90.0_f32.to_radians(), 1.0).ray_target(
         pixel_position.x / size.x,
         (size.y - pixel_position.y) / size.y,
-    ));
+    );
 
     unsafe {
         accel_structure.trace_ray(
