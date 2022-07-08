@@ -1,7 +1,7 @@
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
 
-use crate::payload::{HitType, RayPayload};
+use crate::payload::RayPayload;
 use spirv_std::{
     glam::{vec2, vec3, vec4, UVec2, UVec3, Vec2, Vec3},
     ray_tracing::RayFlags,
@@ -36,10 +36,12 @@ pub fn generate_rays(
             payload,
         );
 
-        let output_color = if payload.hit_type == HitType::Hit {
-            vec4(0.5, 0.5, 0.5, 1.0)
+        let output_color = if let Some(depth) = payload.hit {
+            const MAX_DEPTH: f32 = 2.0;
+            let scaled_depth = 1.0 - (depth / MAX_DEPTH).clamp(0.0, 1.0);
+            vec4(scaled_depth, scaled_depth, scaled_depth, 1.0)
         } else {
-            vec4(0.0, 0.0, 0.0, 0.0)
+            vec4(0.0, 0.0, 0.0, 1.0)
         };
 
         image.write(UVec2::new(launch_id.x, launch_id.y), output_color);
@@ -59,5 +61,5 @@ pub fn ray_for_pixel(pixel_position: Vec2, size: Vec2) -> Vec3 {
 
 #[spirv(miss)]
 pub fn ray_miss(#[spirv(incoming_ray_payload)] ray_payload: &mut RayPayload) {
-    ray_payload.hit_type = HitType::Miss;
+    ray_payload.hit = None;
 }

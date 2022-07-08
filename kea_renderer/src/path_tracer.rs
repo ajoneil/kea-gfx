@@ -77,10 +77,10 @@ impl PathTracer {
             Sphere::new(vec3(0.0, 0.0, -1.5), 0.4),
             Sphere::new(vec3(-1.0, 0.0, -1.5), 0.4),
             Sphere::new(vec3(1.0, 0.0, -1.5), 0.4),
-            Sphere::new(vec3(-0.5, 0.0, -1.5), 0.5),
-            Sphere::new(vec3(0.0, 0.0, -1.5), 0.5),
-            Sphere::new(vec3(0.0, 0.0, -1.5), 0.5),
-            Sphere::new(vec3(0.0, 0.0, -1.5), 0.5),
+            // Sphere::new(vec3(-0.5, 0.0, -1.5), 0.5),
+            // Sphere::new(vec3(0.0, 0.0, -1.5), 0.5),
+            // Sphere::new(vec3(0.0, 0.0, -1.5), 0.5),
+            // Sphere::new(vec3(0.0, 0.0, -1.5), 0.5),
         ];
 
         let (spheres_buffer, aabbs_buffer) = Self::create_buffers(kea.device(), &spheres);
@@ -94,45 +94,45 @@ impl PathTracer {
         let geometry_instance = GeometryInstance::new(Arc::new(geometry), 1);
         scene.add_instance(geometry_instance);
 
-        let vertices = [
-            vec3(-0.2, -0.2, -0.5),
-            vec3(0.2, -0.2, -0.5),
-            vec3(0.0, 0.2, -0.5),
-        ];
+        // let vertices = [
+        //     vec3(-0.2, -0.2, -0.5),
+        //     vec3(0.2, -0.2, -0.5),
+        //     vec3(0.0, 0.2, -0.5),
+        // ];
 
-        let vertex_buffer = Buffer::new_from_data(
-            kea.device().clone(),
-            &vertices,
-            vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
-            "vertices".to_string(),
-            MemoryLocation::GpuOnly,
-            None,
-        );
+        // let vertex_buffer = Buffer::new_from_data(
+        //     kea.device().clone(),
+        //     &vertices,
+        //     vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
+        //     "vertices".to_string(),
+        //     MemoryLocation::GpuOnly,
+        //     None,
+        // );
 
-        const INDICES: [u16; 3] = [0, 1, 2];
+        // const INDICES: [u16; 3] = [0, 1, 2];
 
-        let index_buffer = Buffer::new_from_data(
-            kea.device().clone(),
-            &INDICES,
-            vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
-            "indices".to_string(),
-            MemoryLocation::GpuOnly,
-            None,
-        );
+        // let index_buffer = Buffer::new_from_data(
+        //     kea.device().clone(),
+        //     &INDICES,
+        //     vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
+        //     "indices".to_string(),
+        //     MemoryLocation::GpuOnly,
+        //     None,
+        // );
 
-        let mut geometry = Geometry::new(
-            kea.device().clone(),
-            "triangles".to_string(),
-            GeometryType::Triangles {
-                vertices: vertex_buffer,
-                indices: index_buffer,
-            },
-            None,
-        );
-        geometry.build();
+        // let mut geometry = Geometry::new(
+        //     kea.device().clone(),
+        //     "triangles".to_string(),
+        //     GeometryType::Triangles {
+        //         vertices: vertex_buffer,
+        //         indices: index_buffer,
+        //     },
+        //     None,
+        // );
+        // geometry.build();
 
-        let geometry_instance = GeometryInstance::new(Arc::new(geometry), 0);
-        scene.add_instance(geometry_instance);
+        // let geometry_instance = GeometryInstance::new(Arc::new(geometry), 0);
+        // scene.add_instance(geometry_instance);
 
         scene.build();
 
