@@ -1,6 +1,10 @@
 use kea_gpu_shaderlib::Aabb;
 use spirv_std::glam::{vec3, Vec3};
 
+// Needed for .sqrt()
+#[allow(unused_imports)]
+use spirv_std::num_traits::Float;
+
 #[cfg_attr(not(target_arch = "spirv"), derive(Debug))]
 #[derive(Copy, Clone)]
 #[repr(align(32))]
@@ -36,5 +40,19 @@ impl Sphere {
 
     pub fn radius(&self) -> f32 {
         self.radius
+    }
+
+    pub fn intersect_ray(&self, ray_origin: Vec3, ray_direction: Vec3) -> Option<f32> {
+        let oc = ray_origin - self.position();
+        let a = ray_direction.dot(ray_direction);
+        let b = 2.0 * oc.dot(ray_direction);
+        let c = oc.dot(oc) - (self.radius * self.radius);
+        let discriminant = b * b - (4.0 * a * c);
+
+        if discriminant >= 0.0 {
+            Some((-b - discriminant.sqrt()) / (2.0 * a))
+        } else {
+            None
+        }
     }
 }

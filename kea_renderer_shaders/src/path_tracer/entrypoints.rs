@@ -4,6 +4,7 @@ use spirv_std::macros::spirv;
 use crate::payload::{HitType, RayPayload};
 use spirv_std::{
     glam::{vec2, vec3, vec4, UVec2, UVec3, Vec2, Vec3},
+    ray_tracing::RayFlags,
     Image,
 };
 
@@ -23,7 +24,7 @@ pub fn generate_rays(
 
     unsafe {
         accel_structure.trace_ray(
-            spirv_std::ray_tracing::RayFlags::NONE,
+            RayFlags::OPAQUE,
             0xff,
             0,
             0,
