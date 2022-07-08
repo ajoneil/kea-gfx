@@ -1,9 +1,9 @@
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
 
-use crate::payload::RayPayload;
+use crate::{cameras::Camera, payload::RayPayload};
 use spirv_std::{
-    glam::{vec2, vec3, vec4, UVec2, UVec3, Vec2, Vec3},
+    glam::{vec2, vec3, vec4, UVec2, UVec3},
     ray_tracing::RayFlags,
     Image,
 };
@@ -17,10 +17,12 @@ pub fn generate_rays(
     accel_structure: &spirv_std::ray_tracing::AccelerationStructure,
     #[spirv(descriptor_set = 0, binding = 1)] image: &mut Image!(2D, format=rgba32f, sampled=false),
 ) {
-    let ray_direction = ray_for_pixel(
-        vec2(launch_id.x as f32 + 0.5, launch_id.y as f32 + 0.5),
-        vec2(launch_size.x as f32, launch_size.y as f32),
-    );
+    let size = vec2(launch_size.x as f32, launch_size.y as f32);
+    let pixel_position = vec2(launch_id.x as f32 + 0.5, launch_id.y as f32 + 0.5);
+    let ray_target = Camera::new(size.x / size.y).ray_target(vec2(
+        pixel_position.x / size.x,
+        (size.y - pixel_position.y) / size.y,
+    ));
 
     unsafe {
         accel_structure.trace_ray(
@@ -31,7 +33,7 @@ pub fn generate_rays(
             0,
             vec3(0.0, 0.0, 0.0),
             0.01,
-            ray_direction,
+            ray_target,
             1000.0,
             payload,
         );
@@ -46,17 +48,6 @@ pub fn generate_rays(
 
         image.write(UVec2::new(launch_id.x, launch_id.y), output_color);
     }
-}
-
-pub fn ray_for_pixel(pixel_position: Vec2, size: Vec2) -> Vec3 {
-    let aspect_ratio = size.x / size.y;
-    let uv = vec2(
-        pixel_position.x / size.x,
-        (size.y - pixel_position.y) / size.y,
-    );
-    let direction = uv * 2.0 - 1.0;
-    let target = vec3(direction.x * aspect_ratio, direction.y, -1.0);
-    target.normalize()
 }
 
 #[spirv(miss)]
