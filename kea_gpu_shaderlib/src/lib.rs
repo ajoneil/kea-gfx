@@ -19,3 +19,11 @@ pub struct Aabb {
     pub min: Vec3,
     pub max: Vec3,
 }
+
+#[repr(C)]
+#[cfg_attr(not(target_arch = "spirv"), derive(Debug))]
+#[derive(Clone, Copy)]
+pub struct Ray {
+    pub origin: Vec3,
+    pub direction: Vec3,
+}

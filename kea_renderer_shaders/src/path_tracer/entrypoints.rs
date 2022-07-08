@@ -1,7 +1,10 @@
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
 
-use crate::{cameras::Camera, payload::RayPayload};
+use crate::{
+    cameras::{Camera, CameraParameters},
+    payload::RayPayload,
+};
 use spirv_std::{
     glam::{vec2, vec3, vec4, UVec2, UVec3},
     ray_tracing::RayFlags,
@@ -19,7 +22,14 @@ pub fn generate_rays(
 ) {
     let size = vec2(launch_size.x as f32, launch_size.y as f32);
     let pixel_position = vec2(launch_id.x as f32 + 0.5, launch_id.y as f32 + 0.5);
-    let ray_target = Camera::new(size.x / size.y, 90.0_f32.to_radians(), 1.0).ray_target(
+    let ray = Camera::new(CameraParameters {
+        aspect_ratio: size.x / size.y,
+        vertical_field_of_view_radians: 80.0_f32.to_radians(),
+        position: vec3(0.0, 2.0, 0.0),
+        target_position: vec3(0.0, 0.4, -1.5),
+        ..Default::default()
+    })
+    .ray(
         pixel_position.x / size.x,
         (size.y - pixel_position.y) / size.y,
     );
@@ -31,15 +41,15 @@ pub fn generate_rays(
             0,
             0,
             0,
-            vec3(0.0, 0.0, 0.0),
-            0.01,
-            ray_target,
-            1000.0,
+            ray.origin,
+            0.001,
+            ray.direction,
+            10000.0,
             payload,
         );
 
         let output_color = if let Some(depth) = payload.hit {
-            const MAX_DEPTH: f32 = 2.0;
+            const MAX_DEPTH: f32 = 4.0;
             let scaled_depth = 1.0 - (depth / MAX_DEPTH).clamp(0.0, 1.0);
             vec4(scaled_depth, scaled_depth, scaled_depth, 1.0)
         } else {
