@@ -1,6 +1,11 @@
-use spirv_std::glam::Vec3;
+#[derive(PartialEq)]
+#[repr(C)]
+pub enum HitType {
+    Hit,
+    Miss,
+}
 
 #[repr(C)]
 pub struct RayPayload {
-    pub color: Vec3,
+    pub hit_type: HitType,
 }

@@ -1,20 +1,20 @@
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
 
-use spirv_std::{
-    arch::report_intersection,
-    glam::{vec3, Vec3},
-};
+use spirv_std::{arch::report_intersection, glam::Vec3};
 
 // Needed for .sqrt()
 #[allow(unused_imports)]
 use spirv_std::num_traits::Float;
 
-use crate::{payload::RayPayload, spheres::Sphere};
+use crate::{
+    payload::{HitType, RayPayload},
+    spheres::Sphere,
+};
 
 #[spirv(closest_hit)]
 pub fn sphere_hit(#[spirv(incoming_ray_payload)] ray_payload: &mut RayPayload) {
-    ray_payload.color = vec3(1.0, 0.0, 0.0);
+    ray_payload.hit_type = HitType::Hit;
 }
 
 #[spirv(intersection)]

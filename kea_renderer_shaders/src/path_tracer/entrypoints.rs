@@ -1,7 +1,7 @@
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
 
-use crate::payload::RayPayload;
+use crate::payload::{HitType, RayPayload};
 use spirv_std::{
     glam::{vec2, vec3, vec4, UVec2, UVec3, Vec2, Vec3},
     Image,
@@ -35,10 +35,13 @@ pub fn generate_rays(
             payload,
         );
 
-        image.write(
-            UVec2::new(launch_id.x, launch_id.y),
-            vec4(payload.color.x, payload.color.y, payload.color.z, 1.0),
-        );
+        let output_color = if payload.hit_type == HitType::Hit {
+            vec4(0.5, 0.5, 0.5, 1.0)
+        } else {
+            vec4(0.0, 0.0, 0.0, 0.0)
+        };
+
+        image.write(UVec2::new(launch_id.x, launch_id.y), output_color);
     }
 }
 
@@ -55,5 +58,5 @@ pub fn ray_for_pixel(pixel_position: Vec2, size: Vec2) -> Vec3 {
 
 #[spirv(miss)]
 pub fn ray_miss(#[spirv(incoming_ray_payload)] ray_payload: &mut RayPayload) {
-    ray_payload.color = vec3(0.0, 0.0, 1.0);
+    ray_payload.hit_type = HitType::Miss;
 }
