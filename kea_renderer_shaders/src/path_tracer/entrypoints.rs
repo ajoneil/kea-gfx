@@ -4,6 +4,7 @@ use spirv_std::macros::spirv;
 use crate::{
     cameras::{Camera, CameraParameters},
     lights::PointLight,
+    materials::Material,
     payload::RayPayload,
 };
 use spirv_std::{
@@ -31,7 +32,7 @@ pub fn generate_rays(
         aspect_ratio: size.x / size.y,
         vertical_field_of_view_radians: 60.0_f32.to_radians(),
         position: vec3(0.0, 1.5, 0.0),
-        target_position: vec3(0.0, 0.4, -1.5),
+        target_position: vec3(0.0, 0.8, -1.5),
         ..Default::default()
     })
     .ray(
@@ -55,7 +56,7 @@ pub fn generate_rays(
 
         let output_color: Vec4 = if let Some(distance) = payload.hit {
             let scene_light = PointLight {
-                position: vec3(3.5, 4.0, -1.0),
+                position: vec3(2.5, 4.0, 0.0),
                 diffuse: vec3(0.7, 0.7, 0.7),
                 specular: vec3(0.6, 0.6, 0.6),
             };
@@ -69,21 +70,51 @@ pub fn generate_rays(
             let (diffuse_light, specular_light) = if diffuse_dot <= 0.0 {
                 (Vec3::ZERO, Vec3::ZERO)
             } else {
-                let diffuse_light = diffuse_dot * scene_light.diffuse * payload.material.diffuse;
-                let specular_light = {
-                    let reflection_direction =
-                        2.0 * light_direction.dot(payload.normal) * payload.normal
-                            - light_direction;
-                    let viewer_direction = ray.direction * -1.0;
-
-                    viewer_direction
-                        .dot(reflection_direction)
-                        .pow(payload.material.shininess)
-                        * scene_light.specular
-                        * payload.material.specular
+                let mut shadow_payload = RayPayload {
+                    hit: None,
+                    normal: Vec3::ZERO,
+                    material: Material {
+                        ambient: Vec3::ZERO,
+                        diffuse: Vec3::ZERO,
+                        specular: Vec3::ZERO,
+                        shininess: 0.0,
+                    },
                 };
 
-                (diffuse_light, specular_light.max(Vec3::ZERO))
+                accel_structure.trace_ray(
+                    RayFlags::OPAQUE,
+                    0xff,
+                    0,
+                    0,
+                    0,
+                    hit_point,
+                    0.001,
+                    light_direction,
+                    10000.0,
+                    &mut shadow_payload,
+                );
+
+                let light_distance = scene_light.position.distance(hit_point);
+                if shadow_payload.hit.is_some() && shadow_payload.hit.unwrap() < light_distance {
+                    (Vec3::ZERO, Vec3::ZERO)
+                } else {
+                    let diffuse_light =
+                        diffuse_dot * scene_light.diffuse * payload.material.diffuse;
+                    let specular_light = {
+                        let reflection_direction =
+                            2.0 * light_direction.dot(payload.normal) * payload.normal
+                                - light_direction;
+                        let viewer_direction = ray.direction * -1.0;
+
+                        viewer_direction
+                            .dot(reflection_direction)
+                            .pow(payload.material.shininess)
+                            * scene_light.specular
+                            * payload.material.specular
+                    };
+
+                    (diffuse_light, specular_light.max(Vec3::ZERO))
+                }
             };
 
             ((ambient_light + diffuse_light + specular_light) * 0.7).extend(1.0)
