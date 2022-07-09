@@ -74,7 +74,7 @@ impl PathTracer {
         let mut scene = Scene::new(kea.device().clone(), "test scene".to_string());
 
         let spheres = [
-            Sphere::new(vec3(0.0, -100.4, -1.5), 100.0),
+            Sphere::new(vec3(0.0, -10000.4, -1.5), 10000.0),
             Sphere::new(vec3(0.0, 0.4, -1.5), 0.4),
             Sphere::new(vec3(-1.0, 0.4, -1.7), 0.4),
             Sphere::new(vec3(1.0, 0.4, -1.6), 0.4),

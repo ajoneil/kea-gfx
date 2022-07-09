@@ -25,7 +25,7 @@ pub fn generate_rays(
     let ray = Camera::new(CameraParameters {
         aspect_ratio: size.x / size.y,
         vertical_field_of_view_radians: 80.0_f32.to_radians(),
-        position: vec3(0.0, 2.0, 0.0),
+        position: vec3(0.0, 1.0, 0.0),
         target_position: vec3(0.0, 0.4, -1.5),
         ..Default::default()
     })

@@ -34,7 +34,7 @@ impl Sphere {
         }
     }
 
-    pub fn position(&self) -> Vec3 {
+    pub fn center(&self) -> Vec3 {
         vec3(self.x, self.y, self.z)
     }
 
@@ -43,22 +43,45 @@ impl Sphere {
     }
 
     pub fn intersect_ray(&self, ray: Ray) -> Option<f32> {
-        let oc = ray.origin - self.position();
-        let a = ray.direction.dot(ray.direction);
-        let b = 2.0 * oc.dot(ray.direction);
-        let c = oc.dot(oc) - (self.radius * self.radius);
-        let discriminant = b * b - (4.0 * a * c);
+        // A sphere's implicit formula is:
+        // `||x - c||^2 = r^2`
+        //  where c is the centre and r is the radius
+        // We want to find the distance travelled along the ray that this formula
+        // holds true. We can use the quadaratic formula to calculate the zero - two
+        // solutions (doesn't intersect, touches at a single point, or intersects on
+        // entry and exit).
+        let oc = ray.origin - self.center();
+        // A vector's dot product with itself is the length squared, so using this
+        // directly is a performance optimisation.
+        let a = ray.direction.length_squared();
+        let c = oc.length_squared() - (self.radius * self.radius);
+        // h = half of b. By doing this we can cancel out some constants.
+        let h = oc.dot(ray.direction);
+        let discriminant = h * h - (a * c);
 
-        if discriminant >= 0.0 {
-            Some((-b - discriminant.sqrt()) / (2.0 * a))
+        if discriminant < 0.0 {
+            return None;
+        }
+
+        // We've calculated a line-sphere intersection, but rays only extend in
+        // one direction from a point, so we need to discard values behind the
+        // ray origin (ie with a negative distance).
+        let distance = (-h - discriminant.sqrt()) / a;
+        if distance > 0.0 {
+            return Some(distance);
+        }
+
+        let distance = (-h + discriminant.sqrt()) / a;
+        if distance > 0.0 {
+            Some(distance)
         } else {
             None
         }
     }
 
     pub fn normal(&self, ray: Ray) -> Vec3 {
-        if let Some(t) = self.intersect_ray(ray) {
-            (ray.at(t) - self.position()).normalize()
+        if let Some(distance) = self.intersect_ray(ray) {
+            (ray.at(distance) - self.center()).normalize()
         } else {
             // Garbage in, garbage out
             vec3(0.0, 0.0, 0.0)
