@@ -27,20 +27,28 @@ pub fn sphere_hit(
 
     ray_payload.material = match sphere_id % 4 {
         1 => Material {
-            ambient_color: vec3(1.0, 0.0, 0.0),
-            diffuse_color: vec3(1.0, 0.0, 0.0),
+            ambient: vec3(1.0, 0.0, 0.0),
+            diffuse: vec3(1.0, 0.0, 0.0),
+            specular: vec3(0.7, 0.5, 0.5),
+            shininess: 128.0,
         },
         2 => Material {
-            ambient_color: vec3(0.0, 1.0, 0.0),
-            diffuse_color: vec3(0.0, 1.0, 0.0),
+            ambient: vec3(0.0, 1.0, 0.0),
+            diffuse: vec3(0.0, 1.0, 0.0),
+            specular: vec3(0.4, 0.5, 0.4),
+            shininess: 10.0,
         },
         3 => Material {
-            ambient_color: vec3(0.0, 0.0, 1.0),
-            diffuse_color: vec3(0.0, 0.0, 1.0),
+            ambient: vec3(0.0, 0.0, 1.0),
+            diffuse: vec3(0.0, 0.0, 1.0),
+            specular: vec3(0.5, 0.5, 0.7),
+            shininess: 5.0,
         },
         _ => Material {
-            ambient_color: vec3(0.5, 0.5, 0.5),
-            diffuse_color: vec3(0.5, 0.5, 0.5),
+            ambient: vec3(0.7, 0.7, 0.7),
+            diffuse: vec3(0.7, 0.7, 0.7),
+            specular: Vec3::ZERO,
+            shininess: 0.0,
         },
     }
 }

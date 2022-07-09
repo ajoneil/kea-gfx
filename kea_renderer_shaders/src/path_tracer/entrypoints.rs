@@ -7,10 +7,14 @@ use crate::{
     payload::RayPayload,
 };
 use spirv_std::{
-    glam::{vec2, vec3, vec4, UVec2, UVec3, Vec4},
+    glam::{vec2, vec3, vec4, UVec2, UVec3, Vec3, Vec4},
+    num_traits::Pow,
     ray_tracing::RayFlags,
     Image,
 };
+
+#[allow(unused_imports)]
+use spirv_std::num_traits::Float;
 
 #[spirv(ray_generation)]
 pub fn generate_rays(
@@ -25,8 +29,8 @@ pub fn generate_rays(
     let pixel_position = vec2(launch_id.x as f32 + 0.5, launch_id.y as f32 + 0.5);
     let ray = Camera::new(CameraParameters {
         aspect_ratio: size.x / size.y,
-        vertical_field_of_view_radians: 80.0_f32.to_radians(),
-        position: vec3(0.0, 1.0, 0.0),
+        vertical_field_of_view_radians: 60.0_f32.to_radians(),
+        position: vec3(0.0, 1.5, 0.0),
         target_position: vec3(0.0, 0.4, -1.5),
         ..Default::default()
     })
@@ -51,20 +55,38 @@ pub fn generate_rays(
 
         let output_color: Vec4 = if let Some(distance) = payload.hit {
             let scene_light = PointLight {
-                position: vec3(1.0, 5.0, -0.5),
-                intensity: vec3(1.0, 1.0, 1.0),
+                position: vec3(3.5, 4.0, -1.0),
+                diffuse: vec3(0.7, 0.7, 0.7),
+                specular: vec3(0.6, 0.6, 0.6),
             };
-            let scene_ambience = vec3(0.1, 0.1, 0.1);
+            let scene_ambience = vec3(0.2, 0.2, 0.2);
 
-            let ambient_light = scene_ambience * payload.material.ambient_color;
-            let diffuse_light = {
-                let hit_point = ray.at(distance);
-                let light_direction = (scene_light.position - hit_point).normalize();
-                let light_amount = light_direction.dot(payload.normal);
-                light_amount * scene_light.intensity * payload.material.diffuse_color
+            let hit_point = ray.at(distance);
+            let light_direction = (scene_light.position - hit_point).normalize();
+
+            let ambient_light = scene_ambience * payload.material.ambient;
+            let diffuse_dot = light_direction.dot(payload.normal);
+            let (diffuse_light, specular_light) = if diffuse_dot <= 0.0 {
+                (Vec3::ZERO, Vec3::ZERO)
+            } else {
+                let diffuse_light = diffuse_dot * scene_light.diffuse * payload.material.diffuse;
+                let specular_light = {
+                    let reflection_direction =
+                        2.0 * light_direction.dot(payload.normal) * payload.normal
+                            - light_direction;
+                    let viewer_direction = ray.direction * -1.0;
+
+                    viewer_direction
+                        .dot(reflection_direction)
+                        .pow(payload.material.shininess)
+                        * scene_light.specular
+                        * payload.material.specular
+                };
+
+                (diffuse_light, specular_light.max(Vec3::ZERO))
             };
 
-            Vec4::from((ambient_light + diffuse_light, 1.0))
+            ((ambient_light + diffuse_light + specular_light) * 0.7).extend(1.0)
         } else {
             vec4(0.0, 0.0, 0.0, 1.0)
         };
