@@ -3,10 +3,11 @@ use spirv_std::macros::spirv;
 
 use crate::{
     cameras::{Camera, CameraParameters},
+    lights::PointLight,
     payload::RayPayload,
 };
 use spirv_std::{
-    glam::{vec2, vec3, vec4, UVec2, UVec3},
+    glam::{vec2, vec3, vec4, UVec2, UVec3, Vec4},
     ray_tracing::RayFlags,
     Image,
 };
@@ -48,9 +49,22 @@ pub fn generate_rays(
             payload,
         );
 
-        let output_color = if let Some(_) = payload.hit {
-            let scaled_normal = payload.normal * 0.5 + 0.5;
-            vec4(scaled_normal.x, scaled_normal.y, scaled_normal.z, 1.0)
+        let output_color: Vec4 = if let Some(distance) = payload.hit {
+            let scene_light = PointLight {
+                position: vec3(1.0, 5.0, -0.5),
+                intensity: vec3(1.0, 1.0, 1.0),
+            };
+            let scene_ambience = vec3(0.1, 0.1, 0.1);
+
+            let ambient_light = scene_ambience * payload.material.ambient_color;
+            let diffuse_light = {
+                let hit_point = ray.at(distance);
+                let light_direction = (scene_light.position - hit_point).normalize();
+                let light_amount = light_direction.dot(payload.normal);
+                light_amount * scene_light.intensity * payload.material.diffuse_color
+            };
+
+            Vec4::from((ambient_light + diffuse_light, 1.0))
         } else {
             vec4(0.0, 0.0, 0.0, 1.0)
         };

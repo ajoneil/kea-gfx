@@ -11,6 +11,8 @@
 use kea_gpu_shaderlib::{shaders::ShaderGroup, slots::Slot};
 
 pub mod cameras;
+pub mod lights;
+pub mod materials;
 pub mod path_tracer;
 mod payload;
 pub mod spheres;

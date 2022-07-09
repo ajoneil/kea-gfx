@@ -2,9 +2,12 @@ use kea_gpu_shaderlib::Ray;
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
 
-use spirv_std::{arch::report_intersection, glam::Vec3};
+use spirv_std::{
+    arch::report_intersection,
+    glam::{vec3, Vec3},
+};
 
-use crate::{payload::RayPayload, spheres::Sphere};
+use crate::{materials::Material, payload::RayPayload, spheres::Sphere};
 
 #[spirv(closest_hit)]
 pub fn sphere_hit(
@@ -21,6 +24,25 @@ pub fn sphere_hit(
         origin: ray_origin,
         direction: ray_direction,
     });
+
+    ray_payload.material = match sphere_id % 4 {
+        1 => Material {
+            ambient_color: vec3(1.0, 0.0, 0.0),
+            diffuse_color: vec3(1.0, 0.0, 0.0),
+        },
+        2 => Material {
+            ambient_color: vec3(0.0, 1.0, 0.0),
+            diffuse_color: vec3(0.0, 1.0, 0.0),
+        },
+        3 => Material {
+            ambient_color: vec3(0.0, 0.0, 1.0),
+            diffuse_color: vec3(0.0, 0.0, 1.0),
+        },
+        _ => Material {
+            ambient_color: vec3(0.5, 0.5, 0.5),
+            diffuse_color: vec3(0.5, 0.5, 0.5),
+        },
+    }
 }
 
 #[spirv(intersection)]
