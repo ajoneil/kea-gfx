@@ -30,7 +30,7 @@ pub fn sphere_hit(
             ambient: vec3(1.0, 0.0, 0.0),
             diffuse: vec3(1.0, 0.0, 0.0),
             specular: vec3(0.7, 0.5, 0.5),
-            shininess: 128.0,
+            shininess: 64.0,
         },
         2 => Material {
             ambient: vec3(0.0, 1.0, 0.0),
@@ -39,10 +39,10 @@ pub fn sphere_hit(
             shininess: 10.0,
         },
         3 => Material {
-            ambient: vec3(0.0, 0.0, 1.0),
-            diffuse: vec3(0.0, 0.0, 1.0),
-            specular: vec3(0.5, 0.5, 0.7),
-            shininess: 5.0,
+            ambient: vec3(1.0, 0.9, 0.0),
+            diffuse: vec3(1.0, 0.9, 0.0),
+            specular: vec3(0.5, 0.5, 0.5),
+            shininess: 10.0,
         },
         _ => Material {
             ambient: vec3(0.7, 0.7, 0.7),

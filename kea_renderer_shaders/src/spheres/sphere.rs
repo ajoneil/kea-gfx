@@ -7,7 +7,7 @@ use spirv_std::num_traits::Float;
 
 #[cfg_attr(not(target_arch = "spirv"), derive(Debug))]
 #[derive(Copy, Clone)]
-#[repr(align(32))]
+#[repr(C)]
 pub struct Sphere {
     x: f32,
     y: f32,

@@ -19,7 +19,7 @@ use kea_gpu::{
     Kea,
 };
 use kea_gpu_shaderlib::Aabb;
-use kea_renderer_shaders::{spheres::Sphere, SlotId};
+use kea_renderer_shaders::{boxes::Boxo, spheres::Sphere, SlotId};
 use log::info;
 use std::{cell::RefCell, slice, sync::Arc};
 
@@ -58,6 +58,15 @@ impl PathTracer {
                 .additional_data()
                 .as_ref()
                 .unwrap(),
+            scene
+                .instances()
+                .iter()
+                .nth(1)
+                .unwrap()
+                .geometry()
+                .additional_data()
+                .as_ref()
+                .unwrap(),
         );
 
         PathTracer {
@@ -75,9 +84,10 @@ impl PathTracer {
 
         let spheres = [
             Sphere::new(vec3(0.0, -1000.0, -1.5), 1000.0),
-            Sphere::new(vec3(0.0, 0.4, -1.5), 0.4),
-            Sphere::new(vec3(-0.9, 0.6, -2.0), 0.6),
-            Sphere::new(vec3(0.8, 0.5, -1.8), 0.5),
+            Sphere::new(vec3(0.0, 0.8, -2.8), 0.8),
+            Sphere::new(vec3(-0.9, 0.4, -2.0), 0.4),
+            Sphere::new(vec3(0.7, 1.3, -1.9), 0.3),
+            // Sphere::new(vec3(0.8, 0.5, -1.8), 0.5),
             // Sphere::new(vec3(-0.5, 0.0, -1.5), 0.5),
             // Sphere::new(vec3(0.0, 0.0, -1.5), 0.5),
             // Sphere::new(vec3(0.0, 0.0, -1.5), 0.5),
@@ -95,45 +105,20 @@ impl PathTracer {
         let geometry_instance = GeometryInstance::new(Arc::new(geometry), 1);
         scene.add_instance(geometry_instance);
 
-        // let vertices = [
-        //     vec3(-0.2, -0.2, -0.5),
-        //     vec3(0.2, -0.2, -0.5),
-        //     vec3(0.0, 0.2, -0.5),
-        // ];
-
-        // let vertex_buffer = Buffer::new_from_data(
-        //     kea.device().clone(),
-        //     &vertices,
-        //     vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
-        //     "vertices".to_string(),
-        //     MemoryLocation::GpuOnly,
-        //     None,
-        // );
-
-        // const INDICES: [u16; 3] = [0, 1, 2];
-
-        // let index_buffer = Buffer::new_from_data(
-        //     kea.device().clone(),
-        //     &INDICES,
-        //     vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
-        //     "indices".to_string(),
-        //     MemoryLocation::GpuOnly,
-        //     None,
-        // );
-
-        // let mut geometry = Geometry::new(
-        //     kea.device().clone(),
-        //     "triangles".to_string(),
-        //     GeometryType::Triangles {
-        //         vertices: vertex_buffer,
-        //         indices: index_buffer,
-        //     },
-        //     None,
-        // );
-        // geometry.build();
-
-        // let geometry_instance = GeometryInstance::new(Arc::new(geometry), 0);
-        // scene.add_instance(geometry_instance);
+        let boxes = [
+            Boxo::new(vec3(1.1, 0.5, -1.8), vec3(1.0, 1.0, 1.0)),
+            Boxo::new(vec3(-0.1, 0.3, -1.7), vec3(0.6, 0.6, 0.6)),
+        ];
+        let (boxes_buffer, aabbs_buffer) = Self::create_boxes_buffers(kea.device(), &boxes);
+        let mut geometry = Geometry::new(
+            kea.device().clone(),
+            "boxes".to_string(),
+            GeometryType::Aabbs(aabbs_buffer),
+            Some(Arc::new(boxes_buffer)),
+        );
+        geometry.build();
+        let geometry_instance = GeometryInstance::new(Arc::new(geometry), 2);
+        scene.add_instance(geometry_instance);
 
         scene.build();
 
@@ -163,6 +148,31 @@ impl PathTracer {
         );
 
         (spheres_buffer, aabbs_buffer)
+    }
+
+    fn create_boxes_buffers(device: &Arc<Device>, boxes: &[Boxo]) -> (Buffer, Buffer) {
+        let boxes_buffer = Buffer::new_from_data(
+            device.clone(),
+            boxes,
+            vk::BufferUsageFlags::STORAGE_BUFFER,
+            "boxes".to_string(),
+            MemoryLocation::GpuOnly,
+            None,
+        );
+        info!("boxes data {:?}", boxes);
+
+        let aabbs: Vec<Aabb> = boxes.iter().map(|b: &Boxo| b.aabb()).collect();
+        log::debug!("Aabbs: {:?}", aabbs);
+        let aabbs_buffer = Buffer::new_from_data(
+            device.clone(),
+            &aabbs,
+            vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
+            "aabbs".to_string(),
+            MemoryLocation::GpuOnly,
+            None,
+        );
+
+        (boxes_buffer, aabbs_buffer)
     }
 
     fn create_pipeline(device: &Arc<Device>) -> RayTracingPipeline<SlotId> {
@@ -226,6 +236,7 @@ impl PathTracer {
         scene: &Scene,
         storage_image: &ImageView,
         spheres_buffer: &Buffer,
+        boxes_buffer: &Buffer,
     ) -> DescriptorSet {
         let pool_sizes = [
             vk::DescriptorPoolSize {
@@ -234,6 +245,10 @@ impl PathTracer {
             },
             vk::DescriptorPoolSize {
                 ty: vk::DescriptorType::STORAGE_IMAGE,
+                descriptor_count: 1,
+            },
+            vk::DescriptorPoolSize {
+                ty: vk::DescriptorType::STORAGE_BUFFER,
                 descriptor_count: 1,
             },
             vk::DescriptorPoolSize {
@@ -279,7 +294,23 @@ impl PathTracer {
             .dst_binding(2)
             .buffer_info(slice::from_ref(&sphere_buffer_info));
 
-        let write_sets = [as_write_set, *img_write_set, *spheres_write_set];
+        let boxes_buffer_info = vk::DescriptorBufferInfo {
+            buffer: unsafe { boxes_buffer.buffer().raw() },
+            offset: 0,
+            range: vk::WHOLE_SIZE,
+        };
+        let boxes_write_set = vk::WriteDescriptorSet::builder()
+            .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+            .dst_set(unsafe { descriptor_set.raw() })
+            .dst_binding(3)
+            .buffer_info(slice::from_ref(&boxes_buffer_info));
+
+        let write_sets = [
+            as_write_set,
+            *img_write_set,
+            *spheres_write_set,
+            *boxes_write_set,
+        ];
 
         unsafe { device.raw().update_descriptor_sets(&write_sets, &[]) };
         descriptor_set
