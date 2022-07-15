@@ -3,12 +3,12 @@ use ash::vk;
 use gpu_allocator::MemoryLocation;
 use kea_gpu::{
     commands::{CommandBuffer, CommandPool, RecordedCommandBuffer},
-    descriptors::{DescriptorPool, DescriptorSet, DescriptorSetLayout},
+    descriptors::DescriptorSetLayout,
     device::Device,
     pipelines::PipelineLayout,
     ray_tracing::{scenes::Scene, RayTracingPipeline},
     shaders::ShaderGroups,
-    slots::SlotLayout,
+    slots::{SlotBindings, SlotLayout},
     storage::{
         buffers::Buffer,
         images::{Image, ImageView},
@@ -22,8 +22,8 @@ pub struct PathTracer {
     kea: Kea,
     _scene: Scene,
     pipeline: RayTracingPipeline<SlotId>,
-    descriptor_set: DescriptorSet,
-    storage_image: ImageView,
+    slot_bindings: SlotBindings<SlotId>,
+    storage_image: Arc<ImageView>,
     commands: RefCell<Vec<RecordedCommandBuffer>>,
 }
 
@@ -39,11 +39,11 @@ impl PathTracer {
 
         let pipeline = Self::create_pipeline(kea.device());
 
-        let descriptor_set = Self::create_descriptor_set(
+        let slot_bindings = Self::create_slot_bindings(
             kea.device(),
             &pipeline,
             &scene,
-            &storage_image,
+            storage_image.clone(),
             scene
                 .instances()
                 .iter()
@@ -52,7 +52,8 @@ impl PathTracer {
                 .geometry()
                 .additional_data()
                 .as_ref()
-                .unwrap(),
+                .unwrap()
+                .clone(),
             scene
                 .instances()
                 .iter()
@@ -61,14 +62,15 @@ impl PathTracer {
                 .geometry()
                 .additional_data()
                 .as_ref()
-                .unwrap(),
+                .unwrap()
+                .clone(),
         );
 
         PathTracer {
             kea,
             _scene: scene,
             pipeline,
-            descriptor_set,
+            slot_bindings,
             storage_image,
             commands: RefCell::new(vec![]),
         }
@@ -98,7 +100,7 @@ impl PathTracer {
         device: &Arc<Device>,
         format: vk::Format,
         size: (u32, u32),
-    ) -> ImageView {
+    ) -> Arc<ImageView> {
         let image = Image::new(
             device.clone(),
             "rt image output".to_string(),
@@ -126,93 +128,25 @@ impl PathTracer {
             },
         );
 
-        image_view
+        Arc::new(image_view)
     }
 
-    fn create_descriptor_set(
+    fn create_slot_bindings(
         device: &Arc<Device>,
         pipeline: &RayTracingPipeline<SlotId>,
         scene: &Scene,
-        storage_image: &ImageView,
-        spheres_buffer: &Buffer,
-        boxes_buffer: &Buffer,
-    ) -> DescriptorSet {
-        let pool_sizes = [
-            vk::DescriptorPoolSize {
-                ty: vk::DescriptorType::ACCELERATION_STRUCTURE_KHR,
-                descriptor_count: 1,
-            },
-            vk::DescriptorPoolSize {
-                ty: vk::DescriptorType::STORAGE_IMAGE,
-                descriptor_count: 1,
-            },
-            vk::DescriptorPoolSize {
-                ty: vk::DescriptorType::STORAGE_BUFFER,
-                descriptor_count: 1,
-            },
-            vk::DescriptorPoolSize {
-                ty: vk::DescriptorType::STORAGE_BUFFER,
-                descriptor_count: 1,
-            },
-        ];
-        let descriptor_pool = DescriptorPool::new(device.clone(), 1, &pool_sizes);
-        let descriptor_sets = descriptor_pool
-            .allocate_descriptor_sets(slice::from_ref(pipeline.layout().descriptor_set_layout()));
-        let descriptor_set = descriptor_sets.into_iter().nth(0).unwrap();
+        storage_image: Arc<ImageView>,
+        spheres_buffer: Arc<Buffer>,
+        boxes_buffer: Arc<Buffer>,
+    ) -> SlotBindings<SlotId> {
+        let mut slot_bindings = SlotBindings::new(device.clone(), pipeline);
+        slot_bindings
+            .bind_acceleration_structure(SlotId::Scene, scene.acceleration_structure().clone());
+        slot_bindings.bind_image(SlotId::OutputImage, storage_image);
+        slot_bindings.bind_buffer(SlotId::Spheres, spheres_buffer);
+        slot_bindings.bind_buffer(SlotId::Boxes, boxes_buffer);
 
-        let raw_as = unsafe { scene.acceleration_structure().raw() };
-        let accel_slice = std::slice::from_ref(&raw_as);
-        let mut write_set_as = vk::WriteDescriptorSetAccelerationStructureKHR::builder()
-            .acceleration_structures(accel_slice);
-        let mut as_write_set = vk::WriteDescriptorSet::builder()
-            .descriptor_type(vk::DescriptorType::ACCELERATION_STRUCTURE_KHR)
-            .dst_set(unsafe { descriptor_set.raw() })
-            .dst_binding(0)
-            .push_next(&mut write_set_as)
-            .build();
-        as_write_set.descriptor_count = 1;
-
-        let desc_img_info = vk::DescriptorImageInfo::builder()
-            .image_view(unsafe { storage_image.raw() })
-            .image_layout(vk::ImageLayout::GENERAL);
-
-        let img_write_set = vk::WriteDescriptorSet::builder()
-            .descriptor_type(vk::DescriptorType::STORAGE_IMAGE)
-            .dst_set(unsafe { descriptor_set.raw() })
-            .dst_binding(1)
-            .image_info(slice::from_ref(&desc_img_info));
-
-        let sphere_buffer_info = vk::DescriptorBufferInfo {
-            buffer: unsafe { spheres_buffer.buffer().raw() },
-            offset: 0,
-            range: vk::WHOLE_SIZE,
-        };
-        let spheres_write_set = vk::WriteDescriptorSet::builder()
-            .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
-            .dst_set(unsafe { descriptor_set.raw() })
-            .dst_binding(2)
-            .buffer_info(slice::from_ref(&sphere_buffer_info));
-
-        let boxes_buffer_info = vk::DescriptorBufferInfo {
-            buffer: unsafe { boxes_buffer.buffer().raw() },
-            offset: 0,
-            range: vk::WHOLE_SIZE,
-        };
-        let boxes_write_set = vk::WriteDescriptorSet::builder()
-            .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
-            .dst_set(unsafe { descriptor_set.raw() })
-            .dst_binding(3)
-            .buffer_info(slice::from_ref(&boxes_buffer_info));
-
-        let write_sets = [
-            as_write_set,
-            *img_write_set,
-            *spheres_write_set,
-            *boxes_write_set,
-        ];
-
-        unsafe { device.raw().update_descriptor_sets(&write_sets, &[]) };
-        descriptor_set
+        slot_bindings
     }
 
     pub fn draw(&self) {
@@ -229,7 +163,7 @@ impl PathTracer {
                     cmd.bind_descriptor_sets(
                         vk::PipelineBindPoint::RAY_TRACING_KHR,
                         &self.pipeline.layout(),
-                        slice::from_ref(&self.descriptor_set),
+                        slice::from_ref(&self.slot_bindings.descriptor_set()),
                     );
 
                     cmd.trace_rays(

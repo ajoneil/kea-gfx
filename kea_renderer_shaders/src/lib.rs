@@ -19,12 +19,18 @@ mod payload;
 pub mod spheres;
 pub mod triangles;
 
-#[derive(Clone)]
+#[derive(Copy, Clone, Hash, PartialEq, Eq)]
 pub enum SlotId {
-    Scene,
+    Scene = 0,
     OutputImage,
     Spheres,
     Boxes,
+}
+
+impl Into<u32> for SlotId {
+    fn into(self) -> u32 {
+        self as u32
+    }
 }
 
 pub const SLOTS: [(SlotId, Slot); 4] = [

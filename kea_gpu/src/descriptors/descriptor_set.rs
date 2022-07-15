@@ -28,6 +28,10 @@ impl DescriptorSetLayout {
     pub unsafe fn raw(&self) -> vk::DescriptorSetLayout {
         self.raw
     }
+
+    pub fn device(&self) -> &Arc<Device> {
+        &self.device
+    }
 }
 
 impl Drop for DescriptorSetLayout {
@@ -98,10 +102,14 @@ impl DescriptorPool {
         descriptor_sets
             .into_iter()
             .map(|raw| DescriptorSet {
-                _pool: self.clone(),
+                pool: self.clone(),
                 raw,
             })
             .collect()
+    }
+
+    pub fn device(&self) -> &Arc<Device> {
+        &self.device
     }
 }
 
@@ -114,12 +122,16 @@ impl Drop for DescriptorPool {
 }
 
 pub struct DescriptorSet {
-    _pool: Arc<DescriptorPool>,
+    pool: Arc<DescriptorPool>,
     raw: vk::DescriptorSet,
 }
 
 impl DescriptorSet {
     pub unsafe fn raw(&self) -> vk::DescriptorSet {
         self.raw
+    }
+
+    pub fn device(&self) -> &Arc<Device> {
+        &self.pool.device()
     }
 }

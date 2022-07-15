@@ -39,4 +39,8 @@ impl<SlotId> SlotLayout<SlotId> {
             })
             .collect()
     }
+
+    pub fn slots(&self) -> &[(SlotId, Slot)] {
+        &self.slots
+    }
 }
