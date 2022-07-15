@@ -16,22 +16,15 @@ pub struct Geometry {
     device: Arc<Device>,
     name: String,
     geometry_type: GeometryType,
-    additional_data: Option<Arc<Buffer>>,
     acceleration_structure: Option<Arc<AccelerationStructure>>,
 }
 
 impl Geometry {
-    pub fn new(
-        device: Arc<Device>,
-        name: String,
-        geometry_type: GeometryType,
-        additional_data: Option<Arc<Buffer>>,
-    ) -> Self {
+    pub fn new(device: Arc<Device>, name: String, geometry_type: GeometryType) -> Self {
         Self {
             device,
             name,
             geometry_type,
-            additional_data,
             acceleration_structure: None,
         }
     }
@@ -46,10 +39,6 @@ impl Geometry {
         }
 
         self.acceleration_structure.as_ref().unwrap()
-    }
-
-    pub fn additional_data(&self) -> &Option<Arc<Buffer>> {
-        &self.additional_data
     }
 
     pub fn build(&mut self) {

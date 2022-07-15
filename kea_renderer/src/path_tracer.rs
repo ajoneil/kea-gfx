@@ -1,4 +1,4 @@
-use crate::scenes;
+use crate::scenes::{self, BasicShapes};
 use ash::vk;
 use gpu_allocator::MemoryLocation;
 use kea_gpu::{
@@ -6,13 +6,10 @@ use kea_gpu::{
     descriptors::DescriptorSetLayout,
     device::Device,
     pipelines::PipelineLayout,
-    ray_tracing::{scenes::Scene, RayTracingPipeline},
+    ray_tracing::RayTracingPipeline,
     shaders::ShaderGroups,
     slots::{SlotBindings, SlotLayout},
-    storage::{
-        buffers::Buffer,
-        images::{Image, ImageView},
-    },
+    storage::images::{Image, ImageView},
     Kea,
 };
 use kea_renderer_shaders::SlotId;
@@ -20,7 +17,7 @@ use std::{cell::RefCell, slice, sync::Arc};
 
 pub struct PathTracer {
     kea: Kea,
-    _scene: Scene,
+    _scene: BasicShapes,
     pipeline: RayTracingPipeline<SlotId>,
     slot_bindings: SlotBindings<SlotId>,
     storage_image: Arc<ImageView>,
@@ -29,42 +26,18 @@ pub struct PathTracer {
 
 impl PathTracer {
     pub fn new(kea: Kea) -> PathTracer {
-        let scene = scenes::basic_shapes(kea.device().clone());
+        let pipeline = Self::create_pipeline(kea.device());
+        let mut slot_bindings = SlotBindings::new(kea.device().clone(), &pipeline);
 
         let storage_image = Self::create_storage_image(
             kea.device(),
             kea.presenter().format(),
             kea.presenter().size(),
         );
+        slot_bindings.bind_image(SlotId::OutputImage, storage_image.clone());
 
-        let pipeline = Self::create_pipeline(kea.device());
-
-        let slot_bindings = Self::create_slot_bindings(
-            kea.device(),
-            &pipeline,
-            &scene,
-            storage_image.clone(),
-            scene
-                .instances()
-                .iter()
-                .nth(0)
-                .unwrap()
-                .geometry()
-                .additional_data()
-                .as_ref()
-                .unwrap()
-                .clone(),
-            scene
-                .instances()
-                .iter()
-                .nth(1)
-                .unwrap()
-                .geometry()
-                .additional_data()
-                .as_ref()
-                .unwrap()
-                .clone(),
-        );
+        let scene = scenes::BasicShapes::new(kea.device().clone());
+        scene.bind_data(&mut slot_bindings);
 
         PathTracer {
             kea,
@@ -129,24 +102,6 @@ impl PathTracer {
         );
 
         Arc::new(image_view)
-    }
-
-    fn create_slot_bindings(
-        device: &Arc<Device>,
-        pipeline: &RayTracingPipeline<SlotId>,
-        scene: &Scene,
-        storage_image: Arc<ImageView>,
-        spheres_buffer: Arc<Buffer>,
-        boxes_buffer: Arc<Buffer>,
-    ) -> SlotBindings<SlotId> {
-        let mut slot_bindings = SlotBindings::new(device.clone(), pipeline);
-        slot_bindings
-            .bind_acceleration_structure(SlotId::Scene, scene.acceleration_structure().clone());
-        slot_bindings.bind_image(SlotId::OutputImage, storage_image);
-        slot_bindings.bind_buffer(SlotId::Spheres, spheres_buffer);
-        slot_bindings.bind_buffer(SlotId::Boxes, boxes_buffer);
-
-        slot_bindings
     }
 
     pub fn draw(&self) {
