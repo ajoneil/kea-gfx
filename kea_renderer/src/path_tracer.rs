@@ -1,4 +1,4 @@
-use crate::scenes::{self, BasicShapes};
+use crate::scenes::{self, Scene};
 use ash::vk;
 use gpu_allocator::MemoryLocation;
 use kea_gpu::{
@@ -17,7 +17,7 @@ use std::{cell::RefCell, slice, sync::Arc};
 
 pub struct PathTracer {
     kea: Kea,
-    _scene: BasicShapes,
+    _scene: Scene,
     pipeline: RayTracingPipeline<SlotId>,
     slot_bindings: SlotBindings<SlotId>,
     storage_image: Arc<ImageView>,
@@ -36,7 +36,7 @@ impl PathTracer {
         );
         slot_bindings.bind_image(SlotId::OutputImage, storage_image.clone());
 
-        let scene = scenes::BasicShapes::new(kea.device().clone());
+        let scene = scenes::basic_shapes(kea.device().clone());
         scene.bind_data(&mut slot_bindings);
 
         PathTracer {

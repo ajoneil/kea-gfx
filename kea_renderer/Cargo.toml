@@ -12,6 +12,7 @@ env_logger = "0.9.0"
 gpu-allocator = "0.18.0"
 glam = "0.20.5"
 memoffset = "0.6.5"
+bevy_ecs = "0.7.0"
 
 kea_gpu = { path = "../kea_gpu" }
 kea_gpu_shaderlib = { path = "../kea_gpu_shaderlib" }
