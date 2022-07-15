@@ -2,12 +2,8 @@ use kea_gpu_shaderlib::Ray;
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
 
-use spirv_std::{
-    arch::report_intersection,
-    glam::{vec3, Vec3},
-};
-
-use crate::{materials::Material, payload::RayPayload};
+use crate::payload::RayPayload;
+use spirv_std::{arch::report_intersection, glam::Vec3};
 
 use super::Boxo;
 
@@ -28,20 +24,7 @@ pub fn hit_box(
         direction: ray_direction,
     });
 
-    ray_payload.material = match box_id % 2 {
-        0 => Material {
-            ambient: vec3(0.0, 0.0, 1.0),
-            diffuse: vec3(0.0, 0.0, 1.0),
-            specular: vec3(0.5, 0.5, 0.7),
-            shininess: 500.0,
-        },
-        _ => Material {
-            ambient: vec3(0.7, 0.0, 1.0),
-            diffuse: vec3(0.7, 0.0, 1.0),
-            specular: vec3(0.7, 0.7, 0.7),
-            shininess: 20.0,
-        },
-    };
+    ray_payload.material = boxo.material();
 }
 
 #[spirv(intersection)]

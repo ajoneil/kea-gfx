@@ -1,6 +1,8 @@
 use kea_gpu_shaderlib::{Aabb, Ray};
 use spirv_std::glam::{vec3, Vec3};
 
+use crate::materials::Material;
+
 #[cfg_attr(not(target_arch = "spirv"), derive(Debug))]
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -11,10 +13,11 @@ pub struct Boxo {
     dim_x: f32,
     dim_y: f32,
     dim_z: f32,
+    material: Material,
 }
 
 impl Boxo {
-    pub fn new(position: Vec3, dimensions: Vec3) -> Self {
+    pub fn new(position: Vec3, dimensions: Vec3, material: Material) -> Self {
         Self {
             pos_x: position.x,
             pos_y: position.y,
@@ -22,6 +25,7 @@ impl Boxo {
             dim_x: dimensions.x,
             dim_y: dimensions.y,
             dim_z: dimensions.z,
+            material,
         }
     }
 
@@ -80,5 +84,9 @@ impl Boxo {
         } else {
             vec3(0.0, 0.0, sign.z)
         }
+    }
+
+    pub fn material(&self) -> Material {
+        self.material
     }
 }

@@ -33,6 +33,9 @@ pub struct Boxo {
     scale: Vec3,
 }
 
+#[derive(Component)]
+pub struct Material(pub kea_renderer_shaders::materials::Material);
+
 impl Scene {
     pub fn new(device: Arc<Device>) -> Self {
         Self {
@@ -44,18 +47,30 @@ impl Scene {
         }
     }
 
-    pub fn add_sphere(&mut self, position: Vec3, radius: f32) {
+    pub fn add_sphere(
+        &mut self,
+        position: Vec3,
+        radius: f32,
+        material: kea_renderer_shaders::materials::Material,
+    ) {
         self.world
             .spawn()
             .insert(Position(position))
-            .insert(Sphere { radius });
+            .insert(Sphere { radius })
+            .insert(Material(material));
     }
 
-    pub fn add_box(&mut self, position: Vec3, scale: Vec3) {
+    pub fn add_box(
+        &mut self,
+        position: Vec3,
+        scale: Vec3,
+        material: kea_renderer_shaders::materials::Material,
+    ) {
         self.world
             .spawn()
             .insert(Position(position))
-            .insert(Boxo { scale });
+            .insert(Boxo { scale })
+            .insert(Material(material));
     }
 
     pub fn build_scene(&mut self) {
@@ -66,10 +81,10 @@ impl Scene {
 
         let spheres: Vec<kea_renderer_shaders::spheres::Sphere> = self
             .world
-            .query::<(&Position, &Sphere)>()
+            .query::<(&Position, &Sphere, &Material)>()
             .iter(&self.world)
-            .map(|(position, sphere)| {
-                kea_renderer_shaders::spheres::Sphere::new(position.0, sphere.radius)
+            .map(|(position, sphere, material)| {
+                kea_renderer_shaders::spheres::Sphere::new(position.0, sphere.radius, material.0)
             })
             .collect();
 
@@ -112,9 +127,11 @@ impl Scene {
 
         let boxes: Vec<kea_renderer_shaders::boxes::Boxo> = self
             .world
-            .query::<(&Position, &Boxo)>()
+            .query::<(&Position, &Boxo, &Material)>()
             .iter(&self.world)
-            .map(|(position, boxo)| kea_renderer_shaders::boxes::Boxo::new(position.0, boxo.scale))
+            .map(|(position, boxo, material)| {
+                kea_renderer_shaders::boxes::Boxo::new(position.0, boxo.scale, material.0)
+            })
             .collect();
 
         if boxes.len() > 0 {

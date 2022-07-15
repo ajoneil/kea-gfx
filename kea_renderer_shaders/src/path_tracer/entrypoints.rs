@@ -8,8 +8,7 @@ use crate::{
     payload::RayPayload,
 };
 use spirv_std::{
-    glam::{vec2, vec3, vec4, UVec2, UVec3, Vec3, Vec4},
-    num_traits::Pow,
+    glam::{vec2, vec3, vec4, UVec2, UVec3, Vec3, Vec3A, Vec4},
     ray_tracing::RayFlags,
     Image,
 };
@@ -65,7 +64,7 @@ pub fn generate_rays(
             let hit_point = ray.at(distance);
             let light_direction = (scene_light.position - hit_point).normalize();
 
-            let ambient_light = scene_ambience * payload.material.ambient;
+            let ambient_light = scene_ambience * Vec3::from(payload.material.diffuse);
             let diffuse_dot = light_direction.dot(payload.normal);
             let (diffuse_light, specular_light) = if diffuse_dot <= 0.0 {
                 (Vec3::ZERO, Vec3::ZERO)
@@ -79,10 +78,8 @@ pub fn generate_rays(
                         hit: None,
                         normal: Vec3::ZERO,
                         material: Material {
-                            ambient: Vec3::ZERO,
-                            diffuse: Vec3::ZERO,
-                            specular: Vec3::ZERO,
-                            shininess: 0.0,
+                            diffuse: Vec3A::ZERO,
+                            emit: Vec3A::ZERO,
                         },
                     };
 
@@ -107,21 +104,21 @@ pub fn generate_rays(
                     (Vec3::ZERO, Vec3::ZERO)
                 } else {
                     let diffuse_light =
-                        diffuse_dot * scene_light.diffuse * payload.material.diffuse;
-                    let specular_light = {
-                        let reflection_direction =
-                            2.0 * light_direction.dot(payload.normal) * payload.normal
-                                - light_direction;
-                        let viewer_direction = ray.direction * -1.0;
+                        diffuse_dot * scene_light.diffuse * Vec3::from(payload.material.diffuse);
+                    // let specular_light = {
+                    //     let reflection_direction =
+                    //         2.0 * light_direction.dot(payload.normal) * payload.normal
+                    //             - light_direction;
+                    //     let viewer_direction = ray.direction * -1.0;
 
-                        viewer_direction
-                            .dot(reflection_direction)
-                            .pow(payload.material.shininess)
-                            * scene_light.specular
-                            * payload.material.specular
-                    };
+                    //     viewer_direction
+                    //         .dot(reflection_direction)
+                    //         .pow(payload.material.shininess)
+                    //         * scene_light.specular
+                    //         * payload.material.specular
+                    // };
 
-                    (diffuse_light, specular_light.max(Vec3::ZERO))
+                    (diffuse_light, Vec3::ZERO)
                 }
             };
 

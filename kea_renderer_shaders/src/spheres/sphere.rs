@@ -1,41 +1,39 @@
 use kea_gpu_shaderlib::{Aabb, Ray};
-use spirv_std::glam::{vec3, Vec3};
+use spirv_std::glam::{vec3, Vec3, Vec3A};
 
 // Needed for .sqrt()
 #[allow(unused_imports)]
 use spirv_std::num_traits::Float;
 
+use crate::materials::Material;
+
 #[cfg_attr(not(target_arch = "spirv"), derive(Debug))]
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Sphere {
-    x: f32,
-    y: f32,
-    z: f32,
+    position: Vec3A,
     radius: f32,
+    material: Material,
 }
 
 impl Sphere {
-    pub fn new(position: Vec3, radius: f32) -> Self {
+    pub fn new(position: Vec3, radius: f32, material: Material) -> Self {
         Self {
-            x: position.x,
-            y: position.y,
-            z: position.z,
+            position: Vec3A::from(position),
             radius,
+            material,
         }
     }
 
     pub fn aabb(&self) -> Aabb {
-        let Sphere { x, y, z, radius } = self;
-
         Aabb {
-            min: vec3(x - radius, y - radius, z - radius),
-            max: vec3(x + radius, y + radius, z + radius),
+            min: Vec3::from(self.position) - Vec3::splat(self.radius),
+            max: Vec3::from(self.position) + Vec3::splat(self.radius),
         }
     }
 
     pub fn center(&self) -> Vec3 {
-        vec3(self.x, self.y, self.z)
+        Vec3::from(self.position)
     }
 
     pub fn radius(&self) -> f32 {
@@ -86,5 +84,9 @@ impl Sphere {
             // Garbage in, garbage out
             vec3(0.0, 0.0, 0.0)
         }
+    }
+
+    pub fn material(&self) -> Material {
+        self.material
     }
 }
