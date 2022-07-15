@@ -30,9 +30,9 @@ pub fn generate_rays(
     let pixel_position = vec2(launch_id.x as f32 + 0.5, launch_id.y as f32 + 0.5);
     let ray = Camera::new(CameraParameters {
         aspect_ratio: size.x / size.y,
-        vertical_field_of_view_radians: 60.0_f32.to_radians(),
-        position: vec3(0.0, 1.5, 0.0),
-        target_position: vec3(0.0, 0.8, -1.5),
+        vertical_field_of_view_radians: 110.0_f32.to_radians(),
+        position: vec3(0.0, 1.0, 0.8),
+        target_position: vec3(0.0, 1.0, -1.0),
         ..Default::default()
     })
     .ray(
@@ -56,9 +56,9 @@ pub fn generate_rays(
 
         let output_color: Vec4 = if let Some(distance) = payload.hit {
             let scene_light = PointLight {
-                position: vec3(2.5, 4.0, 0.0),
-                diffuse: vec3(0.7, 0.7, 0.7),
-                specular: vec3(0.6, 0.6, 0.6),
+                position: vec3(0.0, 1.5, -1.0),
+                diffuse: vec3(1.0, 1.0, 1.0),
+                specular: Vec3::ZERO,
             };
             let scene_ambience = vec3(0.2, 0.2, 0.2);
 

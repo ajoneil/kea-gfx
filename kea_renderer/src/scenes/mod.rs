@@ -1,5 +1,4 @@
-mod basic_shapes;
+pub mod examples;
 mod scene;
 
-pub use basic_shapes::basic_shapes;
 pub use scene::Scene;
