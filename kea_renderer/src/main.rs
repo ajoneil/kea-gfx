@@ -6,6 +6,7 @@ use kea_gpu::Kea;
 use path_tracer::PathTracer;
 
 mod path_tracer;
+mod scenes;
 
 fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
