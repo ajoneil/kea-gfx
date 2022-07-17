@@ -66,63 +66,49 @@ pub fn generate_rays(
 
             let ambient_light = scene_ambience * Vec3::from(payload.material.diffuse);
             let diffuse_dot = light_direction.dot(payload.normal);
-            let (diffuse_light, specular_light) = if diffuse_dot <= 0.0 {
-                (Vec3::ZERO, Vec3::ZERO)
+            let diffuse_light = if diffuse_dot <= 0.0 {
+                Vec3::ZERO
             } else {
-                const SHADOWS: bool = true;
-
-                let in_shadow = if !SHADOWS {
-                    false
-                } else {
-                    let mut shadow_payload = RayPayload {
-                        hit: None,
-                        normal: Vec3::ZERO,
-                        material: Material {
-                            diffuse: Vec3A::ZERO,
-                            emit: Vec3A::ZERO,
-                        },
-                    };
-
-                    accel_structure.trace_ray(
-                        RayFlags::OPAQUE,
-                        0xff,
-                        0,
-                        0,
-                        0,
-                        hit_point,
-                        0.001,
-                        light_direction,
-                        10000.0,
-                        &mut shadow_payload,
-                    );
-
-                    let light_distance = scene_light.position.distance(hit_point);
-                    shadow_payload.hit.is_some() && shadow_payload.hit.unwrap() < light_distance
+                let mut shadow_payload = RayPayload {
+                    hit: None,
+                    normal: Vec3::ZERO,
+                    material: Material {
+                        diffuse: Vec3A::ZERO,
+                        emit: Vec3A::ZERO,
+                    },
                 };
 
-                if in_shadow {
-                    (Vec3::ZERO, Vec3::ZERO)
+                accel_structure.trace_ray(
+                    RayFlags::OPAQUE,
+                    0xff,
+                    0,
+                    0,
+                    0,
+                    hit_point,
+                    0.001,
+                    light_direction,
+                    10000.0,
+                    &mut shadow_payload,
+                );
+
+                let light_distance = scene_light.position.distance(hit_point);
+
+                if shadow_payload.hit.is_some() && shadow_payload.hit.unwrap() < light_distance {
+                    Vec3::ZERO
                 } else {
                     let diffuse_light =
                         diffuse_dot * scene_light.diffuse * Vec3::from(payload.material.diffuse);
-                    // let specular_light = {
-                    //     let reflection_direction =
-                    //         2.0 * light_direction.dot(payload.normal) * payload.normal
-                    //             - light_direction;
-                    //     let viewer_direction = ray.direction * -1.0;
 
-                    //     viewer_direction
-                    //         .dot(reflection_direction)
-                    //         .pow(payload.material.shininess)
-                    //         * scene_light.specular
-                    //         * payload.material.specular
-                    // };
-
-                    (diffuse_light, Vec3::ZERO)
+                    diffuse_light
                 }
             };
 
-            ((ambient_light + diffuse_light + specular_light) * 0.7).extend(1.0)
+            let total_light = ambient_light + diffuse_light;
+            let white_point = 1.5;
+            let white_squared = Vec3::splat(white_point * white_point);
+            let tone_mapped =
+                (total_light * (1.0 + total_light / white_squared)) / (1.0 + total_light);
+            tone_mapped.extend(1.0)
         } else {
             vec4(0.0, 0.0, 0.0, 1.0)
         };
