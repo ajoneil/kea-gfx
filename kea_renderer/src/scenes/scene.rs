@@ -1,6 +1,6 @@
 use ash::vk;
 use bevy_ecs::prelude::*;
-use glam::{vec3a, Affine3A, Vec3, Vec3A};
+use glam::{vec3a, Affine3A, Quat, Vec3, Vec3A};
 use gpu_allocator::MemoryLocation;
 use kea_gpu::{
     device::Device,
@@ -27,6 +27,9 @@ pub struct Position(pub Vec3);
 
 #[derive(Component)]
 pub struct Scale(pub Vec3);
+
+#[derive(Component)]
+pub struct Rotation(pub Quat);
 
 #[derive(Component)]
 pub struct Sphere {
@@ -72,6 +75,7 @@ impl Scene {
         &mut self,
         position: Vec3,
         scale: Vec3,
+        rotation: Quat,
         material: kea_renderer_shaders::materials::Material,
     ) {
         let vertices = vec![
@@ -104,6 +108,7 @@ impl Scene {
             .insert(Position(position))
             .insert(Scale(scale))
             .insert(Material(material))
+            .insert(Rotation(rotation))
             .insert(Mesh { vertices, indices });
     }
 
@@ -164,9 +169,9 @@ impl Scene {
         let mut all_vertices: Vec<Vec3A> = vec![];
         let mut all_indices: Vec<[u32; 3]> = vec![];
 
-        for (mesh, position, scale, material) in self
+        for (mesh, position, scale, rotation, material) in self
             .world
-            .query::<(&Mesh, &Position, &Scale, &Material)>()
+            .query::<(&Mesh, &Position, &Scale, &Rotation, &Material)>()
             .iter(&self.world)
         {
             let vertices = Buffer::new_from_data(
@@ -203,7 +208,8 @@ impl Scene {
 
             geometry.build();
 
-            let transform = Affine3A::from_translation(position.0) * Affine3A::from_scale(scale.0);
+            let transform =
+                Affine3A::from_scale_rotation_translation(scale.0, rotation.0, position.0);
             let geometry_instance =
                 GeometryInstance::new(Arc::new(geometry), 0, transform, meshes.len() as _);
             scene.add_instance(geometry_instance);

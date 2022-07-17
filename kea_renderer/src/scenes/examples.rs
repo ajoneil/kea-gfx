@@ -1,5 +1,5 @@
 use super::Scene;
-use glam::{vec3, vec3a, Vec3A};
+use glam::{vec3, vec3a, Quat, Vec3A};
 use kea_gpu::device::Device;
 use kea_renderer_shaders::materials::Material;
 use std::sync::Arc;
@@ -31,11 +31,6 @@ pub fn cornell_box(device: Arc<Device>) -> Scene {
         emit: Vec3A::ZERO,
     };
 
-    let blue = Material {
-        diffuse: vec3a(0.0, 0.0, 1.0),
-        emit: Vec3A::ZERO,
-    };
-
     let white = Material {
         diffuse: Vec3A::ONE,
         emit: Vec3A::ZERO,
@@ -52,22 +47,54 @@ pub fn cornell_box(device: Arc<Device>) -> Scene {
     };
 
     // Walls
-    scene.add_box(vec3(-1.0, 1.0, -1.0), vec3(0.001, 2.0, 2.0), red);
-    scene.add_box(vec3(1.0, 1.0, -1.0), vec3(0.001, 2.0, 2.0), green);
-    scene.add_box(vec3(0.0, 1.0, -2.0), vec3(2.0, 2.0, 0.001), white);
+    scene.add_box(
+        vec3(-1.0, 1.0, -1.0),
+        vec3(0.001, 2.0, 2.0),
+        Quat::IDENTITY,
+        red,
+    );
+    scene.add_box(
+        vec3(1.0, 1.0, -1.0),
+        vec3(0.001, 2.0, 2.0),
+        Quat::IDENTITY,
+        green,
+    );
+    scene.add_box(
+        vec3(0.0, 1.0, -2.0),
+        vec3(2.0, 2.0, 0.001),
+        Quat::IDENTITY,
+        white,
+    );
     // Floor
-    scene.add_box(vec3(0.0, 0.0, -1.0), vec3(2.0, 0.001, 2.0), white);
+    scene.add_box(
+        vec3(0.0, 0.0, -1.0),
+        vec3(2.0, 0.001, 2.0),
+        Quat::IDENTITY,
+        white,
+    );
     // Ceiling
-    scene.add_box(vec3(0.0, 2.0, -1.0), vec3(2.0, 0.001, 2.0), white);
+    scene.add_box(
+        vec3(0.0, 2.0, -1.0),
+        vec3(2.0, 0.001, 2.0),
+        Quat::IDENTITY,
+        white,
+    );
     // Light
-    scene.add_box(vec3(0.0, 2.0, -1.0), vec3(1.0, 0.1, 0.5), light);
+    scene.add_box(
+        vec3(0.0, 2.0, -1.0),
+        vec3(1.0, 0.1, 0.5),
+        Quat::IDENTITY,
+        light,
+    );
 
     // Some items in the room
-    scene.add_sphere(vec3(-0.2, 0.2, -0.6), 0.2, grey);
-    scene.add_sphere(vec3(-0.5, 0.3, -1.2), 0.3, green);
-    scene.add_box(vec3(0.5, 0.2, -0.8), vec3(0.4, 0.4, 0.4), grey);
-    scene.add_box(vec3(0.2, 0.35, -1.3), vec3(0.7, 0.7, 0.7), blue);
-    scene.add_sphere(vec3(0.1, 0.15, -0.2), 0.15, blue);
+    scene.add_box(
+        vec3(-0.3, 0.65, -1.3),
+        vec3(0.6, 1.3, 0.6),
+        Quat::from_rotation_y(0.4),
+        grey,
+    );
+    scene.add_sphere(vec3(0.4, 0.25, -0.5), 0.25, grey);
 
     scene.build_scene();
 
