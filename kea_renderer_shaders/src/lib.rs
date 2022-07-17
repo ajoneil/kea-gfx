@@ -10,7 +10,6 @@
 
 use kea_gpu_shaderlib::{shaders::ShaderGroup, slots::Slot};
 
-pub mod boxes;
 pub mod cameras;
 pub mod lights;
 pub mod materials;
@@ -24,7 +23,9 @@ pub enum SlotId {
     Scene = 0,
     OutputImage,
     Spheres,
-    Boxes,
+    Meshes,
+    Vertices,
+    Indices,
 }
 
 impl Into<u32> for SlotId {
@@ -33,11 +34,13 @@ impl Into<u32> for SlotId {
     }
 }
 
-pub const SLOTS: [(SlotId, Slot); 4] = [
+pub const SLOTS: [(SlotId, Slot); 6] = [
     path_tracer::SLOT_SCENE,
     path_tracer::SLOT_OUTPUT_IMAGE,
     spheres::SLOT,
-    boxes::SLOT,
+    triangles::SLOT_MESHES,
+    triangles::SLOT_VERTICES,
+    triangles::SLOT_INDICES,
 ];
 
 #[derive(Clone)]
@@ -49,10 +52,9 @@ pub enum ShaderGroupId {
     BoxesHit,
 }
 
-pub const SHADERS: [(ShaderGroupId, ShaderGroup); 5] = [
+pub const SHADERS: [(ShaderGroupId, ShaderGroup); 4] = [
     path_tracer::SHADER_GENERATE_RAY,
     path_tracer::SHADER_RAY_MISS,
     triangles::SHADER,
     spheres::SHADER,
-    boxes::SHADER,
 ];

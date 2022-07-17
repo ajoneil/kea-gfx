@@ -1,17 +1,39 @@
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
 
-use crate::{materials::Material, payload::RayPayload};
-use spirv_std::glam::{vec3a, Vec3A};
+use super::Mesh;
+use crate::payload::RayPayload;
+use spirv_std::glam::{vec3, Vec3A};
 
 #[spirv(closest_hit)]
 pub fn triangle_hit(
     #[spirv(ray_tmax)] hit_max: f32,
     #[spirv(incoming_ray_payload)] ray_payload: &mut RayPayload,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] meshes: &[Mesh],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] vertices: &[Vec3A],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] indices: &[[u32; 3]],
+    #[spirv(instance_custom_index)] mesh_id: usize,
+    #[spirv(ray_geometry_index)] index: u32,
 ) {
-    ray_payload.hit = Some(hit_max);
-    ray_payload.material = Material {
-        diffuse: vec3a(0.4, 0.4, 0.4),
-        emit: Vec3A::ZERO,
-    }
+    let mesh = meshes[mesh_id];
+    let index = indices[(mesh.indices_offset + index) as usize];
+    let points = [
+        vertices[(mesh.vertices_offset + index[0]) as usize],
+        vertices[(mesh.vertices_offset + index[1]) as usize],
+        vertices[(mesh.vertices_offset + index[2]) as usize],
+    ];
+
+    let u = points[1] - points[0];
+    let v = points[2] - points[0];
+    let normal = vec3(
+        u.y * v.z - u.z * v.y,
+        u.z * v.x - u.x * v.z,
+        u.x * v.y - u.y * v.x,
+    );
+
+    *ray_payload = RayPayload {
+        hit: Some(hit_max),
+        material: mesh.material,
+        normal,
+    };
 }

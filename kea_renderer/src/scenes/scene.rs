@@ -1,6 +1,6 @@
 use ash::vk;
 use bevy_ecs::prelude::*;
-use glam::Vec3;
+use glam::{vec3a, Affine3A, Vec3, Vec3A};
 use gpu_allocator::MemoryLocation;
 use kea_gpu::{
     device::Device,
@@ -17,11 +17,16 @@ pub struct Scene {
     world: World,
     gpu_scene: Option<kea_gpu::ray_tracing::scenes::Scene>,
     spheres: Option<Arc<Buffer>>,
-    boxes: Option<Arc<Buffer>>,
+    meshes: Option<Arc<Buffer>>,
+    vertices: Option<Arc<Buffer>>,
+    indices: Option<Arc<Buffer>>,
 }
 
 #[derive(Component)]
 pub struct Position(pub Vec3);
+
+#[derive(Component)]
+pub struct Scale(pub Vec3);
 
 #[derive(Component)]
 pub struct Sphere {
@@ -29,12 +34,13 @@ pub struct Sphere {
 }
 
 #[derive(Component)]
-pub struct Boxo {
-    scale: Vec3,
-}
+pub struct Material(pub kea_renderer_shaders::materials::Material);
 
 #[derive(Component)]
-pub struct Material(pub kea_renderer_shaders::materials::Material);
+pub struct Mesh {
+    vertices: Vec<Vec3A>,
+    indices: Vec<[u32; 3]>,
+}
 
 impl Scene {
     pub fn new(device: Arc<Device>) -> Self {
@@ -43,7 +49,9 @@ impl Scene {
             world: World::new(),
             gpu_scene: None,
             spheres: None,
-            boxes: None,
+            meshes: None,
+            vertices: None,
+            indices: None,
         }
     }
 
@@ -66,11 +74,37 @@ impl Scene {
         scale: Vec3,
         material: kea_renderer_shaders::materials::Material,
     ) {
+        let vertices = vec![
+            vec3a(0.5, -0.5, 0.5),
+            vec3a(0.5, -0.5, -0.5),
+            vec3a(0.5, 0.5, -0.5),
+            vec3a(0.5, 0.5, 0.5),
+            vec3a(-0.5, -0.5, 0.5),
+            vec3a(-0.5, -0.5, -0.5),
+            vec3a(-0.5, 0.5, -0.5),
+            vec3a(-0.5, 0.5, 0.5),
+        ];
+        let indices = vec![
+            [4, 0, 3],
+            [4, 3, 7],
+            [0, 1, 2],
+            [0, 2, 3],
+            [1, 5, 6],
+            [1, 6, 2],
+            [5, 4, 7],
+            [5, 7, 6],
+            [7, 3, 2],
+            [7, 2, 6],
+            [0, 5, 1],
+            [0, 4, 5],
+        ];
+
         self.world
             .spawn()
             .insert(Position(position))
-            .insert(Boxo { scale })
-            .insert(Material(material));
+            .insert(Scale(scale))
+            .insert(Material(material))
+            .insert(Mesh { vertices, indices });
     }
 
     pub fn build_scene(&mut self) {
@@ -121,50 +155,95 @@ impl Scene {
                 GeometryType::Aabbs(aabbs_buffer),
             );
             geometry.build();
-            let geometry_instance = GeometryInstance::new(Arc::new(geometry), 1);
+            let geometry_instance =
+                GeometryInstance::new(Arc::new(geometry), 1, Affine3A::IDENTITY, 0);
             scene.add_instance(geometry_instance);
         }
 
-        let boxes: Vec<kea_renderer_shaders::boxes::Boxo> = self
+        let mut meshes: Vec<kea_renderer_shaders::triangles::Mesh> = vec![];
+        let mut all_vertices: Vec<Vec3A> = vec![];
+        let mut all_indices: Vec<[u32; 3]> = vec![];
+
+        for (mesh, position, scale, material) in self
             .world
-            .query::<(&Position, &Boxo, &Material)>()
+            .query::<(&Mesh, &Position, &Scale, &Material)>()
             .iter(&self.world)
-            .map(|(position, boxo, material)| {
-                kea_renderer_shaders::boxes::Boxo::new(position.0, boxo.scale, material.0)
-            })
-            .collect();
-
-        if boxes.len() > 0 {
-            let boxes_buffer = Buffer::new_from_data(
+        {
+            let vertices = Buffer::new_from_data(
                 self.device.clone(),
-                &boxes,
-                vk::BufferUsageFlags::STORAGE_BUFFER,
-                "boxes".to_string(),
+                &mesh.vertices,
+                vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
+                    | vk::BufferUsageFlags::STORAGE_BUFFER,
+                "vertices".to_string(),
                 MemoryLocation::GpuOnly,
                 None,
             );
-            log::info!("boxes data {:?}", boxes);
+            //let vertices_address = vertices.device_address();
+            let vertices_offset = all_vertices.len();
+            all_vertices.extend(&mesh.vertices);
 
-            let aabbs: Vec<Aabb> = boxes.iter().map(|b| b.aabb()).collect();
-            log::debug!("Aabbs: {:?}", aabbs);
-            let aabbs_buffer = Buffer::new_from_data(
+            let indices = Buffer::new_from_data(
                 self.device.clone(),
-                &aabbs,
-                vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
-                "aabbs".to_string(),
+                &mesh.indices,
+                vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
+                    | vk::BufferUsageFlags::STORAGE_BUFFER,
+                "indices".to_string(),
                 MemoryLocation::GpuOnly,
                 None,
             );
+            //let indices_address = indices.device_address();
+            let indices_offset = all_indices.len();
+            all_indices.extend(&mesh.indices);
 
-            self.boxes = Some(Arc::new(boxes_buffer));
             let mut geometry = Geometry::new(
                 self.device.clone(),
-                "boxes".to_string(),
-                GeometryType::Aabbs(aabbs_buffer),
+                "triangle mesh".to_string(),
+                GeometryType::Triangles { vertices, indices },
             );
+
             geometry.build();
-            let geometry_instance = GeometryInstance::new(Arc::new(geometry), 2);
+
+            let transform = Affine3A::from_translation(position.0) * Affine3A::from_scale(scale.0);
+            let geometry_instance =
+                GeometryInstance::new(Arc::new(geometry), 0, transform, meshes.len() as _);
             scene.add_instance(geometry_instance);
+
+            meshes.push(kea_renderer_shaders::triangles::Mesh {
+                // vertices_address,
+                // indices_address,
+                vertices_offset: vertices_offset as _,
+                indices_offset: indices_offset as _,
+                material: material.0,
+            });
+        }
+
+        if !meshes.is_empty() {
+            self.meshes = Some(Arc::new(Buffer::new_from_data(
+                self.device.clone(),
+                &meshes,
+                vk::BufferUsageFlags::STORAGE_BUFFER,
+                "meshes".to_string(),
+                MemoryLocation::GpuOnly,
+                None,
+            )));
+
+            self.vertices = Some(Arc::new(Buffer::new_from_data(
+                self.device.clone(),
+                &all_vertices,
+                vk::BufferUsageFlags::STORAGE_BUFFER,
+                "all vertices".to_string(),
+                MemoryLocation::GpuOnly,
+                None,
+            )));
+
+            self.indices = Some(Arc::new(Buffer::new_from_data(
+                self.device.clone(),
+                &all_indices,
+                vk::BufferUsageFlags::STORAGE_BUFFER,
+                "all indices".to_string(),
+                MemoryLocation::GpuOnly,
+                None,
+            )));
         }
 
         scene.build();
@@ -185,8 +264,10 @@ impl Scene {
             slot_bindings.bind_buffer(SlotId::Spheres, spheres.clone());
         }
 
-        if let Some(boxes) = self.boxes.as_ref() {
-            slot_bindings.bind_buffer(SlotId::Boxes, boxes.clone());
+        if let Some(meshes) = self.meshes.as_ref() {
+            slot_bindings.bind_buffer(SlotId::Meshes, meshes.clone());
+            slot_bindings.bind_buffer(SlotId::Vertices, self.vertices.as_ref().unwrap().clone());
+            slot_bindings.bind_buffer(SlotId::Indices, self.indices.as_ref().unwrap().clone());
         }
     }
 }

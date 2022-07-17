@@ -1,11 +1,10 @@
+use super::{acceleration_structure::AccelerationStructure, scratch_buffer::ScratchBuffer};
 use crate::{commands::CommandBuffer, device::Device, storage::buffers::Buffer};
 use ash::vk;
-use glam::Vec3;
+use glam::Vec3A;
 use gpu_allocator::MemoryLocation;
 use kea_gpu_shaderlib::Aabb;
 use std::{mem, slice, sync::Arc};
-
-use super::{acceleration_structure::AccelerationStructure, scratch_buffer::ScratchBuffer};
 
 pub enum GeometryType {
     Triangles { vertices: Buffer, indices: Buffer },
@@ -108,12 +107,12 @@ impl Geometry {
                     .vertex_data(vk::DeviceOrHostAddressConstKHR {
                         device_address: vertices.device_address(),
                     })
-                    .vertex_stride(mem::size_of::<Vec3>() as _)
-                    .index_type(vk::IndexType::UINT16)
+                    .vertex_stride(mem::size_of::<Vec3A>() as _)
+                    .index_type(vk::IndexType::UINT32)
                     .index_data(vk::DeviceOrHostAddressConstKHR {
                         device_address: indices.device_address(),
                     })
-                    .max_vertex(indices.count::<u16>() as _);
+                    .max_vertex(indices.count::<u32>() as _);
 
                 let geometry = vk::AccelerationStructureGeometryKHR::builder()
                     .geometry_type(vk::GeometryTypeKHR::TRIANGLES)
@@ -123,7 +122,7 @@ impl Geometry {
                     .flags(vk::GeometryFlagsKHR::OPAQUE);
 
                 let range = vk::AccelerationStructureBuildRangeInfoKHR::builder()
-                    .primitive_count((indices.count::<u16>() / 3) as u32);
+                    .primitive_count((indices.count::<u32>() / 3) as u32);
 
                 let geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
                     .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
