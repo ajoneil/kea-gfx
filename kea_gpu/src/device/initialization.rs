@@ -48,10 +48,12 @@ pub fn create_device(
     let extension_names: Vec<*const c_char> = extensions.iter().map(|ext| ext.name()).collect();
     info!("Requested device extensions: {:?}", extensions);
 
+    let features = vk::PhysicalDeviceFeatures::builder()
+        .shader_int64(true)
+        .shader_float64(true);
     let mut features_12 = vk::PhysicalDeviceVulkan12Features::builder()
         .buffer_device_address(true)
         .vulkan_memory_model(true);
-
     let mut features_13 = vk::PhysicalDeviceVulkan13Features::builder().dynamic_rendering(true);
     let mut features_rt =
         vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::builder().ray_tracing_pipeline(true);
@@ -61,6 +63,7 @@ pub fn create_device(
     let create_info = vk::DeviceCreateInfo::builder()
         .queue_create_infos(&queue_create_infos)
         .enabled_extension_names(&extension_names)
+        .enabled_features(&features)
         .push_next(&mut features_12)
         .push_next(&mut features_13)
         .push_next(&mut features_rt)

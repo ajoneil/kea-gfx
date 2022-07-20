@@ -23,66 +23,72 @@ pub fn cornell_box(device: Arc<Device>) -> Scene {
     let mut scene = Scene::new(device);
 
     let red = Material {
-        diffuse: vec3a(1.0, 0.0, 0.0),
+        diffuse: vec3a(0.9, 0.2, 0.2),
         emit: Vec3A::ZERO,
     };
     let green = Material {
-        diffuse: vec3a(0.0, 1.0, 0.0),
+        diffuse: vec3a(0.2, 0.9, 0.2),
         emit: Vec3A::ZERO,
     };
 
-    let white = Material {
-        diffuse: Vec3A::ONE,
+    let blue = Material {
+        diffuse: vec3a(0.1, 0.1, 0.9),
         emit: Vec3A::ZERO,
     };
 
-    let grey = Material {
-        diffuse: vec3a(0.7, 0.7, 0.7),
+    let light_grey = Material {
+        diffuse: Vec3A::splat(0.8),
+        emit: Vec3A::ZERO,
+    };
+
+    let dark_grey = Material {
+        diffuse: vec3a(0.3, 0.3, 0.3),
         emit: Vec3A::ZERO,
     };
 
     let light = Material {
-        diffuse: Vec3A::ONE,
-        emit: Vec3A::ONE,
+        diffuse: Vec3A::splat(0.5),
+        emit: vec3a(1.0, 1.0, 0.7) * 0.1,
     };
 
     // Walls
     scene.add_box(
-        vec3(-1.0, 1.0, -1.0),
-        vec3(0.001, 2.0, 2.0),
+        vec3(-1.5, 1.0, -1.0),
+        vec3(0.01, 2.0, 2.0),
         Quat::IDENTITY,
         red,
     );
     scene.add_box(
-        vec3(1.0, 1.0, -1.0),
-        vec3(0.001, 2.0, 2.0),
+        vec3(1.5, 1.0, -1.0),
+        vec3(0.01, 2.0, 2.0),
         Quat::IDENTITY,
         green,
     );
     scene.add_box(
         vec3(0.0, 1.0, -2.0),
-        vec3(2.0, 2.0, 0.001),
+        vec3(3.0, 2.0, 0.01),
         Quat::IDENTITY,
-        white,
+        light_grey,
     );
     // Floor
     scene.add_box(
         vec3(0.0, 0.0, -1.0),
-        vec3(2.0, 0.001, 2.0),
+        vec3(3.0, 0.01, 2.0),
         Quat::IDENTITY,
-        white,
+        light_grey,
     );
     // Ceiling
     scene.add_box(
         vec3(0.0, 2.0, -1.0),
-        vec3(2.0, 0.001, 2.0),
+        vec3(3.0, 0.01, 2.0),
         Quat::IDENTITY,
-        white,
+        light_grey,
     );
+
     // Light
     scene.add_box(
-        vec3(0.0, 2.0, -1.0),
-        vec3(1.0, 0.1, 0.5),
+        vec3(0.0, 2.0, -0.7),
+        vec3(0.5, 0.01, 0.3),
         Quat::IDENTITY,
         light,
     );
@@ -92,9 +98,25 @@ pub fn cornell_box(device: Arc<Device>) -> Scene {
         vec3(-0.3, 0.65, -1.3),
         vec3(0.6, 1.3, 0.6),
         Quat::from_rotation_y(0.4),
-        grey,
+        dark_grey,
     );
-    scene.add_sphere(vec3(0.4, 0.25, -0.5), 0.25, grey);
+    scene.add_sphere(vec3(0.4, 0.4, -0.7), 0.4, blue);
+    // scene.add_sphere(
+    //     vec3(-0.5, 0.1, -0.5),
+    //     0.1,
+    //     Material {
+    //         diffuse: vec3a(0.5, 0.5, 0.5),
+    //         emit: vec3a(0.54, 0.17, 0.89) * 0.02,
+    //     },
+    // );
+    // scene.add_sphere(
+    //     vec3(0.6, 0.15, -0.3),
+    //     0.15,
+    //     Material {
+    //         diffuse: vec3a(0.5, 0.5, 0.5),
+    //         emit: vec3a(0.6, 0.3, 0.0) * 0.02,
+    //     },
+    // );
 
     scene.build_scene();
 

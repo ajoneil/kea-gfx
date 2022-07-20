@@ -54,6 +54,8 @@ impl ShaderModule {
     fn compile_shaders_multimodule(shader_crate_path: &str) -> HashMap<String, Vec<u32>> {
         let compile_result = SpirvBuilder::new(shader_crate_path, "spirv-unknown-vulkan1.2")
             .capability(spirv_builder::Capability::RayTracingKHR)
+            .capability(spirv_builder::Capability::Int64)
+            .capability(spirv_builder::Capability::Float64)
             .extension("SPV_KHR_ray_tracing")
             .extension("SPV_KHR_non_semantic_info")
             .print_metadata(MetadataPrintout::None)

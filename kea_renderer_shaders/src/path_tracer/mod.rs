@@ -38,3 +38,17 @@ pub const SLOT_OUTPUT_IMAGE: (SlotId, Slot) = (
         },
     ),
 );
+
+pub const SLOT_LIGHT_IMAGE: (SlotId, Slot) = (
+    SlotId::LightImage,
+    Slot::new(
+        SlotType::Image,
+        ShaderStages {
+            raygen: true,
+            intersection: false,
+            closest_hit: false,
+        },
+    ),
+);
+
+mod rand;
