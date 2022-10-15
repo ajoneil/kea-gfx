@@ -5,14 +5,14 @@ edition = "2021"
 
 [dependencies]
 ash = { version = "0.37.0", features = ["linked"] }
-ash-window = "0.10.0"
-winit = "0.26.1"
+ash-window = "0.12.0"
+winit = "0.27.4"
 log = "0.4.17"
 env_logger = "0.9.0"
-gpu-allocator = "0.18.0"
-glam = "0.20.5"
+gpu-allocator = "0.19.1"
+glam = "0.21.3"
 memoffset = "0.6.5"
-bevy_ecs = "0.7.0"
+bevy_ecs = "0.8.1"
 
 kea_gpu = { path = "../kea_gpu" }
 kea_gpu_shaderlib = { path = "../kea_gpu_shaderlib" }
