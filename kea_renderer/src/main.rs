@@ -10,8 +10,8 @@ mod scenes;
 
 fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
-    let size = (3840, 2160);
-    let window = Window::new(size.0, size.1, true);
+    let size = (1280, 720);
+    let window = Window::new(size.0, size.1, false);
     let kea = Kea::new(
         &window,
         size,
