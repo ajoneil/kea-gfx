@@ -88,22 +88,24 @@ fn multisample_pixel(
 ) -> DVec3 {
     let mut accumulated_light = DVec3::ZERO;
     for _ in 0..num_samples {
-        let jittered_position = vec2(
-            pixel_position.x + rand.next_float() - 0.5,
-            pixel_position.y + rand.next_float() - 0.5,
-        );
-
         accumulated_light += sample_pixel(
             accel_structure,
             payload,
             camera,
             size,
-            jittered_position,
+            jittered_position(pixel_position, rand),
             rand,
         )
     }
 
     accumulated_light / num_samples as f64
+}
+
+fn jittered_position(position: Vec2, rand: &mut Random) -> Vec2 {
+    vec2(
+        position.x + rand.next_float() - 0.5,
+        position.y + rand.next_float() - 0.5,
+    )
 }
 
 fn tone_map(light: Vec3, white_point: f32) -> Vec3 {
@@ -160,7 +162,9 @@ fn sample_pixel(
             light += light_emitted.as_dvec3() * contribution;
             ray = next_ray;
             contribution *= next_contribution.as_dvec3();
-        } else {
+        }
+
+        if !hit || contribution.max_element() < 0.001 {
             break;
         }
     }
@@ -217,7 +221,7 @@ fn sample_bounce(
         }
     } else {
         BounceSample {
-            hit: true,
+            hit: false,
             light_emitted: Vec3::ZERO,
             next_ray: Ray {
                 origin: Vec3::ZERO,
