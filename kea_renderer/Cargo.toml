@@ -2,6 +2,7 @@
 name = "kea_renderer"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
 
 [dependencies]
 ash = { version = "0.37.0", features = ["linked"] }
