@@ -7,7 +7,7 @@ use crate::{
     payload::RayPayload,
 };
 use spirv_std::{
-    glam::{vec2, vec3, DVec3, Quat, UVec2, UVec3, Vec2, Vec3, Vec4, Vec4Swizzles},
+    glam::{vec2, vec3, Quat, UVec2, UVec3, Vec2, Vec3, Vec4, Vec4Swizzles},
     ray_tracing::RayFlags,
     Image,
 };
@@ -72,7 +72,7 @@ pub fn generate_rays(
     unsafe {
         output_image.write(
             UVec2::new(launch_id.x, launch_id.y),
-            tone_map(total_light.as_vec3(), WHITE_POINT).extend(1.0),
+            tone_map(total_light, WHITE_POINT).extend(1.0),
         );
     }
 }
@@ -85,8 +85,8 @@ fn multisample_pixel(
     pixel_position: Vec2,
     rand: &mut Random,
     num_samples: u32,
-) -> DVec3 {
-    let mut accumulated_light = DVec3::ZERO;
+) -> Vec3 {
+    let mut accumulated_light = Vec3::ZERO;
     for _ in 0..num_samples {
         accumulated_light += sample_pixel(
             accel_structure,
@@ -98,7 +98,7 @@ fn multisample_pixel(
         )
     }
 
-    accumulated_light / num_samples as f64
+    accumulated_light / num_samples as f32
 }
 
 fn jittered_position(position: Vec2, rand: &mut Random) -> Vec2 {
@@ -116,18 +116,18 @@ fn update_light_total(
     pixel_position: UVec2,
     light_image: &mut Image!(2D, format=rgba32f, sampled=false),
     iteration: u64,
-    iteration_light: DVec3,
-) -> DVec3 {
+    iteration_light: Vec3,
+) -> Vec3 {
     let total_light = if iteration > 0 {
         let existing: Vec4 = light_image.read(pixel_position);
-        existing.xyz().as_dvec3() * (1.0 - 1.0 / iteration as f64)
-            + iteration_light * (1.0 / iteration as f64)
+        existing.xyz() * (1.0 - 1.0 / iteration as f32)
+            + iteration_light * (1.0 / iteration as f32)
     } else {
         iteration_light
     };
 
     unsafe {
-        light_image.write(pixel_position, total_light.as_vec3().extend(1.0));
+        light_image.write(pixel_position, total_light.extend(1.0));
     }
 
     total_light
@@ -140,15 +140,15 @@ fn sample_pixel(
     size: Vec2,
     pixel_position: Vec2,
     rand: &mut Random,
-) -> DVec3 {
-    let mut light = DVec3::ZERO;
+) -> Vec3 {
+    let mut light = Vec3::ZERO;
 
     let mut ray = camera.ray(
         pixel_position.x / size.x,
         (size.y as f32 - pixel_position.y) / size.y,
     );
 
-    let mut contribution = DVec3::ONE;
+    let mut contribution = Vec3::ONE;
 
     for _ in 0..NUM_BOUNCES {
         let BounceSample {
@@ -159,9 +159,9 @@ fn sample_pixel(
         } = sample_bounce(accel_structure, ray, payload, rand);
 
         if hit {
-            light += light_emitted.as_dvec3() * contribution;
+            light += light_emitted * contribution;
             ray = next_ray;
-            contribution *= next_contribution.as_dvec3();
+            contribution *= next_contribution;
         }
 
         if !hit || contribution.max_element() < 0.001 {

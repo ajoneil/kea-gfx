@@ -49,8 +49,7 @@ pub fn create_device(
     info!("Requested device extensions: {:?}", extensions);
 
     let features = vk::PhysicalDeviceFeatures::builder()
-        .shader_int64(true)
-        .shader_float64(true);
+        .shader_int64(true);
     let mut features_12 = vk::PhysicalDeviceVulkan12Features::builder()
         .buffer_device_address(true)
         .vulkan_memory_model(true);
