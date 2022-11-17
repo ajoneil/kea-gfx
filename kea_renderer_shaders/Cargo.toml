@@ -9,6 +9,4 @@ crate-type = ["dylib", "lib"]
 
 [dependencies]
 kea_gpu_shaderlib = { path = "../kea_gpu_shaderlib" }
-spirv-std = { git = "https://github.com/EmbarkStudios/rust-gpu", features = [
-    "glam",
-] }
+spirv-std = { version = "0.4.0-alpha.17", features = ["glam"] }

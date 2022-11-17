@@ -1,6 +1,5 @@
 use kea_gpu_shaderlib::Ray;
-#[cfg(not(target_arch = "spirv"))]
-use spirv_std::macros::spirv;
+use spirv_std::spirv;
 
 use crate::{
     cameras::{Camera, CameraParameters},
@@ -120,8 +119,7 @@ fn update_light_total(
 ) -> Vec3 {
     let total_light = if iteration > 0 {
         let existing: Vec4 = light_image.read(pixel_position);
-        existing.xyz() * (1.0 - 1.0 / iteration as f32)
-            + iteration_light * (1.0 / iteration as f32)
+        existing.xyz() * (1.0 - 1.0 / iteration as f32) + iteration_light * (1.0 / iteration as f32)
     } else {
         iteration_light
     };

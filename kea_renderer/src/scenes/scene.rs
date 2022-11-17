@@ -65,10 +65,7 @@ impl Scene {
         material: kea_renderer_shaders::materials::Material,
     ) {
         self.world
-            .spawn()
-            .insert(Position(position))
-            .insert(Sphere { radius })
-            .insert(Material(material));
+            .spawn((Position(position), Sphere { radius }, Material(material)));
     }
 
     pub fn add_box(
@@ -103,13 +100,13 @@ impl Scene {
             [0, 4, 5],
         ];
 
-        self.world
-            .spawn()
-            .insert(Position(position))
-            .insert(Scale(scale))
-            .insert(Material(material))
-            .insert(Rotation(rotation))
-            .insert(Mesh { vertices, indices });
+        self.world.spawn((
+            Position(position),
+            Scale(scale),
+            Material(material),
+            Rotation(rotation),
+            Mesh { vertices, indices },
+        ));
     }
 
     pub fn build_scene(&mut self) {

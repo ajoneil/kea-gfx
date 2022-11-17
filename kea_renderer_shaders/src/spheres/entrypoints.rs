@@ -1,5 +1,4 @@
-#[cfg(not(target_arch = "spirv"))]
-use spirv_std::macros::spirv;
+use spirv_std::spirv;
 
 use crate::{payload::RayPayload, spheres::Sphere};
 use kea_gpu_shaderlib::Ray;
