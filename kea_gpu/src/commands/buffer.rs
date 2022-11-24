@@ -112,7 +112,7 @@ impl Drop for RecordedCommandBuffer {
         let buffer = unsafe { ManuallyDrop::take(&mut self.buffer) };
         match buffer {
             Some(_) => {
-                log::warn!("Command buffer was recorded but never submitted.");
+                // log::warn!("Command buffer was recorded but never submitted.");
             }
             None => {}
         }
