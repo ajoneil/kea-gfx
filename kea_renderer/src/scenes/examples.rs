@@ -1,7 +1,7 @@
 use super::Scene;
-use glam::{vec3, vec3a, Quat, Vec3A};
 use kea_gpu::device::Device;
 use kea_renderer_shaders::materials::Material;
+use spirv_std::glam::{vec3, vec3a, Quat, Vec3A};
 use std::sync::Arc;
 
 // pub fn basic_shapes(device: Arc<Device>) -> Scene {

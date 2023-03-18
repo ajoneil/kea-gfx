@@ -1,6 +1,6 @@
 use super::Geometry;
 use ash::vk;
-use glam::Affine3A;
+use spirv_std::glam::Affine3A;
 use std::sync::Arc;
 
 pub struct GeometryInstance {

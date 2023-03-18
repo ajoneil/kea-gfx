@@ -7,13 +7,13 @@ license = "MIT"
 [dependencies]
 ash = { version = "0.37.0", features = ["linked"] }
 ash-window = "0.12.0"
-winit = "0.27.4"
+winit = "0.28.1"
 log = "0.4.17"
-env_logger = "0.9.0"
-gpu-allocator = "0.21.0"
-glam = "0.22.0"
-memoffset = "0.7.1"
-bevy_ecs = "0.9.0"
+env_logger = "0.10.0"
+gpu-allocator = "0.22.0"
+memoffset = "0.8.0"
+bevy_ecs = "0.10.0"
+spirv-std = "0.6.0"
 
 kea_gpu = { path = "../kea_gpu" }
 kea_gpu_shaderlib = { path = "../kea_gpu_shaderlib" }

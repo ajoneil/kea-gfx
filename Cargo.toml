@@ -5,7 +5,3 @@ members = [
     "kea_renderer",
     "kea_renderer_shaders",
 ]
-
-# https://github.com/EmbarkStudios/rust-gpu/issues/938
-[patch.crates-io]
-libm = { git = "https://github.com/rust-lang/libm", tag = "0.2.5" }

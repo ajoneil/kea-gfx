@@ -1,5 +1,8 @@
 use ash::vk;
-use gpu_allocator::{vulkan::AllocationCreateDesc, MemoryLocation};
+use gpu_allocator::{
+    vulkan::{AllocationCreateDesc, AllocationScheme},
+    MemoryLocation,
+};
 use num_traits::{PrimInt, Unsigned};
 use std::{mem::ManuallyDrop, os::raw::c_void, sync::Arc};
 
@@ -31,6 +34,7 @@ impl Allocation {
                 requirements,
                 location,
                 linear: true,
+                allocation_scheme: AllocationScheme::GpuAllocatorManaged,
             })
             .unwrap();
 
