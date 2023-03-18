@@ -53,23 +53,20 @@ impl<'a> CommandBufferRecorder<'a> {
 
     pub fn pipeline_barrier(
         &self,
-        src_stage_mask: vk::PipelineStageFlags,
-        dst_stage_mask: vk::PipelineStageFlags,
         dependency_flags: vk::DependencyFlags,
-        memory_barriers: &[vk::MemoryBarrier],
-        buffer_memory_barriers: &[vk::BufferMemoryBarrier],
-        image_memory_barriers: &[vk::ImageMemoryBarrier],
+        memory_barriers: &[vk::MemoryBarrier2],
+        buffer_memory_barriers: &[vk::BufferMemoryBarrier2],
+        image_memory_barriers: &[vk::ImageMemoryBarrier2],
     ) {
+        let dependency_info = vk::DependencyInfo::builder()
+            .dependency_flags(dependency_flags)
+            .memory_barriers(memory_barriers)
+            .buffer_memory_barriers(buffer_memory_barriers)
+            .image_memory_barriers(image_memory_barriers);
         unsafe {
-            self.device().raw().cmd_pipeline_barrier(
-                self.buffer.raw(),
-                src_stage_mask,
-                dst_stage_mask,
-                dependency_flags,
-                memory_barriers,
-                buffer_memory_barriers,
-                image_memory_barriers,
-            );
+            self.device()
+                .raw()
+                .cmd_pipeline_barrier2(self.buffer.raw(), &dependency_info);
         }
     }
 

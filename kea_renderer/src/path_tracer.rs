@@ -108,10 +108,10 @@ impl PathTracer {
                     &image_view.image(),
                     vk::ImageLayout::UNDEFINED,
                     vk::ImageLayout::GENERAL,
-                    vk::AccessFlags::empty(),
-                    vk::AccessFlags::empty(),
-                    vk::PipelineStageFlags::TOP_OF_PIPE,
-                    vk::PipelineStageFlags::TOP_OF_PIPE,
+                    vk::AccessFlags2::empty(),
+                    vk::AccessFlags2::empty(),
+                    vk::PipelineStageFlags2::TOP_OF_PIPE,
+                    vk::PipelineStageFlags2::TOP_OF_PIPE,
                 )
             },
         );
@@ -163,20 +163,20 @@ impl PathTracer {
                     &swapchain_image.image(),
                     vk::ImageLayout::UNDEFINED,
                     vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-                    vk::AccessFlags::empty(),
-                    vk::AccessFlags::TRANSFER_WRITE,
-                    vk::PipelineStageFlags::TOP_OF_PIPE,
-                    vk::PipelineStageFlags::TRANSFER,
+                    vk::AccessFlags2::empty(),
+                    vk::AccessFlags2::TRANSFER_WRITE,
+                    vk::PipelineStageFlags2::TOP_OF_PIPE,
+                    vk::PipelineStageFlags2::TRANSFER,
                 );
 
                 cmd.transition_image_layout(
                     &self.storage_image.image(),
                     vk::ImageLayout::GENERAL,
                     vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
-                    vk::AccessFlags::empty(),
-                    vk::AccessFlags::TRANSFER_READ,
-                    vk::PipelineStageFlags::TOP_OF_PIPE,
-                    vk::PipelineStageFlags::TRANSFER,
+                    vk::AccessFlags2::empty(),
+                    vk::AccessFlags2::TRANSFER_READ,
+                    vk::PipelineStageFlags2::TOP_OF_PIPE,
+                    vk::PipelineStageFlags2::TRANSFER,
                 );
 
                 let copy_region = vk::ImageCopy::builder()
@@ -209,20 +209,20 @@ impl PathTracer {
                     swapchain_image.image(),
                     vk::ImageLayout::TRANSFER_DST_OPTIMAL,
                     vk::ImageLayout::PRESENT_SRC_KHR,
-                    vk::AccessFlags::TRANSFER_WRITE,
-                    vk::AccessFlags::COLOR_ATTACHMENT_READ,
-                    vk::PipelineStageFlags::TRANSFER,
-                    vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+                    vk::AccessFlags2::TRANSFER_WRITE,
+                    vk::AccessFlags2::COLOR_ATTACHMENT_READ,
+                    vk::PipelineStageFlags2::TRANSFER,
+                    vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
                 );
 
                 cmd.transition_image_layout(
                     &self.storage_image.image(),
                     vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
                     vk::ImageLayout::GENERAL,
-                    vk::AccessFlags::TRANSFER_WRITE,
-                    vk::AccessFlags::empty(),
-                    vk::PipelineStageFlags::TRANSFER,
-                    vk::PipelineStageFlags::TOP_OF_PIPE,
+                    vk::AccessFlags2::TRANSFER_WRITE,
+                    vk::AccessFlags2::empty(),
+                    vk::PipelineStageFlags2::TRANSFER,
+                    vk::PipelineStageFlags2::TOP_OF_PIPE,
                 );
             });
 

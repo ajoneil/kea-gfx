@@ -28,13 +28,15 @@ impl<'a> CommandBufferRecorder<'a> {
         image: &Image,
         old_layout: vk::ImageLayout,
         new_layout: vk::ImageLayout,
-        src_access_mask: vk::AccessFlags,
-        dst_access_mask: vk::AccessFlags,
-        src_stage_mask: vk::PipelineStageFlags,
-        dst_stage_mask: vk::PipelineStageFlags,
+        src_access_mask: vk::AccessFlags2,
+        dst_access_mask: vk::AccessFlags2,
+        src_stage_mask: vk::PipelineStageFlags2,
+        dst_stage_mask: vk::PipelineStageFlags2,
     ) {
-        let barrier = vk::ImageMemoryBarrier::builder()
+        let barrier = vk::ImageMemoryBarrier2::builder()
+            .src_stage_mask(src_stage_mask)
             .src_access_mask(src_access_mask)
+            .dst_stage_mask(dst_stage_mask)
             .dst_access_mask(dst_access_mask)
             .old_layout(old_layout)
             .new_layout(new_layout)
@@ -48,8 +50,6 @@ impl<'a> CommandBufferRecorder<'a> {
             );
 
         self.pipeline_barrier(
-            src_stage_mask,
-            dst_stage_mask,
             vk::DependencyFlags::empty(),
             &[],
             &[],
