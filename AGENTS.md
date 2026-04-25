@@ -72,6 +72,7 @@ Scenes live in `kea_renderer/src/scenes/`. A `Scene` builds the bottom- and top-
 - The RT pipeline is created with a disk-backed `VkPipelineCache` at `$XDG_CACHE_HOME/kea-gfx/pipeline-cache.bin`. Failures are logged and non-fatal.
 - Validation toggles go through `VK_EXT_layer_settings` (not the deprecated `VK_EXT_validation_features`). Setting names live in `kea_gpu::debug::feature::DebugFeature::configure_instance`.
 - The path tracer's `storage_image` is `R32G32B32A32_SFLOAT` (matching the shader's `rgba32f` declaration) and is converted to the swapchain's `B8G8R8A8_UNORM` via `cmd_blit_image` on present, **not** `cmd_copy_image`.
+- Triangle BLAS builds set `ALLOW_DATA_ACCESS_KHR` so the closest-hit shader can read vertex positions via `gl_HitTriangleVertexPositionsEXT` (`VK_KHR_ray_tracing_position_fetch`). One side effect: the BVH tiebreak for coincident triangles is no longer the same as without the flag — scenes must avoid two triangles occupying the same world-space plane (e.g. the cornell-box ceiling and light boxes are offset in Y rather than coplanar).
 - Avoid `f64` and other double-precision values in shader code. Some target GPUs (e.g. Intel) lack `Float64` capability; using doubles will silently fail to find intersections. (See commit `7f0ffcb`.)
 - **Shaders build in debug profile (`builder.release = false` in `build.rs`).** rust-gpu 0.10.0-alpha.1's release-mode optimizer eliminates the `#[spirv(miss)]` entry point. Track upstream and switch to release once fixed.
 - The shader crate must stay **`exclude`-d from the workspace**. Including it triggers feature unification that activates the `std` feature on `spirv-std-types` for the SPIR-V target build (because `rustc_codegen_spirv` enables it on the host side).
@@ -79,6 +80,3 @@ Scenes live in `kea_renderer/src/scenes/`. A `Scene` builds the bottom- and top-
 - Resource lifetime is RAII via `Arc`-wrapped wrappers. `Drop` impls call the corresponding `vk::destroy_*` — don't add explicit destruction calls.
 - Most files do not have an existing test harness; prefer `cargo run -p kea_renderer` to validate changes end-to-end.
 
-## Known issues
-
-- `VK_KHR_ray_tracing_position_fetch` was prototyped (commit `50c2a8c`) and reverted (`5f245c5`) because the resulting rendering had the ceiling light invisible. SPIR-V codegen, capability/extension declaration, feature struct, and the `ALLOW_DATA_ACCESS` BLAS build flag were all wired up correctly. Most likely cause is that the implementation returns wrong values for the builtin on this driver, or that the `[Vec3; 3]` parameter ABI in rust-gpu 0.10 doesn't match the SPIR-V `Input` array layout. Worth a deeper look with RenderDoc to capture the actual `gl_HitTriangleVertexPositionsEXT` values.
