@@ -3,7 +3,7 @@ use crate::{commands::CommandBuffer, device::Device, storage::buffers::Buffer};
 use ash::vk;
 use gpu_allocator::MemoryLocation;
 use kea_gpu_shaderlib::Aabb;
-use spirv_std::glam::Vec3A;
+use glam::Vec3A;
 use std::{mem, slice, sync::Arc};
 
 pub enum GeometryType {

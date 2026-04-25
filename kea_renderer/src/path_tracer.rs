@@ -1,4 +1,8 @@
 use crate::scenes::{self, Scene};
+
+mod shader_modules {
+    include!(concat!(env!("OUT_DIR"), "/shader_modules.rs"));
+}
 use ash::vk;
 use gpu_allocator::MemoryLocation;
 use kea_gpu::{
@@ -72,7 +76,7 @@ impl PathTracer {
         let pipeline_layout = PipelineLayout::new(device.clone(), descriptor_set_layout);
 
         let shader_groups = ShaderGroups::new(kea_renderer_shaders::SHADERS.to_vec());
-        let pipeline_shaders = shader_groups.build(device.clone(), "./kea_renderer_shaders");
+        let pipeline_shaders = shader_groups.build(device.clone(), shader_modules::SHADER_MODULES);
         let pipeline = RayTracingPipeline::<SlotId>::new(
             device.clone(),
             shader_groups,

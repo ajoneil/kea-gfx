@@ -12,9 +12,13 @@ log = "0.4.17"
 env_logger = "0.10.0"
 gpu-allocator = "0.22.0"
 memoffset = "0.8.0"
-bevy_ecs = "0.10.0"
-spirv-std = "0.6.0"
+bevy_ecs = "0.18.1"
+glam = "0.32.1"
 
 kea_gpu = { path = "../kea_gpu" }
 kea_gpu_shaderlib = { path = "../kea_gpu_shaderlib" }
 kea_renderer_shaders = { path = "../kea_renderer_shaders" }
+
+[build-dependencies]
+cargo-gpu-install = "0.10.0-alpha.1"
+anyhow = "1"

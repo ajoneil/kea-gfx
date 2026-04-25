@@ -1,7 +1,10 @@
 [workspace]
+resolver = "2"
 members = [
     "kea_gpu",
     "kea_gpu_shaderlib",
     "kea_renderer",
+]
+exclude = [
     "kea_renderer_shaders",
 ]

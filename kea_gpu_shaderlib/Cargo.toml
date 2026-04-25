@@ -4,8 +4,5 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 
-[lib]
-crate-type = ["dylib", "lib"]
-
 [dependencies]
-spirv-std = { version = "0.6.0" }
+spirv-std = { version = "0.10.0-alpha.1" }

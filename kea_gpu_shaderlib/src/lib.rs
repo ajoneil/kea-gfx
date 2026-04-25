@@ -1,6 +1,5 @@
 #![cfg_attr(target_arch = "spirv", no_std)]
 // #![deny(warnings)]
-#![feature(const_type_id)]
 
 use spirv_std::glam::Vec3;
 

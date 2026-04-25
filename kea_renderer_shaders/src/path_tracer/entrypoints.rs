@@ -29,8 +29,8 @@ pub fn generate_rays(
     #[spirv(ray_payload)] payload: &mut RayPayload,
     #[spirv(descriptor_set = 0, binding = 0)]
     accel_structure: &spirv_std::ray_tracing::AccelerationStructure,
-    #[spirv(descriptor_set = 0, binding = 1)] output_image: &mut Image!(2D, format=rgba32f, sampled=false),
-    #[spirv(descriptor_set = 0, binding = 6)] light_image: &mut Image!(2D, format=rgba32f, sampled=false),
+    #[spirv(descriptor_set = 0, binding = 1)] output_image: &Image!(2D, format=rgba32f, sampled=false),
+    #[spirv(descriptor_set = 0, binding = 6)] light_image: &Image!(2D, format=rgba32f, sampled=false),
     #[spirv(push_constant)] constants: &PushConstants,
 ) {
     let size = vec2(launch_size.x as f32, launch_size.y as f32);
@@ -113,7 +113,7 @@ fn tone_map(light: Vec3, white_point: f32) -> Vec3 {
 
 fn update_light_total(
     pixel_position: UVec2,
-    light_image: &mut Image!(2D, format=rgba32f, sampled=false),
+    light_image: &Image!(2D, format=rgba32f, sampled=false),
     iteration: u64,
     iteration_light: Vec3,
 ) -> Vec3 {

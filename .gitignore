@@ -1,2 +1,4 @@
 /target
 .vscode
+/kea_renderer_shaders/target
+/kea_renderer_shaders/Cargo.lock

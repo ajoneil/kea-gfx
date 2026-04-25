@@ -1,7 +1,5 @@
 #![cfg_attr(target_arch = "spirv", no_std)]
 // #![deny(warnings)]
-#![feature(const_type_id)]
-#![feature(asm_experimental_arch)]
 
 use kea_gpu_shaderlib::{shaders::ShaderGroup, slots::Slot};
 

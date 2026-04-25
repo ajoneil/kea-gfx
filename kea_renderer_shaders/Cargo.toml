@@ -5,8 +5,15 @@ edition = "2021"
 license = "MIT"
 
 [lib]
-crate-type = ["dylib", "lib"]
+crate-type = ["rlib", "cdylib"]
 
 [dependencies]
 kea_gpu_shaderlib = { path = "../kea_gpu_shaderlib" }
-spirv-std = { version = "0.6.0" }
+spirv-std = "0.10.0-alpha.1"
+
+[package.metadata.rust-gpu.build]
+target = "spirv-unknown-vulkan1.2"
+capabilities = ["RayTracingKHR", "Int64"]
+extensions = ["SPV_KHR_ray_tracing", "SPV_KHR_non_semantic_info"]
+multimodule = true
+spirv-metadata = "Full"

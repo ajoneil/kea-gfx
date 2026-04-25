@@ -14,7 +14,6 @@ gpu-allocator = "0.22.0"
 memoffset = "0.8.0"
 num-traits = "0.2.15"
 downcast-rs = "1.2.0"
-spirv-builder = "0.6.0"
-spirv-std = "0.6.0"
+glam = "0.32.1"
 
 kea_gpu_shaderlib = { path = "../kea_gpu_shaderlib" }

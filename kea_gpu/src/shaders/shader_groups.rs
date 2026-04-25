@@ -13,8 +13,12 @@ impl<ShaderGroupId> ShaderGroups<ShaderGroupId> {
         Self { groups }
     }
 
-    pub fn build(&self, device: Arc<Device>, shader_crate_path: &str) -> PipelineShaders {
-        let modules = ShaderModule::new_multimodule(&device, shader_crate_path);
+    pub fn build(
+        &self,
+        device: Arc<Device>,
+        shader_modules: &[(&str, &[u8])],
+    ) -> PipelineShaders {
+        let modules = ShaderModule::load_modules(&device, shader_modules);
         let mut stages: Vec<(CString, vk::ShaderStageFlags, ShaderEntryPoint)> = vec![];
         let groups: Vec<vk::RayTracingShaderGroupCreateInfoKHR> = self
             .groups

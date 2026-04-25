@@ -9,7 +9,7 @@ use kea_gpu::{
 };
 use kea_gpu_shaderlib::Aabb;
 use kea_renderer_shaders::SlotId;
-use spirv_std::glam::{vec3a, Affine3A, Quat, Vec3, Vec3A};
+use glam::{vec3a, Affine3A, Quat, Vec3, Vec3A};
 use std::sync::Arc;
 
 pub struct Scene {
