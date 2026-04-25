@@ -4,7 +4,7 @@ use ash::vk;
 impl PhysicalDevice {
     pub fn ray_tracing_pipeline_properties(
         &self,
-    ) -> vk::PhysicalDeviceRayTracingPipelinePropertiesKHR {
+    ) -> vk::PhysicalDeviceRayTracingPipelinePropertiesKHR<'_> {
         let mut rt_props = vk::PhysicalDeviceRayTracingPipelinePropertiesKHR::default();
         let mut props = vk::PhysicalDeviceProperties2::default().push_next(&mut rt_props);
 
@@ -19,7 +19,7 @@ impl PhysicalDevice {
 
     pub fn acceleration_structure_properties(
         &self,
-    ) -> vk::PhysicalDeviceAccelerationStructurePropertiesKHR {
+    ) -> vk::PhysicalDeviceAccelerationStructurePropertiesKHR<'_> {
         let mut accel_props = vk::PhysicalDeviceAccelerationStructurePropertiesKHR::default();
         let mut props = vk::PhysicalDeviceProperties2::default().push_next(&mut accel_props);
 

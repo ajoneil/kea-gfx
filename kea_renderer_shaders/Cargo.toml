@@ -11,6 +11,9 @@ crate-type = ["rlib", "cdylib"]
 kea_gpu_shaderlib = { path = "../kea_gpu_shaderlib" }
 spirv-std = "0.10.0-alpha.1"
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_arch, values("spirv"))'] }
+
 [package.metadata.rust-gpu.build]
 target = "spirv-unknown-vulkan1.2"
 capabilities = ["RayTracingKHR", "Int64"]

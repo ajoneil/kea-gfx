@@ -6,3 +6,6 @@ license = "MIT"
 
 [dependencies]
 spirv-std = { version = "0.10.0-alpha.1" }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_arch, values("spirv"))'] }
