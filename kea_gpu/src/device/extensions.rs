@@ -15,7 +15,6 @@ pub enum Ext {
     AccelerationStructure,
     DeferredHostOperations,
     RayTracingPipeline,
-    RayTracingPositionFetch,
 }
 
 impl Ext {
@@ -25,7 +24,6 @@ impl Ext {
             Ext::AccelerationStructure => khr::acceleration_structure::NAME.as_ptr(),
             Ext::DeferredHostOperations => khr::deferred_host_operations::NAME.as_ptr(),
             Ext::RayTracingPipeline => khr::ray_tracing_pipeline::NAME.as_ptr(),
-            Ext::RayTracingPositionFetch => khr::ray_tracing_position_fetch::NAME.as_ptr(),
         }
     }
 }
@@ -73,7 +71,6 @@ impl DeviceExtensions {
                     ext.ray_tracing_pipeline =
                         Some(khr::ray_tracing_pipeline::Device::new(instance, device))
                 }
-                Ext::RayTracingPositionFetch => {}
             }
         }
 

@@ -18,6 +18,8 @@ pub struct Scene {
     gpu_scene: Option<kea_gpu::ray_tracing::scenes::Scene>,
     spheres: Option<Arc<Buffer>>,
     meshes: Option<Arc<Buffer>>,
+    vertices: Option<Arc<Buffer>>,
+    indices: Option<Arc<Buffer>>,
 }
 
 #[derive(Component)]
@@ -51,6 +53,8 @@ impl Scene {
             gpu_scene: None,
             spheres: None,
             meshes: None,
+            vertices: None,
+            indices: None,
         }
     }
 
@@ -159,6 +163,8 @@ impl Scene {
         }
 
         let mut meshes: Vec<kea_renderer_shaders::triangles::Mesh> = vec![];
+        let mut all_vertices: Vec<Vec3A> = vec![];
+        let mut all_indices: Vec<[u32; 3]> = vec![];
 
         for (mesh, position, scale, rotation, material) in self
             .world
@@ -168,20 +174,28 @@ impl Scene {
             let vertices = Buffer::new_from_data(
                 self.device.clone(),
                 &mesh.vertices,
-                vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
+                vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
+                    | vk::BufferUsageFlags::STORAGE_BUFFER,
                 "vertices".to_string(),
                 MemoryLocation::GpuOnly,
                 None,
             );
+            //let vertices_address = vertices.device_address();
+            let vertices_offset = all_vertices.len();
+            all_vertices.extend(&mesh.vertices);
 
             let indices = Buffer::new_from_data(
                 self.device.clone(),
                 &mesh.indices,
-                vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
+                vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
+                    | vk::BufferUsageFlags::STORAGE_BUFFER,
                 "indices".to_string(),
                 MemoryLocation::GpuOnly,
                 None,
             );
+            //let indices_address = indices.device_address();
+            let indices_offset = all_indices.len();
+            all_indices.extend(&mesh.indices);
 
             let mut geometry = Geometry::new(
                 self.device.clone(),
@@ -198,6 +212,10 @@ impl Scene {
             scene.add_instance(geometry_instance);
 
             meshes.push(kea_renderer_shaders::triangles::Mesh {
+                // vertices_address,
+                // indices_address,
+                vertices_offset: vertices_offset as _,
+                indices_offset: indices_offset as _,
                 material: material.0,
             });
         }
@@ -208,6 +226,24 @@ impl Scene {
                 &meshes,
                 vk::BufferUsageFlags::STORAGE_BUFFER,
                 "meshes".to_string(),
+                MemoryLocation::GpuOnly,
+                None,
+            )));
+
+            self.vertices = Some(Arc::new(Buffer::new_from_data(
+                self.device.clone(),
+                &all_vertices,
+                vk::BufferUsageFlags::STORAGE_BUFFER,
+                "all vertices".to_string(),
+                MemoryLocation::GpuOnly,
+                None,
+            )));
+
+            self.indices = Some(Arc::new(Buffer::new_from_data(
+                self.device.clone(),
+                &all_indices,
+                vk::BufferUsageFlags::STORAGE_BUFFER,
+                "all indices".to_string(),
                 MemoryLocation::GpuOnly,
                 None,
             )));
@@ -233,6 +269,8 @@ impl Scene {
 
         if let Some(meshes) = self.meshes.as_ref() {
             slot_bindings.bind_buffer(SlotId::Meshes, meshes.clone());
+            slot_bindings.bind_buffer(SlotId::Vertices, self.vertices.as_ref().unwrap().clone());
+            slot_bindings.bind_buffer(SlotId::Indices, self.indices.as_ref().unwrap().clone());
         }
     }
 }

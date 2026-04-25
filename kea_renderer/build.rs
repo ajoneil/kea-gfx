@@ -18,15 +18,10 @@ fn main() -> anyhow::Result<()> {
     // upstream is fixed.
     builder.release = false;
     builder.multimodule = true;
-    builder.capabilities = vec![
-        Capability::RayTracingKHR,
-        Capability::Int64,
-        Capability::RayTracingPositionFetchKHR,
-    ];
+    builder.capabilities = vec![Capability::RayTracingKHR, Capability::Int64];
     builder.extensions = vec![
         "SPV_KHR_ray_tracing".into(),
         "SPV_KHR_non_semantic_info".into(),
-        "SPV_KHR_ray_tracing_position_fetch".into(),
     ];
     builder.spirv_metadata = SpirvMetadata::Full;
 
