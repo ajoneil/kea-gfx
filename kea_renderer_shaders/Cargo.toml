@@ -16,7 +16,11 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_arch, values("spirv
 
 [package.metadata.rust-gpu.build]
 target = "spirv-unknown-vulkan1.2"
-capabilities = ["RayTracingKHR", "Int64"]
-extensions = ["SPV_KHR_ray_tracing", "SPV_KHR_non_semantic_info"]
+capabilities = ["RayTracingKHR", "Int64", "RayTracingPositionFetchKHR"]
+extensions = [
+    "SPV_KHR_ray_tracing",
+    "SPV_KHR_non_semantic_info",
+    "SPV_KHR_ray_tracing_position_fetch",
+]
 multimodule = true
 spirv-metadata = "Full"
