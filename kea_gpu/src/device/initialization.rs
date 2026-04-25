@@ -25,10 +25,9 @@ pub fn create_device(
     let queue_create_infos: Vec<vk::DeviceQueueCreateInfo> = queues_with_priorities
         .iter()
         .map(|(family_index, priorities)| {
-            vk::DeviceQueueCreateInfo::builder()
+            vk::DeviceQueueCreateInfo::default()
                 .queue_family_index(*family_index)
                 .queue_priorities(priorities)
-                .build()
         })
         .collect();
 
@@ -48,19 +47,19 @@ pub fn create_device(
     let extension_names: Vec<*const c_char> = extensions.iter().map(|ext| ext.name()).collect();
     info!("Requested device extensions: {:?}", extensions);
 
-    let features = vk::PhysicalDeviceFeatures::builder().shader_int64(true);
-    let mut features_12 = vk::PhysicalDeviceVulkan12Features::builder()
+    let features = vk::PhysicalDeviceFeatures::default().shader_int64(true);
+    let mut features_12 = vk::PhysicalDeviceVulkan12Features::default()
         .buffer_device_address(true)
         .vulkan_memory_model(true);
-    let mut features_13 = vk::PhysicalDeviceVulkan13Features::builder()
+    let mut features_13 = vk::PhysicalDeviceVulkan13Features::default()
         .dynamic_rendering(true)
         .synchronization2(true);
     let mut features_rt =
-        vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::builder().ray_tracing_pipeline(true);
+        vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::default().ray_tracing_pipeline(true);
     let mut features_as =
-        vk::PhysicalDeviceAccelerationStructureFeaturesKHR::builder().acceleration_structure(true);
+        vk::PhysicalDeviceAccelerationStructureFeaturesKHR::default().acceleration_structure(true);
 
-    let create_info = vk::DeviceCreateInfo::builder()
+    let create_info = vk::DeviceCreateInfo::default()
         .queue_create_infos(&queue_create_infos)
         .enabled_extension_names(&extension_names)
         .enabled_features(&features)

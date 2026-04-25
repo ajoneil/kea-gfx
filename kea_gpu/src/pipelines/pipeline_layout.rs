@@ -14,13 +14,13 @@ pub struct PushConstants {
 
 impl PipelineLayout {
     pub fn new(device: Arc<Device>, descriptor_set_layout: DescriptorSetLayout) -> PipelineLayout {
-        let push_constant_range = vk::PushConstantRange::builder()
+        let push_constant_range = vk::PushConstantRange::default()
             .stage_flags(vk::ShaderStageFlags::RAYGEN_KHR)
             .offset(0)
             .size(mem::size_of::<PushConstants>() as _);
 
         let layout_raw = unsafe { descriptor_set_layout.raw() };
-        let create_info = vk::PipelineLayoutCreateInfo::builder()
+        let create_info = vk::PipelineLayoutCreateInfo::default()
             .set_layouts(slice::from_ref(&layout_raw))
             .push_constant_ranges(slice::from_ref(&push_constant_range));
 

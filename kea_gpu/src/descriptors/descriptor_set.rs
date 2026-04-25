@@ -10,11 +10,11 @@ pub struct DescriptorSetLayout {
 impl DescriptorSetLayout {
     pub fn new(
         device: Arc<Device>,
-        bindings: &[DescriptorSetLayoutBinding],
+        bindings: &[DescriptorSetLayoutBinding<'_>],
     ) -> DescriptorSetLayout {
-        let bindings: Vec<vk::DescriptorSetLayoutBinding> =
+        let bindings: Vec<vk::DescriptorSetLayoutBinding<'_>> =
             bindings.iter().map(|b| b.raw).collect();
-        let create_info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&bindings);
+        let create_info = vk::DescriptorSetLayoutCreateInfo::default().bindings(&bindings);
         let raw = unsafe {
             device
                 .raw()
@@ -44,23 +44,22 @@ impl Drop for DescriptorSetLayout {
     }
 }
 
-pub struct DescriptorSetLayoutBinding {
-    raw: vk::DescriptorSetLayoutBinding,
+pub struct DescriptorSetLayoutBinding<'a> {
+    raw: vk::DescriptorSetLayoutBinding<'a>,
 }
 
-impl DescriptorSetLayoutBinding {
+impl<'a> DescriptorSetLayoutBinding<'a> {
     pub fn new(
         binding: u32,
         descriptor_type: vk::DescriptorType,
         descriptor_count: u32,
         stage_flags: vk::ShaderStageFlags,
-    ) -> DescriptorSetLayoutBinding {
-        let raw = vk::DescriptorSetLayoutBinding::builder()
+    ) -> DescriptorSetLayoutBinding<'a> {
+        let raw = vk::DescriptorSetLayoutBinding::default()
             .binding(binding)
             .descriptor_type(descriptor_type)
             .descriptor_count(descriptor_count)
-            .stage_flags(stage_flags)
-            .build();
+            .stage_flags(stage_flags);
         DescriptorSetLayoutBinding { raw }
     }
 }
@@ -76,7 +75,7 @@ impl DescriptorPool {
         max_sets: u32,
         pool_sizes: &[vk::DescriptorPoolSize],
     ) -> Arc<DescriptorPool> {
-        let create_info = vk::DescriptorPoolCreateInfo::builder()
+        let create_info = vk::DescriptorPoolCreateInfo::default()
             .max_sets(max_sets)
             .pool_sizes(pool_sizes);
         let raw = unsafe { device.raw().create_descriptor_pool(&create_info, None) }.unwrap();
@@ -92,7 +91,7 @@ impl DescriptorPool {
             .iter()
             .map(|layout| unsafe { layout.raw() })
             .collect();
-        let allocate_info = vk::DescriptorSetAllocateInfo::builder()
+        let allocate_info = vk::DescriptorSetAllocateInfo::default()
             .descriptor_pool(self.raw)
             .set_layouts(&raw_layouts);
 

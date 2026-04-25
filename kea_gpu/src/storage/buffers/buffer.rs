@@ -71,7 +71,7 @@ impl Buffer {
 
     pub fn device_address(&self) -> vk::DeviceAddress {
         let address = unsafe {
-            let info = vk::BufferDeviceAddressInfo::builder().buffer(self.buffer.raw());
+            let info = vk::BufferDeviceAddressInfo::default().buffer(self.buffer.raw());
             self.buffer.device().raw().get_buffer_device_address(&info)
         };
         log::debug!("mem address for buffer  {}: {}", self.name, address);

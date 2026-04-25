@@ -15,7 +15,7 @@ impl AccelerationStructure {
         ty: vk::AccelerationStructureTypeKHR,
     ) -> AccelerationStructure {
         let raw = unsafe {
-            let create_info = vk::AccelerationStructureCreateInfoKHR::builder()
+            let create_info = vk::AccelerationStructureCreateInfoKHR::default()
                 .buffer(buffer.buffer().raw())
                 .size(buffer.buffer().size() as u64)
                 .ty(ty);
@@ -45,7 +45,7 @@ impl AccelerationStructure {
     }
 
     pub fn device_address(&self) -> vk::DeviceAddress {
-        let info = vk::AccelerationStructureDeviceAddressInfoKHR::builder()
+        let info = vk::AccelerationStructureDeviceAddressInfoKHR::default()
             .acceleration_structure(self.raw);
         unsafe {
             self.device
@@ -62,11 +62,8 @@ impl AccelerationStructure {
     ) -> BuildSizes {
         let primitive_count = range.primitive_count;
 
-        let vk::AccelerationStructureBuildSizesInfoKHR {
-            acceleration_structure_size,
-            build_scratch_size,
-            ..
-        } = unsafe {
+        let mut size_info = vk::AccelerationStructureBuildSizesInfoKHR::default();
+        unsafe {
             device
                 .ext()
                 .acceleration_structure()
@@ -74,8 +71,14 @@ impl AccelerationStructure {
                     vk::AccelerationStructureBuildTypeKHR::DEVICE,
                     geometry_info,
                     slice::from_ref(&primitive_count),
+                    &mut size_info,
                 )
         };
+        let vk::AccelerationStructureBuildSizesInfoKHR {
+            acceleration_structure_size,
+            build_scratch_size,
+            ..
+        } = size_info;
 
         BuildSizes {
             acceleration_structure: acceleration_structure_size,

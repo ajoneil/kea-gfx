@@ -57,17 +57,17 @@ impl Scene {
             None,
         );
 
-        let instances = vk::AccelerationStructureGeometryInstancesDataKHR::builder()
+        let instances = vk::AccelerationStructureGeometryInstancesDataKHR::default()
             .data(vk::DeviceOrHostAddressConstKHR {
                 device_address: instances_buffer.device_address(),
             })
             .array_of_pointers(false);
 
-        let geometry = vk::AccelerationStructureGeometryKHR::builder()
+        let geometry = vk::AccelerationStructureGeometryKHR::default()
             .geometry_type(vk::GeometryTypeKHR::INSTANCES)
             .flags(vk::GeometryFlagsKHR::OPAQUE)
             .geometry(vk::AccelerationStructureGeometryDataKHR {
-                instances: *instances,
+                instances,
             });
 
         let range = vk::AccelerationStructureBuildRangeInfoKHR {
@@ -77,7 +77,7 @@ impl Scene {
             transform_offset: 0,
         };
 
-        let geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
+        let geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::default()
             .ty(vk::AccelerationStructureTypeKHR::TOP_LEVEL)
             .geometries(slice::from_ref(&geometry));
 
@@ -98,7 +98,7 @@ impl Scene {
             vk::AccelerationStructureTypeKHR::TOP_LEVEL,
         );
 
-        let geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
+        let geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::default()
             .ty(vk::AccelerationStructureTypeKHR::TOP_LEVEL)
             .geometries(slice::from_ref(&geometry))
             .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
@@ -108,7 +108,7 @@ impl Scene {
                 device_address: scratch_buffer.device_address(),
             });
 
-        log::debug!("geometry info {:?}", *geometry_info);
+        log::debug!("geometry info {:?}", geometry_info);
         log::debug!("range {:?}", range);
 
         CommandBuffer::now(&self.device, "build TLAS".to_string(), |cmd| {

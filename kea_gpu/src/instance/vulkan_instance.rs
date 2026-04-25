@@ -27,7 +27,7 @@ impl VulkanInstance {
     }
 
     fn create_instance(entry: &ash::Entry, features: &[Box<dyn Feature + '_>]) -> ash::Instance {
-        let app_info = vk::ApplicationInfo::builder().api_version(vk::API_VERSION_1_3);
+        let app_info = vk::ApplicationInfo::default().api_version(vk::API_VERSION_1_3);
 
         let mut instance_config = InstanceConfig::default();
         let mut extensions: Vec<Ext> = vec![];
@@ -52,7 +52,7 @@ impl VulkanInstance {
         let layers_names_raw: Vec<*const c_char> =
             layers.iter().map(|raw_name| raw_name.as_ptr()).collect();
 
-        let create_info = vk::InstanceCreateInfo::builder()
+        let create_info = vk::InstanceCreateInfo::default()
             .application_info(&app_info)
             .enabled_extension_names(&extension_names)
             .enabled_layer_names(&layers_names_raw);
@@ -66,10 +66,9 @@ impl VulkanInstance {
                 .as_ref()
                 .unwrap()
                 .disable;
-            features_validation = vk::ValidationFeaturesEXT::builder()
+            features_validation = vk::ValidationFeaturesEXT::default()
                 .enabled_validation_features(enable)
-                .disabled_validation_features(disable)
-                .build();
+                .disabled_validation_features(disable);
 
             create_info.push_next(&mut features_validation)
         } else {

@@ -58,7 +58,7 @@ impl<'a> CommandBufferRecorder<'a> {
         buffer_memory_barriers: &[vk::BufferMemoryBarrier2],
         image_memory_barriers: &[vk::ImageMemoryBarrier2],
     ) {
-        let dependency_info = vk::DependencyInfo::builder()
+        let dependency_info = vk::DependencyInfo::default()
             .dependency_flags(dependency_flags)
             .memory_barriers(memory_barriers)
             .buffer_memory_barriers(buffer_memory_barriers)

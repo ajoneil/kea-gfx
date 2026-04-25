@@ -34,19 +34,20 @@ impl Device {
         let instance = physical_device.instance();
         let ext = DeviceExtensions::new(&raw, unsafe { instance.raw() }, &extensions);
 
+        let mut debug_settings = AllocatorDebugSettings::default();
+        debug_settings.log_memory_information = true;
+        debug_settings.log_leaks_on_shutdown = true;
+        debug_settings.log_allocations = true;
+        debug_settings.log_frees = true;
+
         let allocator = unsafe {
             Allocator::new(&AllocatorCreateDesc {
                 instance: instance.raw().clone(),
                 device: raw.clone(),
                 physical_device: physical_device.raw(),
-                debug_settings: AllocatorDebugSettings {
-                    log_memory_information: true,
-                    log_leaks_on_shutdown: true,
-                    log_allocations: true,
-                    log_frees: true,
-                    ..Default::default()
-                },
+                debug_settings,
                 buffer_device_address: true,
+                allocation_sizes: Default::default(),
             })
         }
         .unwrap();

@@ -1,7 +1,7 @@
 use super::{SurfaceExt, Window};
 use crate::instance::VulkanInstance;
 use ash::vk;
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use std::sync::Arc;
 
 pub struct Surface {
@@ -15,8 +15,8 @@ impl Surface {
             ash_window::create_surface(
                 &instance.entry(),
                 &instance.raw(),
-                window.window().raw_display_handle(),
-                window.window().raw_window_handle(),
+                window.window().display_handle().unwrap().as_raw(),
+                window.window().window_handle().unwrap().as_raw(),
                 None,
             )
         }

@@ -33,7 +33,7 @@ impl<'a> CommandBufferRecorder<'a> {
         src_stage_mask: vk::PipelineStageFlags2,
         dst_stage_mask: vk::PipelineStageFlags2,
     ) {
-        let barrier = vk::ImageMemoryBarrier2::builder()
+        let barrier = vk::ImageMemoryBarrier2::default()
             .src_stage_mask(src_stage_mask)
             .src_access_mask(src_access_mask)
             .dst_stage_mask(dst_stage_mask)
@@ -42,11 +42,10 @@ impl<'a> CommandBufferRecorder<'a> {
             .new_layout(new_layout)
             .image(unsafe { image.raw() })
             .subresource_range(
-                vk::ImageSubresourceRange::builder()
+                vk::ImageSubresourceRange::default()
                     .aspect_mask(vk::ImageAspectFlags::COLOR)
                     .level_count(1)
-                    .layer_count(1)
-                    .build(),
+                    .layer_count(1),
             );
 
         self.pipeline_barrier(

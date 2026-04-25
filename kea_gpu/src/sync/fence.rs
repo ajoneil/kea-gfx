@@ -12,7 +12,7 @@ impl Fence {
     pub fn new(device: Arc<Device>, name: String, signaled: bool) -> Fence {
         let raw = unsafe {
             device.raw().create_fence(
-                &vk::FenceCreateInfo::builder().flags(if signaled {
+                &vk::FenceCreateInfo::default().flags(if signaled {
                     vk::FenceCreateFlags::SIGNALED
                 } else {
                     vk::FenceCreateFlags::empty()

@@ -53,7 +53,7 @@ impl Swapchain {
             .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
             .unwrap_or(vk::PresentModeKHR::FIFO);
 
-        let swapchain_create_info = vk::SwapchainCreateInfoKHR::builder()
+        let swapchain_create_info = vk::SwapchainCreateInfoKHR::default()
             .surface(unsafe { surface.raw() })
             .min_image_count(image_count)
             .image_color_space(surface_format.color_space)
@@ -131,7 +131,7 @@ impl Swapchain {
     pub fn present(&self, queue: &Queue, wait_semaphores: &[Semaphore], image_index: u32) {
         let raw_semaphores: Vec<vk::Semaphore> =
             wait_semaphores.iter().map(|s| unsafe { s.raw() }).collect();
-        let present = vk::PresentInfoKHR::builder()
+        let present = vk::PresentInfoKHR::default()
             .wait_semaphores(&raw_semaphores)
             .swapchains(slice::from_ref(&self.raw))
             .image_indices(slice::from_ref(&image_index));

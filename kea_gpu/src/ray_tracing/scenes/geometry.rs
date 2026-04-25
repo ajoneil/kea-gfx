@@ -47,21 +47,21 @@ impl Geometry {
 
         self.acceleration_structure = match &self.geometry_type {
             GeometryType::Aabbs(aabbs_buffer) => {
-                let aabbs = vk::AccelerationStructureGeometryAabbsDataKHR::builder()
+                let aabbs = vk::AccelerationStructureGeometryAabbsDataKHR::default()
                     .data(vk::DeviceOrHostAddressConstKHR {
                         device_address: aabbs_buffer.device_address(),
                     })
                     .stride(mem::size_of::<Aabb>() as u64);
 
-                let geometry = vk::AccelerationStructureGeometryKHR::builder()
+                let geometry = vk::AccelerationStructureGeometryKHR::default()
                     .geometry_type(vk::GeometryTypeKHR::AABBS)
-                    .geometry(vk::AccelerationStructureGeometryDataKHR { aabbs: *aabbs })
+                    .geometry(vk::AccelerationStructureGeometryDataKHR { aabbs })
                     .flags(vk::GeometryFlagsKHR::OPAQUE);
 
-                let range = vk::AccelerationStructureBuildRangeInfoKHR::builder()
+                let range = vk::AccelerationStructureBuildRangeInfoKHR::default()
                     .primitive_count((aabbs_buffer.size() / mem::size_of::<Aabb>()) as u32);
 
-                let geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
+                let geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::default()
                     .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
                     .geometries(slice::from_ref(&geometry));
 
@@ -85,7 +85,7 @@ impl Geometry {
                     vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL,
                 );
 
-                let geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
+                let geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::default()
                     .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
                     .geometries(slice::from_ref(&geometry))
                     .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
@@ -102,7 +102,7 @@ impl Geometry {
                 Some(Arc::new(acceleration_structure))
             }
             GeometryType::Triangles { vertices, indices } => {
-                let triangles = vk::AccelerationStructureGeometryTrianglesDataKHR::builder()
+                let triangles = vk::AccelerationStructureGeometryTrianglesDataKHR::default()
                     .vertex_format(vk::Format::R32G32B32_SFLOAT)
                     .vertex_data(vk::DeviceOrHostAddressConstKHR {
                         device_address: vertices.device_address(),
@@ -114,17 +114,17 @@ impl Geometry {
                     })
                     .max_vertex(indices.count::<u32>() as _);
 
-                let geometry = vk::AccelerationStructureGeometryKHR::builder()
+                let geometry = vk::AccelerationStructureGeometryKHR::default()
                     .geometry_type(vk::GeometryTypeKHR::TRIANGLES)
                     .geometry(vk::AccelerationStructureGeometryDataKHR {
-                        triangles: *triangles,
+                        triangles,
                     })
                     .flags(vk::GeometryFlagsKHR::OPAQUE);
 
-                let range = vk::AccelerationStructureBuildRangeInfoKHR::builder()
+                let range = vk::AccelerationStructureBuildRangeInfoKHR::default()
                     .primitive_count((indices.count::<u32>() / 3) as u32);
 
-                let geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
+                let geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::default()
                     .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
                     .flags(vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_TRACE)
                     .geometries(slice::from_ref(&geometry));

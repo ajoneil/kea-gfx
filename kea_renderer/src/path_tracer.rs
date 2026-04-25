@@ -183,7 +183,7 @@ impl PathTracer {
                     vk::PipelineStageFlags2::TRANSFER,
                 );
 
-                let copy_region = vk::ImageCopy::builder()
+                let copy_region = vk::ImageCopy::default()
                     .src_subresource(vk::ImageSubresourceLayers {
                         aspect_mask: vk::ImageAspectFlags::COLOR,
                         base_array_layer: 0,
@@ -200,8 +200,7 @@ impl PathTracer {
                         width: self.kea.presenter().size().0,
                         height: self.kea.presenter().size().1,
                         depth: 1,
-                    })
-                    .build();
+                    });
 
                 cmd.copy_image(
                     &self.storage_image.image(),

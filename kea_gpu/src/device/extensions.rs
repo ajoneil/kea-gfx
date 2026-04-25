@@ -1,12 +1,12 @@
-use ash::extensions::khr;
+use ash::khr;
 use std::os::raw::c_char;
 
 #[derive(Default)]
 pub struct DeviceExtensions {
-    pub swapchain: Option<khr::Swapchain>,
-    pub acceleration_structure: Option<khr::AccelerationStructure>,
-    pub deferred_host_operations: Option<khr::DeferredHostOperations>,
-    pub ray_tracing_pipeline: Option<khr::RayTracingPipeline>,
+    pub swapchain: Option<khr::swapchain::Device>,
+    pub acceleration_structure: Option<khr::acceleration_structure::Device>,
+    pub deferred_host_operations: Option<khr::deferred_host_operations::Device>,
+    pub ray_tracing_pipeline: Option<khr::ray_tracing_pipeline::Device>,
 }
 
 #[derive(Debug)]
@@ -20,28 +20,28 @@ pub enum Ext {
 impl Ext {
     pub fn name(&self) -> *const c_char {
         match self {
-            Ext::Swapchain => khr::Swapchain::name().as_ptr(),
-            Ext::AccelerationStructure => khr::AccelerationStructure::name().as_ptr(),
-            Ext::DeferredHostOperations => khr::DeferredHostOperations::name().as_ptr(),
-            Ext::RayTracingPipeline => khr::RayTracingPipeline::name().as_ptr(),
+            Ext::Swapchain => khr::swapchain::NAME.as_ptr(),
+            Ext::AccelerationStructure => khr::acceleration_structure::NAME.as_ptr(),
+            Ext::DeferredHostOperations => khr::deferred_host_operations::NAME.as_ptr(),
+            Ext::RayTracingPipeline => khr::ray_tracing_pipeline::NAME.as_ptr(),
         }
     }
 }
 
 impl DeviceExtensions {
-    pub fn swapchain(&self) -> &ash::extensions::khr::Swapchain {
+    pub fn swapchain(&self) -> &khr::swapchain::Device {
         self.swapchain.as_ref().unwrap()
     }
 
-    pub fn acceleration_structure(&self) -> &khr::AccelerationStructure {
+    pub fn acceleration_structure(&self) -> &khr::acceleration_structure::Device {
         self.acceleration_structure.as_ref().unwrap()
     }
 
-    pub fn deferred_host_operations(&self) -> &khr::DeferredHostOperations {
+    pub fn deferred_host_operations(&self) -> &khr::deferred_host_operations::Device {
         self.deferred_host_operations.as_ref().unwrap()
     }
 
-    pub fn ray_tracing_pipeline(&self) -> &khr::RayTracingPipeline {
+    pub fn ray_tracing_pipeline(&self) -> &khr::ray_tracing_pipeline::Device {
         self.ray_tracing_pipeline.as_ref().unwrap()
     }
 
@@ -56,17 +56,20 @@ impl DeviceExtensions {
 
         for extension in extensions {
             match extension {
-                Ext::Swapchain => ext.swapchain = Some(khr::Swapchain::new(instance, device)),
+                Ext::Swapchain => {
+                    ext.swapchain = Some(khr::swapchain::Device::new(instance, device))
+                }
                 Ext::AccelerationStructure => {
                     ext.acceleration_structure =
-                        Some(khr::AccelerationStructure::new(instance, device))
+                        Some(khr::acceleration_structure::Device::new(instance, device))
                 }
                 Ext::DeferredHostOperations => {
                     ext.deferred_host_operations =
-                        Some(khr::DeferredHostOperations::new(instance, device))
+                        Some(khr::deferred_host_operations::Device::new(instance, device))
                 }
                 Ext::RayTracingPipeline => {
-                    ext.ray_tracing_pipeline = Some(khr::RayTracingPipeline::new(instance, device))
+                    ext.ray_tracing_pipeline =
+                        Some(khr::ray_tracing_pipeline::Device::new(instance, device))
                 }
             }
         }

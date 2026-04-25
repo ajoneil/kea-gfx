@@ -11,14 +11,14 @@ pub struct CommandPool {
 impl CommandPool {
     pub fn new(queue: Queue) -> Arc<CommandPool> {
         let create_info =
-            vk::CommandPoolCreateInfo::builder().queue_family_index(queue.family().index());
+            vk::CommandPoolCreateInfo::default().queue_family_index(queue.family().index());
         let raw = unsafe { queue.device().raw().create_command_pool(&create_info, None) }.unwrap();
 
         Arc::new(CommandPool { queue, raw })
     }
 
     pub fn allocate_buffers(self: &Arc<Self>, names: &[String]) -> Vec<CommandBuffer> {
-        let create_info = vk::CommandBufferAllocateInfo::builder()
+        let create_info = vk::CommandBufferAllocateInfo::default()
             .command_pool(self.raw)
             .level(vk::CommandBufferLevel::PRIMARY)
             .command_buffer_count(names.len() as _);

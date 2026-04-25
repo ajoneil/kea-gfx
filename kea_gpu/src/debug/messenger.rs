@@ -1,4 +1,4 @@
-use ash::{extensions::ext, vk};
+use ash::{ext, vk};
 use std::{ffi::CStr, os::raw::c_void};
 
 unsafe extern "system" fn vulkan_debug_callback(
@@ -25,8 +25,8 @@ unsafe extern "system" fn vulkan_debug_callback(
 pub struct DebugMessenger(vk::DebugUtilsMessengerEXT);
 
 impl DebugMessenger {
-    pub fn new(ext: &ext::DebugUtils) -> Self {
-        let create_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
+    pub fn new(ext: &ext::debug_utils::Instance) -> Self {
+        let create_info = vk::DebugUtilsMessengerCreateInfoEXT::default()
             .message_severity(
                 vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE
                     | vk::DebugUtilsMessageSeverityFlagsEXT::INFO

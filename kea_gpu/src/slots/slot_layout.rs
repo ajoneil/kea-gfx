@@ -11,7 +11,7 @@ impl<SlotId> SlotLayout<SlotId> {
         Self { slots }
     }
 
-    pub fn bindings(&self) -> Vec<DescriptorSetLayoutBinding> {
+    pub fn bindings(&self) -> Vec<DescriptorSetLayoutBinding<'static>> {
         self.slots
             .iter()
             .enumerate()

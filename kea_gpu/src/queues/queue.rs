@@ -55,7 +55,7 @@ impl Queue {
             .map(|s| unsafe { s.raw() })
             .collect();
 
-        let mut submit_info = vk::SubmitInfo::builder().command_buffers(&raw_buffers);
+        let mut submit_info = vk::SubmitInfo::default().command_buffers(&raw_buffers);
 
         if raw_wait_semaphores.len() > 0 {
             submit_info = submit_info

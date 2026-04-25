@@ -3,19 +3,16 @@ use crate::{
     device::{PhysicalDevice, QueueFamily},
     instance::{InstanceExtension, VulkanInstance},
 };
-use ash::{extensions::khr, vk};
+use ash::{khr, vk};
 
-pub struct SurfaceExt(khr::Surface);
+pub struct SurfaceExt(khr::surface::Instance);
 
 impl InstanceExtension for SurfaceExt {}
 
 impl SurfaceExt {
     pub fn new(instance: &VulkanInstance) -> Self {
-        unsafe {
-            let raw = khr::Surface::new(instance.entry(), instance.raw());
-
-            Self(raw)
-        }
+        let raw = unsafe { khr::surface::Instance::new(instance.entry(), instance.raw()) };
+        Self(raw)
     }
 
     pub fn surface_capabilities(

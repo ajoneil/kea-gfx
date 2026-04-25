@@ -15,7 +15,7 @@ impl ShaderModule {
         entry_points: Vec<String>,
     ) -> Arc<ShaderModule> {
         let words = read_spv(&mut Cursor::new(bytes)).unwrap();
-        let create_info = vk::ShaderModuleCreateInfo::builder().code(&words);
+        let create_info = vk::ShaderModuleCreateInfo::default().code(&words);
         let raw = unsafe { device.raw().create_shader_module(&create_info, None) }.unwrap();
         Arc::new(ShaderModule {
             raw,

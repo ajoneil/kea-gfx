@@ -52,7 +52,7 @@ impl<SlotId: Into<u32> + Hash + Eq + Copy> SlotBindings<SlotId> {
             offset: 0,
             range: vk::WHOLE_SIZE,
         };
-        let write_set = vk::WriteDescriptorSet::builder()
+        let write_set = vk::WriteDescriptorSet::default()
             .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
             .dst_set(unsafe { self.descriptor_set.raw() })
             .dst_binding(slot_id.into())
@@ -74,14 +74,13 @@ impl<SlotId: Into<u32> + Hash + Eq + Copy> SlotBindings<SlotId> {
     ) {
         let accel_raw = unsafe { acceleration_structure.raw() };
         let accel_slice = std::slice::from_ref(&accel_raw);
-        let mut write_set_as = vk::WriteDescriptorSetAccelerationStructureKHR::builder()
+        let mut write_set_as = vk::WriteDescriptorSetAccelerationStructureKHR::default()
             .acceleration_structures(accel_slice);
-        let mut write_set = vk::WriteDescriptorSet::builder()
+        let mut write_set = vk::WriteDescriptorSet::default()
             .descriptor_type(vk::DescriptorType::ACCELERATION_STRUCTURE_KHR)
             .dst_set(unsafe { self.descriptor_set.raw() })
             .dst_binding(slot_id.into())
-            .push_next(&mut write_set_as)
-            .build();
+            .push_next(&mut write_set_as);
         write_set.descriptor_count = 1;
 
         unsafe {
@@ -95,11 +94,11 @@ impl<SlotId: Into<u32> + Hash + Eq + Copy> SlotBindings<SlotId> {
     }
 
     pub fn bind_image(&mut self, slot_id: SlotId, image: Arc<ImageView>) {
-        let desc_img_info = vk::DescriptorImageInfo::builder()
+        let desc_img_info = vk::DescriptorImageInfo::default()
             .image_view(unsafe { image.raw() })
             .image_layout(vk::ImageLayout::GENERAL);
 
-        let write_set = vk::WriteDescriptorSet::builder()
+        let write_set = vk::WriteDescriptorSet::default()
             .descriptor_type(vk::DescriptorType::STORAGE_IMAGE)
             .dst_set(unsafe { self.descriptor_set.raw() })
             .dst_binding(slot_id.into())

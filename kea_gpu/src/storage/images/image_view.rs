@@ -10,7 +10,7 @@ pub struct ImageView {
 
 impl ImageView {
     pub fn new(image: Arc<Image>) -> ImageView {
-        let imageview_create_info = vk::ImageViewCreateInfo::builder()
+        let imageview_create_info = vk::ImageViewCreateInfo::default()
             .image(unsafe { image.raw() })
             .view_type(vk::ImageViewType::TYPE_2D)
             .format(image.format())

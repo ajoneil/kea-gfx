@@ -131,11 +131,10 @@ pub struct ShaderBindingTable {
 
 impl ShaderBindingTable {
     pub fn new(device_address: u64, size: u64, stride: u64) -> ShaderBindingTable {
-        let raw = vk::StridedDeviceAddressRegionKHR::builder()
+        let raw = vk::StridedDeviceAddressRegionKHR::default()
             .device_address(device_address)
             .size(size)
-            .stride(stride)
-            .build();
+            .stride(stride);
 
         ShaderBindingTable { raw }
     }

@@ -33,13 +33,12 @@ impl<ShaderGroupId> ShaderGroups<ShaderGroupId> {
                         entry_point,
                     );
                     stages.push(stage);
-                    vk::RayTracingShaderGroupCreateInfoKHR::builder()
+                    vk::RayTracingShaderGroupCreateInfoKHR::default()
                         .ty(vk::RayTracingShaderGroupTypeKHR::GENERAL)
                         .general_shader(index as _)
                         .closest_hit_shader(vk::SHADER_UNUSED_KHR)
                         .any_hit_shader(vk::SHADER_UNUSED_KHR)
                         .intersection_shader(vk::SHADER_UNUSED_KHR)
-                        .build()
                 }
                 ShaderGroup::Miss(Shader(shader)) => {
                     let entry_point = modules[*shader].entry_point(shader);
@@ -50,13 +49,12 @@ impl<ShaderGroupId> ShaderGroups<ShaderGroupId> {
                         entry_point,
                     );
                     stages.push(stage);
-                    vk::RayTracingShaderGroupCreateInfoKHR::builder()
+                    vk::RayTracingShaderGroupCreateInfoKHR::default()
                         .ty(vk::RayTracingShaderGroupTypeKHR::GENERAL)
                         .general_shader(index as _)
                         .closest_hit_shader(vk::SHADER_UNUSED_KHR)
                         .any_hit_shader(vk::SHADER_UNUSED_KHR)
                         .intersection_shader(vk::SHADER_UNUSED_KHR)
-                        .build()
                 }
                 ShaderGroup::ProceduralHit {
                     intersection: Shader(intersection),
@@ -78,13 +76,12 @@ impl<ShaderGroupId> ShaderGroups<ShaderGroupId> {
                         hit_entry_point,
                     );
                     stages.push(stage);
-                    vk::RayTracingShaderGroupCreateInfoKHR::builder()
+                    vk::RayTracingShaderGroupCreateInfoKHR::default()
                         .ty(vk::RayTracingShaderGroupTypeKHR::PROCEDURAL_HIT_GROUP)
                         .general_shader(vk::SHADER_UNUSED_KHR)
                         .closest_hit_shader(hit_index as _)
                         .any_hit_shader(vk::SHADER_UNUSED_KHR)
                         .intersection_shader(intersection_index as _)
-                        .build()
                 }
                 ShaderGroup::TriangleHit(Shader(shader)) => {
                     let entry_point = modules[*shader].entry_point(shader);
@@ -95,13 +92,12 @@ impl<ShaderGroupId> ShaderGroups<ShaderGroupId> {
                         entry_point,
                     );
                     stages.push(stage);
-                    vk::RayTracingShaderGroupCreateInfoKHR::builder()
+                    vk::RayTracingShaderGroupCreateInfoKHR::default()
                         .ty(vk::RayTracingShaderGroupTypeKHR::TRIANGLES_HIT_GROUP)
                         .general_shader(vk::SHADER_UNUSED_KHR)
                         .closest_hit_shader(index as _)
                         .any_hit_shader(vk::SHADER_UNUSED_KHR)
                         .intersection_shader(vk::SHADER_UNUSED_KHR)
-                        .build()
                 }
             })
             .collect();
@@ -121,5 +117,5 @@ impl<ShaderGroupId> ShaderGroups<ShaderGroupId> {
 pub struct PipelineShaders {
     pub modules: HashMap<String, Arc<ShaderModule>>,
     pub stages: Vec<(CString, vk::ShaderStageFlags, ShaderEntryPoint)>,
-    pub groups: Vec<vk::RayTracingShaderGroupCreateInfoKHR>,
+    pub groups: Vec<vk::RayTracingShaderGroupCreateInfoKHR<'static>>,
 }

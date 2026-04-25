@@ -29,18 +29,17 @@ impl<SlotId> RayTracingPipeline<SlotId> {
                 .stages
                 .iter()
                 .map(|(name, stage, entry_point)| {
-                    vk::PipelineShaderStageCreateInfo::builder()
+                    vk::PipelineShaderStageCreateInfo::default()
                         .stage(*stage)
                         .module(entry_point.module().raw())
                         .name(&name)
-                        .build()
                 })
                 .collect();
 
             log::debug!("{:?}", stages);
             log::debug!("{:?}", shaders.groups);
 
-            let create_info = vk::RayTracingPipelineCreateInfoKHR::builder()
+            let create_info = vk::RayTracingPipelineCreateInfoKHR::default()
                 .stages(&stages)
                 .groups(&shaders.groups)
                 .max_pipeline_ray_recursion_depth(1)

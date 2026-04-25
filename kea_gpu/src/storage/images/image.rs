@@ -27,7 +27,7 @@ impl Image {
         usage: vk::ImageUsageFlags,
         location: MemoryLocation,
     ) -> Self {
-        let image_create_info = vk::ImageCreateInfo::builder()
+        let image_create_info = vk::ImageCreateInfo::default()
             .image_type(vk::ImageType::TYPE_2D)
             .format(format)
             .extent(vk::Extent3D {
