@@ -56,18 +56,29 @@ If you add or change a slot or shader entry point, you must update *both* the co
 
 ### Frame loop
 
-`PathTracer::draw` (in `kea_renderer/src/path_tracer.rs`) records a fresh command buffer each frame. It binds the ray-tracing pipeline and descriptor set, pushes per-frame `PushConstants` (currently just an `iteration` counter for sample accumulation), calls `trace_rays`, then transitions and copies the storage image into the acquired swapchain image. The command-buffer caching path is currently commented out — recording every frame is intentional during development.
+`PathTracer::draw` (in `kea_renderer/src/path_tracer.rs`) reuses a long-lived command pool + buffer per in-flight frame slot (one slot per `kea_gpu::presentation::FRAMES_IN_FLIGHT`). Each frame: take the slot's command buffer, reset its pool, re-record (bind pipeline + descriptor set, push the iteration counter, barrier `light_image`, `trace_rays`, blit `storage_image` into the acquired swapchain image), submit, and return the buffer to its slot. Submission goes through `Presenter::draw`, which signals a per-image binary semaphore for the present-engine wait *and* increments a timeline semaphore that gates the next frame's `get_swapchain_image`.
+
+The frame counter (`Presenter::frame_index`) doubles as the shader's `iteration` push-constant for sample accumulation, so they stay in sync.
 
 ### Scenes
 
-Scenes live in `kea_renderer/src/scenes/`. A `Scene` builds the bottom- and top-level acceleration structures via `kea_gpu::ray_tracing::scenes` and exposes `bind_data` to populate the relevant slots (spheres, meshes, vertices, indices). `examples::cornell_box` is the default scene loaded by `PathTracer::new`.
+Scenes live in `kea_renderer/src/scenes/`. A `Scene` builds the bottom- and top-level acceleration structures via `kea_gpu::ray_tracing::scenes` and exposes `bind_data` to populate the relevant slots (scene TLAS, spheres, meshes). `examples::cornell_box` is the default scene loaded by `PathTracer::new`.
 
 ## Conventions and gotchas
 
-- Sync uses Vulkan synchronization2 (`VK_KHR_synchronization2`). Use `vk::AccessFlags2` / `vk::PipelineStageFlags2` for new barrier code, not the v1 versions. (See commit `f013bad`.)
+- Sync uses Vulkan synchronization2 end-to-end: `vk::AccessFlags2` / `vk::PipelineStageFlags2` for barriers and `vkQueueSubmit2` (`VkSubmitInfo2`) for queue submission. Don't introduce v1 `VkSubmitInfo` or `VkPipelineStageFlags`. Use `vk::PipelineStageFlags2::NONE` for "no-op" stages instead of the deprecated `TOP_OF_PIPE` / `BOTTOM_OF_PIPE`.
+- The presenter pipelines `FRAMES_IN_FLIGHT` (currently 2) frames using a timeline semaphore. Anything that touches GPU-side state shared across frames (e.g. `light_image`, which `trace_rays` reads-then-writes as an accumulator) needs an explicit barrier in the per-frame command buffer — the previous fence wait no longer provides implicit serialisation.
+- Resource constructors call `Device::name_object` to tag the underlying Vulkan handle via `VK_EXT_debug_utils`, so RenderDoc / Nsight / validation messages show the wrapper's name. Pass meaningful names when constructing `Buffer`, `Image`, `Fence`, `Semaphore::new_named`, `TimelineSemaphore::new_named`, etc.
+- The RT pipeline is created with a disk-backed `VkPipelineCache` at `$XDG_CACHE_HOME/kea-gfx/pipeline-cache.bin`. Failures are logged and non-fatal.
+- Validation toggles go through `VK_EXT_layer_settings` (not the deprecated `VK_EXT_validation_features`). Setting names live in `kea_gpu::debug::feature::DebugFeature::configure_instance`.
+- The path tracer's `storage_image` is `R32G32B32A32_SFLOAT` (matching the shader's `rgba32f` declaration) and is converted to the swapchain's `B8G8R8A8_UNORM` via `cmd_blit_image` on present, **not** `cmd_copy_image`.
 - Avoid `f64` and other double-precision values in shader code. Some target GPUs (e.g. Intel) lack `Float64` capability; using doubles will silently fail to find intersections. (See commit `7f0ffcb`.)
 - **Shaders build in debug profile (`builder.release = false` in `build.rs`).** rust-gpu 0.10.0-alpha.1's release-mode optimizer eliminates the `#[spirv(miss)]` entry point. Track upstream and switch to release once fixed.
 - The shader crate must stay **`exclude`-d from the workspace**. Including it triggers feature unification that activates the `std` feature on `spirv-std-types` for the SPIR-V target build (because `rustc_codegen_spirv` enables it on the host side).
 - Storage-image entry-point bindings use `&Image!(...)` (not `&mut`); writes go through `&self` methods on `Image`. The `&mut` form was removed in rust-gpu 0.10.
 - Resource lifetime is RAII via `Arc`-wrapped wrappers. `Drop` impls call the corresponding `vk::destroy_*` — don't add explicit destruction calls.
 - Most files do not have an existing test harness; prefer `cargo run -p kea_renderer` to validate changes end-to-end.
+
+## Known issues
+
+- `VK_KHR_ray_tracing_position_fetch` was prototyped (commit `50c2a8c`) and reverted (`5f245c5`) because the resulting rendering had the ceiling light invisible. SPIR-V codegen, capability/extension declaration, feature struct, and the `ALLOW_DATA_ACCESS` BLAS build flag were all wired up correctly. Most likely cause is that the implementation returns wrong values for the builtin on this driver, or that the `[Vec3; 3]` parameter ABI in rust-gpu 0.10 doesn't match the SPIR-V `Input` array layout. Worth a deeper look with RenderDoc to capture the actual `gl_HitTriangleVertexPositionsEXT` values.
