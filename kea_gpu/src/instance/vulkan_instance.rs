@@ -122,6 +122,12 @@ impl VulkanInstance {
         ext.downcast_ref::<T>().unwrap()
     }
 
+    pub fn try_ext<T: InstanceExtension>(&self) -> Option<&T> {
+        self.extensions
+            .get(&TypeId::of::<T>())
+            .and_then(|ext| ext.as_ref().downcast_ref::<T>())
+    }
+
     pub fn physical_devices(self: &Arc<VulkanInstance>) -> Vec<Arc<PhysicalDevice>> {
         unsafe {
             self.raw

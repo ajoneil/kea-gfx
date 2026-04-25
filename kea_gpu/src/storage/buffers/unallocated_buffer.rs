@@ -38,9 +38,11 @@ impl UnallocatedBuffer {
                 .raw()
                 .bind_buffer_memory(self.raw, allocation.memory(), allocation.offset())
                 .unwrap();
-
-            Buffer::from_bound_allocation(name, self, allocation, location)
         }
+
+        self.device.name_object(self.raw, &name);
+
+        unsafe { Buffer::from_bound_allocation(name, self, allocation, location) }
     }
 
     pub fn size(&self) -> usize {

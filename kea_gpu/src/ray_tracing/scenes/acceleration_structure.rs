@@ -27,6 +27,7 @@ impl AccelerationStructure {
         }
         .unwrap();
 
+        device.name_object(raw, buffer.name());
         log::debug!("Creating AS {}: {:?}", buffer.name(), raw);
 
         AccelerationStructure {

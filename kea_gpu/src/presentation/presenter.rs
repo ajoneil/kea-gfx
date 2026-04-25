@@ -34,12 +34,12 @@ impl Presenter {
         let swapchain = Swapchain::new(device, surface, extent);
 
         let acquire_semaphores = (0..FRAMES_IN_FLIGHT)
-            .map(|_| Semaphore::new(device.clone()))
+            .map(|i| Semaphore::new_named(device.clone(), &format!("acquire {}", i)))
             .collect();
         let present_semaphores = (0..swapchain.image_count())
-            .map(|_| Semaphore::new(device.clone()))
+            .map(|i| Semaphore::new_named(device.clone(), &format!("present {}", i)))
             .collect();
-        let timeline = TimelineSemaphore::new(device.clone(), 0);
+        let timeline = TimelineSemaphore::new_named(device.clone(), 0, "frame timeline");
 
         Presenter {
             swapchain,

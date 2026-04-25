@@ -1,11 +1,12 @@
 use super::{extensions::DeviceExtensions, physical_device::PhysicalDevice, QueueFamily};
-use crate::{features::Feature, instance::VulkanInstance, queues::Queue};
-use ash::vk;
+use crate::{debug::DebugUtilsExt, features::Feature, instance::VulkanInstance, queues::Queue};
+use ash::{ext, vk};
 use gpu_allocator::{
     vulkan::{Allocator, AllocatorCreateDesc},
     AllocatorDebugSettings,
 };
 use std::{
+    ffi::CString,
     mem::ManuallyDrop,
     sync::{Arc, Mutex},
 };
@@ -19,6 +20,7 @@ pub struct Device {
     physical_device: Arc<PhysicalDevice>,
     raw: ash::Device,
     ext: DeviceExtensions,
+    debug_utils: Option<ext::debug_utils::Device>,
     allocator: ManuallyDrop<Mutex<Allocator>>,
     queues: Vec<QueueHandle>,
 }
@@ -33,6 +35,9 @@ impl Device {
             super::initialization::create_device(&physical_device, queues, features);
         let instance = physical_device.instance();
         let ext = DeviceExtensions::new(&raw, unsafe { instance.raw() }, &extensions);
+        let debug_utils = instance
+            .try_ext::<DebugUtilsExt>()
+            .map(|_| unsafe { ext::debug_utils::Device::new(instance.raw(), &raw) });
 
         let mut debug_settings = AllocatorDebugSettings::default();
         debug_settings.log_memory_information = true;
@@ -67,9 +72,25 @@ impl Device {
             physical_device,
             raw,
             ext,
+            debug_utils,
             allocator: ManuallyDrop::new(Mutex::new(allocator)),
             queues,
         })
+    }
+
+    /// Tag a Vulkan object with a name for tools (RenderDoc, validation
+    /// messages, Nsight). No-op if VK_EXT_debug_utils is not enabled.
+    pub fn name_object<H: vk::Handle>(&self, handle: H, name: &str) {
+        let Some(debug_utils) = self.debug_utils.as_ref() else {
+            return;
+        };
+        let Ok(name_cstr) = CString::new(name) else {
+            return;
+        };
+        let info = vk::DebugUtilsObjectNameInfoEXT::default()
+            .object_handle(handle)
+            .object_name(&name_cstr);
+        unsafe { debug_utils.set_debug_utils_object_name(&info).unwrap() };
     }
 
     pub fn physical_device(&self) -> &Arc<PhysicalDevice> {

@@ -82,6 +82,8 @@ impl Image {
                             .unwrap();
                     }
 
+                    self.device.name_object(self.raw, &self.name);
+
                     self.ownership = ImageOwnership::MemoryManaged(Some(allocation));
                 } else {
                     panic!("Can't allocate memory for image twice");

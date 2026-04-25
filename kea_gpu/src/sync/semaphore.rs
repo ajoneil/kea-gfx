@@ -9,6 +9,10 @@ pub struct Semaphore {
 
 impl Semaphore {
     pub fn new(device: Arc<Device>) -> Semaphore {
+        Self::new_named(device, "semaphore")
+    }
+
+    pub fn new_named(device: Arc<Device>, name: &str) -> Semaphore {
         let raw = unsafe {
             device
                 .raw()
@@ -16,7 +20,8 @@ impl Semaphore {
         }
         .unwrap();
 
-        log::debug!("created semaphore {:?}", raw);
+        device.name_object(raw, name);
+        log::debug!("created semaphore {:?} ({})", raw, name);
 
         Semaphore { raw, device }
     }
@@ -42,6 +47,14 @@ pub struct TimelineSemaphore {
 
 impl TimelineSemaphore {
     pub fn new(device: Arc<Device>, initial_value: u64) -> TimelineSemaphore {
+        Self::new_named(device, initial_value, "timeline")
+    }
+
+    pub fn new_named(
+        device: Arc<Device>,
+        initial_value: u64,
+        name: &str,
+    ) -> TimelineSemaphore {
         let mut type_info = vk::SemaphoreTypeCreateInfo::default()
             .semaphore_type(vk::SemaphoreType::TIMELINE)
             .initial_value(initial_value);
@@ -49,7 +62,8 @@ impl TimelineSemaphore {
 
         let raw = unsafe { device.raw().create_semaphore(&create_info, None) }.unwrap();
 
-        log::debug!("created timeline semaphore {:?}", raw);
+        device.name_object(raw, name);
+        log::debug!("created timeline semaphore {:?} ({})", raw, name);
 
         TimelineSemaphore {
             inner: Semaphore { raw, device },

@@ -22,7 +22,7 @@ unsafe extern "system" fn vulkan_debug_callback(
     vk::FALSE
 }
 
-pub struct DebugMessenger(vk::DebugUtilsMessengerEXT);
+pub struct DebugMessenger(#[allow(dead_code)] vk::DebugUtilsMessengerEXT);
 
 impl DebugMessenger {
     pub fn new(ext: &ext::debug_utils::Instance) -> Self {
