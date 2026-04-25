@@ -8,10 +8,10 @@ license = "MIT"
 ash = { version = "0.37.0", features = ["linked"] }
 ash-window = "0.12.0"
 winit = "0.28.1"
-log = "0.4.17"
-env_logger = "0.10.0"
+log = "0.4.29"
+env_logger = "0.11.10"
 gpu-allocator = "0.22.0"
-memoffset = "0.8.0"
+memoffset = "0.9.1"
 bevy_ecs = "0.18.1"
 glam = "0.32.1"
 
