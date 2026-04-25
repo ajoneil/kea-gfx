@@ -1,7 +1,7 @@
 use crate::{
     commands::RecordedCommandBuffer,
     device::Device,
-    queues::{Submission, Wait},
+    queues::{Signal, Submission, Wait},
     storage::images::ImageView,
     sync::{Fence, Semaphore},
 };
@@ -63,13 +63,18 @@ impl Presenter {
     pub fn draw(&self, swapchain_index: u32, commands: &[RecordedCommandBuffer]) {
         let wait = Wait {
             semaphore: &self.semaphores.image_available,
-            stage: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+            stage: vk::PipelineStageFlags2::TRANSFER,
+        };
+
+        let signal = Signal {
+            semaphore: &self.semaphores.render_finished,
+            stage: vk::PipelineStageFlags2::ALL_COMMANDS,
         };
 
         let submission = Submission {
             wait: slice::from_ref(&wait),
             commands: &commands,
-            signal_semaphores: slice::from_ref(&self.semaphores.render_finished),
+            signal: slice::from_ref(&signal),
         };
 
         self.swapchain

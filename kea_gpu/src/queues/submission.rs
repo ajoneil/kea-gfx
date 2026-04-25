@@ -3,12 +3,17 @@ use ash::vk;
 
 pub struct Wait<'a> {
     pub semaphore: &'a Semaphore,
-    pub stage: vk::PipelineStageFlags,
+    pub stage: vk::PipelineStageFlags2,
+}
+
+pub struct Signal<'a> {
+    pub semaphore: &'a Semaphore,
+    pub stage: vk::PipelineStageFlags2,
 }
 
 #[derive(Default)]
 pub struct Submission<'a> {
     pub wait: &'a [Wait<'a>],
     pub commands: &'a [RecordedCommandBuffer],
-    pub signal_semaphores: &'a [Semaphore],
+    pub signal: &'a [Signal<'a>],
 }

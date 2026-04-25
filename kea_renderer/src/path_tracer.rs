@@ -112,10 +112,10 @@ impl PathTracer {
                     &image_view.image(),
                     vk::ImageLayout::UNDEFINED,
                     vk::ImageLayout::GENERAL,
-                    vk::AccessFlags2::empty(),
-                    vk::AccessFlags2::empty(),
-                    vk::PipelineStageFlags2::TOP_OF_PIPE,
-                    vk::PipelineStageFlags2::TOP_OF_PIPE,
+                    vk::AccessFlags2::NONE,
+                    vk::AccessFlags2::MEMORY_READ | vk::AccessFlags2::MEMORY_WRITE,
+                    vk::PipelineStageFlags2::NONE,
+                    vk::PipelineStageFlags2::ALL_COMMANDS,
                 )
             },
         );
@@ -167,9 +167,9 @@ impl PathTracer {
                     &swapchain_image.image(),
                     vk::ImageLayout::UNDEFINED,
                     vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-                    vk::AccessFlags2::empty(),
+                    vk::AccessFlags2::NONE,
                     vk::AccessFlags2::TRANSFER_WRITE,
-                    vk::PipelineStageFlags2::TOP_OF_PIPE,
+                    vk::PipelineStageFlags2::TRANSFER,
                     vk::PipelineStageFlags2::TRANSFER,
                 );
 
@@ -177,9 +177,9 @@ impl PathTracer {
                     &self.storage_image.image(),
                     vk::ImageLayout::GENERAL,
                     vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
-                    vk::AccessFlags2::empty(),
+                    vk::AccessFlags2::SHADER_STORAGE_WRITE,
                     vk::AccessFlags2::TRANSFER_READ,
-                    vk::PipelineStageFlags2::TOP_OF_PIPE,
+                    vk::PipelineStageFlags2::RAY_TRACING_SHADER_KHR,
                     vk::PipelineStageFlags2::TRANSFER,
                 );
 
@@ -213,19 +213,19 @@ impl PathTracer {
                     vk::ImageLayout::TRANSFER_DST_OPTIMAL,
                     vk::ImageLayout::PRESENT_SRC_KHR,
                     vk::AccessFlags2::TRANSFER_WRITE,
-                    vk::AccessFlags2::COLOR_ATTACHMENT_READ,
+                    vk::AccessFlags2::NONE,
                     vk::PipelineStageFlags2::TRANSFER,
-                    vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
+                    vk::PipelineStageFlags2::NONE,
                 );
 
                 cmd.transition_image_layout(
                     &self.storage_image.image(),
                     vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
                     vk::ImageLayout::GENERAL,
-                    vk::AccessFlags2::TRANSFER_WRITE,
-                    vk::AccessFlags2::empty(),
+                    vk::AccessFlags2::TRANSFER_READ,
+                    vk::AccessFlags2::SHADER_STORAGE_READ | vk::AccessFlags2::SHADER_STORAGE_WRITE,
                     vk::PipelineStageFlags2::TRANSFER,
-                    vk::PipelineStageFlags2::TOP_OF_PIPE,
+                    vk::PipelineStageFlags2::RAY_TRACING_SHADER_KHR,
                 );
             });
 

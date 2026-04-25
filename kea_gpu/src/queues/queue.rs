@@ -34,49 +34,43 @@ impl Queue {
     }
 
     pub fn submit(&self, submission: &Submission, fence: Option<&Fence>) {
-        let raw_wait_semaphores: Vec<vk::Semaphore> = submission
+        let wait_infos: Vec<vk::SemaphoreSubmitInfo> = submission
             .wait
             .iter()
-            .map(|w| unsafe { w.semaphore.raw() })
+            .map(|w| {
+                vk::SemaphoreSubmitInfo::default()
+                    .semaphore(unsafe { w.semaphore.raw() })
+                    .stage_mask(w.stage)
+            })
             .collect();
 
-        let raw_wait_stages: Vec<vk::PipelineStageFlags> =
-            submission.wait.iter().map(|w| w.stage).collect();
-
-        let raw_buffers: Vec<vk::CommandBuffer> = submission
+        let command_infos: Vec<vk::CommandBufferSubmitInfo> = submission
             .commands
             .iter()
-            .map(|c| unsafe { c.raw() })
+            .map(|c| vk::CommandBufferSubmitInfo::default().command_buffer(unsafe { c.raw() }))
             .collect();
 
-        let raw_signal_semaphores: Vec<vk::Semaphore> = submission
-            .signal_semaphores
+        let signal_infos: Vec<vk::SemaphoreSubmitInfo> = submission
+            .signal
             .iter()
-            .map(|s| unsafe { s.raw() })
+            .map(|s| {
+                vk::SemaphoreSubmitInfo::default()
+                    .semaphore(unsafe { s.semaphore.raw() })
+                    .stage_mask(s.stage)
+            })
             .collect();
 
-        let mut submit_info = vk::SubmitInfo::default().command_buffers(&raw_buffers);
+        let submit_info = vk::SubmitInfo2::default()
+            .wait_semaphore_infos(&wait_infos)
+            .command_buffer_infos(&command_infos)
+            .signal_semaphore_infos(&signal_infos);
 
-        if raw_wait_semaphores.len() > 0 {
-            submit_info = submit_info
-                .wait_semaphores(&raw_wait_semaphores)
-                .wait_dst_stage_mask(&raw_wait_stages);
-        };
-
-        if raw_signal_semaphores.len() > 0 {
-            submit_info = submit_info.signal_semaphores(&raw_signal_semaphores);
-        }
-
-        let raw_fence = if let Some(fence) = fence {
-            unsafe { fence.raw() }
-        } else {
-            vk::Fence::null()
-        };
+        let raw_fence = fence.map_or(vk::Fence::null(), |f| unsafe { f.raw() });
 
         unsafe {
             self.device
                 .raw()
-                .queue_submit(self.raw(), slice::from_ref(&submit_info), raw_fence)
+                .queue_submit2(self.raw(), slice::from_ref(&submit_info), raw_fence)
                 .unwrap();
         }
     }

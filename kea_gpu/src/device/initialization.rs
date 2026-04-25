@@ -52,8 +52,8 @@ pub fn create_device(
         .buffer_device_address(true)
         .vulkan_memory_model(true);
     let mut features_13 = vk::PhysicalDeviceVulkan13Features::default()
-        .dynamic_rendering(true)
-        .synchronization2(true);
+        .synchronization2(true)
+        .maintenance4(true);
     let mut features_rt =
         vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::default().ray_tracing_pipeline(true);
     let mut features_as =
