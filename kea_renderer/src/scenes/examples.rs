@@ -85,12 +85,17 @@ pub fn cornell_box(device: Arc<Device>) -> Scene {
         light_grey,
     );
 
-    // Light. Suspended a hair below the ceiling so the ceiling and light
-    // BLAS triangles aren't coincident -- with VK_KHR_ray_tracing_position_fetch's
-    // ALLOW_DATA_ACCESS BLAS layout the BVH tiebreak picks the ceiling
-    // triangle for coincident hits, hiding the light from direct rays.
+    // Light. Sized so the bottom face protrudes into the room but the top
+    // face is buried inside the ceiling. Two reasons:
+    //  - With VK_KHR_ray_tracing_position_fetch's ALLOW_DATA_ACCESS BLAS
+    //    layout the BVH tiebreak on coincident triangles picks the ceiling
+    //    over the light, so we can't share the ceiling's plane.
+    //  - The material is uniform across all six faces, so an exposed top
+    //    face would emit upward into the ceiling and bounce extra light
+    //    back down. Burying the top face inside the ceiling keeps the
+    //    light effectively single-sided downward.
     scene.add_box(
-        vec3(0.0, 1.985, -0.7),
+        vec3(0.0, 1.995, -0.7),
         vec3(0.5, 0.01, 0.3),
         Quat::IDENTITY,
         light,
