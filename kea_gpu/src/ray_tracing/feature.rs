@@ -14,6 +14,7 @@ impl Feature for RayTracingFeature {
             device::Ext::AccelerationStructure,
             device::Ext::DeferredHostOperations,
             device::Ext::RayTracingPipeline,
+            device::Ext::RayTracingPositionFetch,
         ]
     }
 }

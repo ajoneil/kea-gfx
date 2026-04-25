@@ -58,6 +58,9 @@ pub fn create_device(
         vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::default().ray_tracing_pipeline(true);
     let mut features_as =
         vk::PhysicalDeviceAccelerationStructureFeaturesKHR::default().acceleration_structure(true);
+    let mut features_rt_pos_fetch =
+        vk::PhysicalDeviceRayTracingPositionFetchFeaturesKHR::default()
+            .ray_tracing_position_fetch(true);
 
     let create_info = vk::DeviceCreateInfo::default()
         .queue_create_infos(&queue_create_infos)
@@ -66,7 +69,8 @@ pub fn create_device(
         .push_next(&mut features_12)
         .push_next(&mut features_13)
         .push_next(&mut features_rt)
-        .push_next(&mut features_as);
+        .push_next(&mut features_as)
+        .push_next(&mut features_rt_pos_fetch);
 
     let device = unsafe {
         physical_device

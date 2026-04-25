@@ -17,8 +17,6 @@ pub enum SlotId {
     OutputImage,
     Spheres,
     Meshes,
-    Vertices,
-    Indices,
     LightImage,
 }
 
@@ -28,13 +26,11 @@ impl Into<u32> for SlotId {
     }
 }
 
-pub const SLOTS: [(SlotId, Slot); 7] = [
+pub const SLOTS: [(SlotId, Slot); 5] = [
     path_tracer::SLOT_SCENE,
     path_tracer::SLOT_OUTPUT_IMAGE,
     spheres::SLOT,
     triangles::SLOT_MESHES,
-    triangles::SLOT_VERTICES,
-    triangles::SLOT_INDICES,
     path_tracer::SLOT_LIGHT_IMAGE,
 ];
 

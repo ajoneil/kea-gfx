@@ -126,7 +126,10 @@ impl Geometry {
 
                 let geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::default()
                     .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
-                    .flags(vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_TRACE)
+                    .flags(
+                        vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_TRACE
+                            | vk::BuildAccelerationStructureFlagsKHR::ALLOW_DATA_ACCESS,
+                    )
                     .geometries(slice::from_ref(&geometry));
 
                 let build_sizes =
