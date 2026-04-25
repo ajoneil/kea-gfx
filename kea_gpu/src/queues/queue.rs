@@ -41,6 +41,7 @@ impl Queue {
                 vk::SemaphoreSubmitInfo::default()
                     .semaphore(unsafe { w.semaphore.raw() })
                     .stage_mask(w.stage)
+                    .value(w.value)
             })
             .collect();
 
@@ -57,6 +58,7 @@ impl Queue {
                 vk::SemaphoreSubmitInfo::default()
                     .semaphore(unsafe { s.semaphore.raw() })
                     .stage_mask(s.stage)
+                    .value(s.value)
             })
             .collect();
 

@@ -153,6 +153,10 @@ impl Swapchain {
         self.extent
     }
 
+    pub fn image_count(&self) -> usize {
+        self.images.len()
+    }
+
     pub fn device(&self) -> &Arc<Device> {
         &self.device
     }

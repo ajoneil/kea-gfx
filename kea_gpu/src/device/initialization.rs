@@ -50,7 +50,8 @@ pub fn create_device(
     let features = vk::PhysicalDeviceFeatures::default().shader_int64(true);
     let mut features_12 = vk::PhysicalDeviceVulkan12Features::default()
         .buffer_device_address(true)
-        .vulkan_memory_model(true);
+        .vulkan_memory_model(true)
+        .timeline_semaphore(true);
     let mut features_13 = vk::PhysicalDeviceVulkan13Features::default()
         .synchronization2(true)
         .maintenance4(true);

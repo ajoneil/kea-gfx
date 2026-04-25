@@ -7,6 +7,6 @@ mod window;
 
 pub use feature::PresentationFeature;
 pub use instance_extension::SurfaceExt;
-pub use presenter::Presenter;
+pub use presenter::{Presenter, FRAMES_IN_FLIGHT};
 pub use surface::Surface;
 pub use window::Window;

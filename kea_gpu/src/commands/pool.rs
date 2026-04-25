@@ -39,6 +39,17 @@ impl CommandPool {
             .unwrap()
     }
 
+    /// Reset the pool, recycling all command buffers allocated from it.
+    /// Caller must guarantee no outstanding GPU use of any buffer in this pool.
+    pub fn reset(&self) {
+        unsafe {
+            self.device()
+                .raw()
+                .reset_command_pool(self.raw, vk::CommandPoolResetFlags::empty())
+                .unwrap();
+        }
+    }
+
     pub fn device(&self) -> &Arc<Device> {
         self.queue.device()
     }
@@ -51,10 +62,6 @@ impl CommandPool {
 impl Drop for CommandPool {
     fn drop(&mut self) {
         unsafe {
-            self.device()
-                .raw()
-                .queue_wait_idle(self.queue.raw())
-                .unwrap();
             self.device().raw().destroy_command_pool(self.raw, None);
         }
     }

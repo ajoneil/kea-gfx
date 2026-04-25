@@ -6,10 +6,11 @@ mod shader_modules {
 use ash::vk;
 use gpu_allocator::MemoryLocation;
 use kea_gpu::{
-    commands::{CommandBuffer, CommandPool, RecordedCommandBuffer},
+    commands::{CommandBuffer, CommandPool},
     descriptors::DescriptorSetLayout,
     device::Device,
     pipelines::PipelineLayout,
+    presentation::FRAMES_IN_FLIGHT,
     ray_tracing::RayTracingPipeline,
     shaders::ShaderGroups,
     slots::{SlotBindings, SlotLayout},
@@ -17,11 +18,12 @@ use kea_gpu::{
     Kea,
 };
 use kea_renderer_shaders::{path_tracer::entrypoints::PushConstants, SlotId};
-use std::{
-    cell::{Cell, RefCell},
-    slice,
-    sync::Arc,
-};
+use std::{cell::RefCell, slice, sync::Arc};
+
+struct FrameSlot {
+    pool: Arc<CommandPool>,
+    buffer: Option<CommandBuffer>,
+}
 
 pub struct PathTracer {
     kea: Kea,
@@ -30,8 +32,7 @@ pub struct PathTracer {
     slot_bindings: SlotBindings<SlotId>,
     storage_image: Arc<ImageView>,
     _light_image: Arc<ImageView>,
-    commands: RefCell<Vec<RecordedCommandBuffer>>,
-    iteration: Cell<u64>,
+    frame_slots: RefCell<Vec<FrameSlot>>,
 }
 
 impl PathTracer {
@@ -56,6 +57,17 @@ impl PathTracer {
         let scene = scenes::examples::cornell_box(kea.device().clone());
         scene.bind_data(&mut slot_bindings);
 
+        let frame_slots = (0..FRAMES_IN_FLIGHT)
+            .map(|i| {
+                let pool = CommandPool::new(kea.device().graphics_queue());
+                let buffer = pool.allocate_buffer(format!("trace rays frame {}", i));
+                FrameSlot {
+                    pool,
+                    buffer: Some(buffer),
+                }
+            })
+            .collect();
+
         PathTracer {
             kea,
             _scene: scene,
@@ -63,8 +75,7 @@ impl PathTracer {
             slot_bindings,
             storage_image,
             _light_image: light_image,
-            commands: RefCell::new(vec![]),
-            iteration: Cell::new(0),
+            frame_slots: RefCell::new(frame_slots),
         }
     }
 
@@ -125,11 +136,17 @@ impl PathTracer {
 
     pub fn draw(&self) {
         let (swapchain_index, swapchain_image) = self.kea.presenter().get_swapchain_image();
+        let frame = self.kea.presenter().frame_index();
+        let slot_index = (frame % FRAMES_IN_FLIGHT) as usize;
 
-        // if self.commands.borrow().len() == swapchain_index as usize {
-        let cmd = CommandPool::new(self.kea.device().graphics_queue())
-            .allocate_buffer("trace rays".to_string())
-            .record(|cmd| {
+        let mut slots = self.frame_slots.borrow_mut();
+        let slot = &mut slots[slot_index];
+        // The presenter's timeline wait at the start of the frame guarantees
+        // the GPU has finished any prior use of this slot's command buffer.
+        slot.pool.reset();
+        let buffer = slot.buffer.take().unwrap();
+
+        let cmd = buffer.record(|cmd| {
                 cmd.bind_pipeline(
                     vk::PipelineBindPoint::RAY_TRACING_KHR,
                     &self.pipeline.pipeline(),
@@ -140,10 +157,7 @@ impl PathTracer {
                     slice::from_ref(&self.slot_bindings.descriptor_set()),
                 );
                 unsafe {
-                    let constants = PushConstants {
-                        iteration: self.iteration.get(),
-                    };
-                    self.iteration.set(self.iteration.get() + 1);
+                    let constants = PushConstants { iteration: frame };
                     let (_, constants, _) = slice::from_ref(&constants).align_to::<u8>();
                     self.kea.device().raw().cmd_push_constants(
                         cmd.buffer().raw(),
@@ -229,21 +243,10 @@ impl PathTracer {
                 );
             });
 
-        //     self.commands.borrow_mut().push(cmd);
-        // }
-
-        // let command = &self.commands.borrow()[swapchain_index as usize];
-
         self.kea
             .presenter()
             .draw(swapchain_index, slice::from_ref(&cmd));
-    }
-}
 
-impl Drop for PathTracer {
-    fn drop(&mut self) {
-        self.commands.take().into_iter().for_each(|c| unsafe {
-            c.consume();
-        });
+        slot.buffer = Some(unsafe { cmd.consume() });
     }
 }

@@ -4,11 +4,15 @@ use ash::vk;
 pub struct Wait<'a> {
     pub semaphore: &'a Semaphore,
     pub stage: vk::PipelineStageFlags2,
+    /// Timeline value to wait for. Ignored for binary semaphores.
+    pub value: u64,
 }
 
 pub struct Signal<'a> {
     pub semaphore: &'a Semaphore,
     pub stage: vk::PipelineStageFlags2,
+    /// Timeline value to signal. Ignored for binary semaphores.
+    pub value: u64,
 }
 
 #[derive(Default)]
