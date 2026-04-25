@@ -31,7 +31,7 @@ pub struct PathTracer {
     pipeline: RayTracingPipeline<SlotId>,
     slot_bindings: SlotBindings<SlotId>,
     storage_image: Arc<ImageView>,
-    _light_image: Arc<ImageView>,
+    light_image: Arc<ImageView>,
     frame_slots: RefCell<Vec<FrameSlot>>,
 }
 
@@ -74,7 +74,7 @@ impl PathTracer {
             pipeline,
             slot_bindings,
             storage_image,
-            _light_image: light_image,
+            light_image,
             frame_slots: RefCell::new(frame_slots),
         }
     }
@@ -167,6 +167,20 @@ impl PathTracer {
                         constants,
                     );
                 }
+
+                // light_image is read-modify-written by trace_rays each frame
+                // (running-average accumulator). With FRAMES_IN_FLIGHT > 1 there
+                // is no implicit ordering between consecutive frames' trace_rays,
+                // so make the read of frame N+1 wait for the write of frame N.
+                cmd.transition_image_layout(
+                    &self.light_image.image(),
+                    vk::ImageLayout::GENERAL,
+                    vk::ImageLayout::GENERAL,
+                    vk::AccessFlags2::SHADER_STORAGE_WRITE,
+                    vk::AccessFlags2::SHADER_STORAGE_READ | vk::AccessFlags2::SHADER_STORAGE_WRITE,
+                    vk::PipelineStageFlags2::RAY_TRACING_SHADER_KHR,
+                    vk::PipelineStageFlags2::RAY_TRACING_SHADER_KHR,
+                );
 
                 cmd.trace_rays(
                     self.pipeline.shader_binding_tables(),
