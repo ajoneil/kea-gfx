@@ -68,4 +68,24 @@ impl<'a> CommandBufferRecorder<'a> {
             )
         };
     }
+
+    pub fn blit_image(
+        &self,
+        from: &Image,
+        to: &Image,
+        region: &vk::ImageBlit,
+        filter: vk::Filter,
+    ) {
+        unsafe {
+            self.device().raw().cmd_blit_image(
+                self.buffer().raw(),
+                from.raw(),
+                vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+                to.raw(),
+                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                std::slice::from_ref(region),
+                filter,
+            )
+        };
+    }
 }

@@ -40,9 +40,12 @@ impl PathTracer {
         let pipeline = Self::create_pipeline(kea.device());
         let mut slot_bindings = SlotBindings::new(kea.device().clone(), &pipeline);
 
+        // The shader writes the tone-mapped output as rgba32f. The swapchain
+        // image is B8G8R8A8_UNORM, so the present path uses cmd_blit_image
+        // (which converts formats) rather than cmd_copy_image.
         let storage_image = Self::create_storage_image(
             kea.device(),
-            kea.presenter().format(),
+            vk::Format::R32G32B32A32_SFLOAT,
             kea.presenter().size(),
         );
         slot_bindings.bind_image(SlotId::OutputImage, storage_image.clone());
@@ -211,29 +214,32 @@ impl PathTracer {
                     vk::PipelineStageFlags2::TRANSFER,
                 );
 
-                let copy_region = vk::ImageCopy::default()
-                    .src_subresource(vk::ImageSubresourceLayers {
-                        aspect_mask: vk::ImageAspectFlags::COLOR,
-                        base_array_layer: 0,
-                        mip_level: 0,
-                        layer_count: 1,
-                    })
-                    .dst_subresource(vk::ImageSubresourceLayers {
-                        aspect_mask: vk::ImageAspectFlags::COLOR,
-                        base_array_layer: 0,
-                        mip_level: 0,
-                        layer_count: 1,
-                    })
-                    .extent(vk::Extent3D {
-                        width: self.kea.presenter().size().0,
-                        height: self.kea.presenter().size().1,
-                        depth: 1,
-                    });
+                let layers = vk::ImageSubresourceLayers {
+                    aspect_mask: vk::ImageAspectFlags::COLOR,
+                    base_array_layer: 0,
+                    mip_level: 0,
+                    layer_count: 1,
+                };
+                let (w, h) = self.kea.presenter().size();
+                let corners = [
+                    vk::Offset3D { x: 0, y: 0, z: 0 },
+                    vk::Offset3D {
+                        x: w as i32,
+                        y: h as i32,
+                        z: 1,
+                    },
+                ];
+                let blit_region = vk::ImageBlit::default()
+                    .src_subresource(layers)
+                    .src_offsets(corners)
+                    .dst_subresource(layers)
+                    .dst_offsets(corners);
 
-                cmd.copy_image(
+                cmd.blit_image(
                     &self.storage_image.image(),
                     &swapchain_image.image(),
-                    &copy_region,
+                    &blit_region,
+                    vk::Filter::NEAREST,
                 );
 
                 cmd.transition_image_layout(
