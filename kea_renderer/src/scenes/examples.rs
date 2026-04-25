@@ -85,9 +85,12 @@ pub fn cornell_box(device: Arc<Device>) -> Scene {
         light_grey,
     );
 
-    // Light
+    // Light. Suspended a hair below the ceiling so the ceiling and light
+    // BLAS triangles aren't coincident -- with VK_KHR_ray_tracing_position_fetch's
+    // ALLOW_DATA_ACCESS BLAS layout the BVH tiebreak picks the ceiling
+    // triangle for coincident hits, hiding the light from direct rays.
     scene.add_box(
-        vec3(0.0, 2.0, -0.7),
+        vec3(0.0, 1.985, -0.7),
         vec3(0.5, 0.01, 0.3),
         Quat::IDENTITY,
         light,
