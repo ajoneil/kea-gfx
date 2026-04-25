@@ -6,7 +6,7 @@ use crate::{
     slots::SlotLayout,
 };
 use ash::vk;
-use std::{slice, sync::Arc};
+use std::{path::PathBuf, slice, sync::Arc};
 
 pub struct RayTracingPipeline<SlotId> {
     _shaders: PipelineShaders,
@@ -24,6 +24,20 @@ impl<SlotId> RayTracingPipeline<SlotId> {
         layout: PipelineLayout,
         slot_layout: SlotLayout<SlotId>,
     ) -> Self {
+        let cache_path = pipeline_cache_path();
+        let cache_data = cache_path
+            .as_ref()
+            .and_then(|p| std::fs::read(p).ok())
+            .unwrap_or_default();
+        let pipeline_cache = unsafe {
+            let create_info =
+                vk::PipelineCacheCreateInfo::default().initial_data(&cache_data);
+            device
+                .raw()
+                .create_pipeline_cache(&create_info, None)
+                .unwrap()
+        };
+
         let pipeline = unsafe {
             let stages: Vec<vk::PipelineShaderStageCreateInfo> = shaders
                 .stages
@@ -52,7 +66,7 @@ impl<SlotId> RayTracingPipeline<SlotId> {
                 .unwrap()
                 .create_ray_tracing_pipelines(
                     vk::DeferredOperationKHR::null(),
-                    vk::PipelineCache::null(),
+                    pipeline_cache,
                     slice::from_ref(&create_info),
                     None,
                 )
@@ -63,6 +77,28 @@ impl<SlotId> RayTracingPipeline<SlotId> {
 
             Pipeline::new(device.clone(), raw)
         };
+
+        if let Some(path) = cache_path.as_ref() {
+            unsafe {
+                if let Ok(data) = device.raw().get_pipeline_cache_data(pipeline_cache) {
+                    if data != cache_data {
+                        if let Some(parent) = path.parent() {
+                            let _ = std::fs::create_dir_all(parent);
+                        }
+                        if let Err(e) = std::fs::write(path, &data) {
+                            log::warn!("failed to write pipeline cache to {:?}: {}", path, e);
+                        } else {
+                            log::debug!(
+                                "wrote pipeline cache ({} bytes) to {:?}",
+                                data.len(),
+                                path
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        unsafe { device.raw().destroy_pipeline_cache(pipeline_cache, None) };
 
         let shader_binding_tables =
             RayTracingShaderBindingTables::new(&device, &shader_groups, &shaders, &pipeline);
@@ -91,4 +127,11 @@ impl<SlotId> RayTracingPipeline<SlotId> {
     pub fn shader_binding_tables(&self) -> &RayTracingShaderBindingTables {
         &self.shader_binding_tables
     }
+}
+
+fn pipeline_cache_path() -> Option<PathBuf> {
+    let base = std::env::var_os("XDG_CACHE_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))?;
+    Some(base.join("kea-gfx").join("pipeline-cache.bin"))
 }
