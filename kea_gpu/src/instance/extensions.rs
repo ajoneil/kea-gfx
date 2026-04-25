@@ -7,7 +7,7 @@ pub enum Ext {
     Surface,
     WaylandSurface,
     XlibSurface,
-    ValidationFeatures,
+    LayerSettings,
     DebugUtils,
 }
 
@@ -17,7 +17,7 @@ impl Ext {
             Ext::Surface => vk::KHR_SURFACE_NAME.as_ptr(),
             Ext::WaylandSurface => vk::KHR_WAYLAND_SURFACE_NAME.as_ptr(),
             Ext::XlibSurface => vk::KHR_XLIB_SURFACE_NAME.as_ptr(),
-            Ext::ValidationFeatures => vk::EXT_VALIDATION_FEATURES_NAME.as_ptr(),
+            Ext::LayerSettings => vk::EXT_LAYER_SETTINGS_NAME.as_ptr(),
             Ext::DebugUtils => vk::EXT_DEBUG_UTILS_NAME.as_ptr(),
         }
     }

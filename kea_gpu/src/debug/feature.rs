@@ -3,19 +3,20 @@ use crate::{
     features::Feature,
     instance::{self, InstanceConfig, InstanceExtension, VulkanInstance},
 };
-use ash::vk;
+use std::ffi::CString;
 
+/// Validation toggles routed through VK_EXT_layer_settings. Each entry is
+/// (setting_name, enabled).
 #[derive(Debug)]
 pub struct DebugInstanceConfig {
-    pub enable: Vec<vk::ValidationFeatureEnableEXT>,
-    pub disable: Vec<vk::ValidationFeatureDisableEXT>,
+    pub layer_settings: Vec<(CString, bool)>,
 }
 
 pub struct DebugFeature {}
 
 impl Feature for DebugFeature {
     fn instance_extension_names(&self) -> Vec<instance::Ext> {
-        vec![instance::Ext::ValidationFeatures, instance::Ext::DebugUtils]
+        vec![instance::Ext::LayerSettings, instance::Ext::DebugUtils]
     }
 
     fn instance_extensions(&self, instance: &VulkanInstance) -> Vec<Box<dyn InstanceExtension>> {
@@ -28,15 +29,12 @@ impl Feature for DebugFeature {
 
     fn configure_instance(&self, config: &mut InstanceConfig) {
         config.validation_features = Some(DebugInstanceConfig {
-            enable: vec![
-                vk::ValidationFeatureEnableEXT::GPU_ASSISTED,
-                vk::ValidationFeatureEnableEXT::GPU_ASSISTED_RESERVE_BINDING_SLOT,
-                vk::ValidationFeatureEnableEXT::BEST_PRACTICES,
-                // vk::ValidationFeatureEnableEXT::DEBUG_PRINTF,
-                vk::ValidationFeatureEnableEXT::SYNCHRONIZATION_VALIDATION,
+            layer_settings: vec![
+                (CString::new("gpuav_enable").unwrap(), true),
+                (CString::new("validate_best_practices").unwrap(), true),
+                (CString::new("validate_sync").unwrap(), true),
             ],
-            disable: vec![],
-        })
+        });
     }
 }
 

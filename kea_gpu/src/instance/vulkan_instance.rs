@@ -57,20 +57,42 @@ impl VulkanInstance {
             .enabled_extension_names(&extension_names)
             .enabled_layer_names(&layers_names_raw);
 
-        #[allow(unused_assignments)]
-        let mut features_validation = vk::ValidationFeaturesEXT::default();
-        let create_info = if let Some(_) = instance_config.validation_features {
-            let enable = &instance_config.validation_features.as_ref().unwrap().enable;
-            let disable = &instance_config
-                .validation_features
-                .as_ref()
-                .unwrap()
-                .disable;
-            features_validation = vk::ValidationFeaturesEXT::default()
-                .enabled_validation_features(enable)
-                .disabled_validation_features(disable);
-
-            create_info.push_next(&mut features_validation)
+        // VK_EXT_layer_settings: the per-setting Bool32 storage and the
+        // LayerSettingEXT array must outlive LayerSettingsCreateInfoEXT.
+        // Build them as separate Vecs that all live to the end of this fn.
+        let validation_layer = c"VK_LAYER_KHRONOS_validation";
+        let setting_values: Vec<vk::Bool32> = instance_config
+            .validation_features
+            .as_ref()
+            .map(|c| {
+                c.layer_settings
+                    .iter()
+                    .map(|(_, v)| if *v { vk::TRUE } else { vk::FALSE })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let layer_settings: Vec<vk::LayerSettingEXT> = instance_config
+            .validation_features
+            .as_ref()
+            .map(|c| {
+                c.layer_settings
+                    .iter()
+                    .zip(setting_values.iter())
+                    .map(|((name, _), value)| vk::LayerSettingEXT {
+                        p_layer_name: validation_layer.as_ptr(),
+                        p_setting_name: name.as_ptr(),
+                        ty: vk::LayerSettingTypeEXT::BOOL32,
+                        value_count: 1,
+                        p_values: (value as *const vk::Bool32).cast(),
+                        _marker: std::marker::PhantomData,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let mut layer_settings_info =
+            vk::LayerSettingsCreateInfoEXT::default().settings(&layer_settings);
+        let create_info = if !layer_settings.is_empty() {
+            create_info.push_next(&mut layer_settings_info)
         } else {
             create_info
         };
